@@ -9,10 +9,6 @@ import kotlin.text.lowercase
 object ThemeUtils {
 
     private const val THEME_PREF = "pref_theme"
-    private const val PURE_BLACK_NIGHT_MODE = "pref_pure_black_night_mode"
-
-    val Context.isPureBlackModeEnabled: Boolean
-        get() = Utils.getSharedPreference(this, PURE_BLACK_NIGHT_MODE, false)
 
     fun getTheme(context: Context): Theme {
         val theme = Utils.getSharedPreference(
@@ -27,12 +23,12 @@ object ThemeUtils {
         val theme = getTheme(context)
         when (theme) {
             Theme.SYSTEM -> if (isSystemInDarkTheme(context)) {
-                return if (context.isPureBlackModeEnabled) "_" + "black" else "_" + "dark"
+                return "_" + "dark"
             } else {
                 return ""
             }
             Theme.LIGHT -> return ""
-            Theme.DARK -> return if (context.isPureBlackModeEnabled) "_" + "black" else "_" + "dark"
+            Theme.DARK -> return "_" + "dark"
             Theme.BLACK -> return "_" + theme.name.lowercase()
             else -> throw IllegalArgumentException("Unknown theme: " + theme)
         }

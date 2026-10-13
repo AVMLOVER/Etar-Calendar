@@ -114,6 +114,9 @@
          Day view. -->
     <string name="day_view">"Day"</string>
     <!-- This is a label on a menu item. Pressing this menu item displays the
+         three day view, which sits between the day and the week in the drawer. -->
+    <string name="threeday_view">"3 days"</string>
+    <!-- This is a label on a menu item. Pressing this menu item displays the
          Week view. -->
     <string name="week_view">"Week"</string>
     <!-- This is a label on a menu item. Pressing this menu item displays the
@@ -156,7 +159,7 @@
     <string name="show_controls">"Show controls"</string>
     <!-- This is a label on a menu item. Pressing this menu item shows the
          View settings menu [CHAR LIMIT=20] -->
-    <string name="view_settings">"View settings"</string>
+    <string name="view_settings">"App settings"</string>
 
 
     <!-- Month view -->
@@ -539,6 +542,11 @@
     <!-- Title of the settings item to show week number in week view [CHAR LIMIT=40] -->
     <string name="preferences_show_week_num_title">Show week number</string>
 
+    <!-- Title of the settings item to show the Chinese lunar date [CHAR LIMIT=40] -->
+    <string name="preferences_show_lunar_title">Show lunar date</string>
+    <!-- Summary of the settings item to show the Chinese lunar date -->
+    <string name="preferences_show_lunar_summary">Show the Chinese lunar date and traditional festivals under each day in the month and week views</string>
+
     <!-- Check box label for using custom snooze delays -->
     <string name="preferences_alerts_custom_snooze_delay_title">Ask for reminder snooze delay</string>
     <!-- Summaries for using custom snooze delays -->
@@ -557,8 +565,8 @@
     <string name="preferences_staggered_display_summary">Display overlapping events in a staggered layout</string>
 
     <!-- About dialog strings -->
-    <string name="app_authors" translatable="false">The Etar Project</string>
-    <string name="app_authors_url" translatable="false">https://github.com/Etar-Group/Etar-Calendar/graphs/contributors</string>
+    <string name="app_authors" translatable="false">The Etar Project - Powered by Germanium Mod</string>
+    <string name="app_authors_url" translatable="false">https://github.com/AVMLOVER/Etar-Calendar</string>
     <string name="app_changelog" translatable="false">https://github.com/Etar-Group/Etar-Calendar/releases</string>
     <string name="app_copyright">\u00a9 2015-<xliff:g>%1$s</xliff:g> The Etar Project. Portions \u00a9 2005-<xliff:g>%1$s</xliff:g> The Android Open Source Project.</string>
     <string name="app_issues_url" translatable="false">https://github.com/Etar-Group/Etar-Calendar/issues</string>
@@ -756,9 +764,6 @@
     <!-- Sharing calendar event -->
     <string name="cal_share_intent_title">Send event to:</string>
     <string name="cal_export_event_title">Export event</string>
-    <string name="cal_export_calendar_title">Export calendar</string>
-    <string name="cal_export_calendar_summary">Export all events from a calendar to an .ics file</string>
-    <string name="cal_export_select_calendar_title">Select calendar to export</string>
     <string name="cal_export_success">Event exported successfully</string>
     <string name="cal_export_error">Failed to export event</string>
     <string name="cal_export_succ_msg">Event exported successfully</string>
@@ -867,4 +872,6 @@
     <string name="chips_action_cancel">Cancel</string>
     <!-- Text displayed on the drop down item that is shown when app doesn't have Contact permission. This item will open dialog to request permission. [CHAR LIMIT=50] -->
     <string name="chips_permission_text">Allow contacts suggestions</string>
+    <string name="cal_import_no_calendar">No writable calendar to import into. Add an account in Settings first.</string>
+        <string name="cal_import_result">Imported %1$d events. %2$d already there. %3$d could not be read.</string>
 </resources>

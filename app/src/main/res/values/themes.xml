@@ -2,13 +2,95 @@
 
 <resources>
 
-    <!-- Base application theme. -->
+    <!--
+      Material 3 Expressive base theme.
+
+      Everything the app renders is driven by Material 3 colour roles, so that
+      com.google.android.material.color.DynamicColors (applied app-wide in
+      CalendarApplication) can re-map the entire palette from the user's wallpaper on
+      Android 12+ - i.e. "monet".
+
+      colorPrimary keeps the Etar teal as the *fallback* for Android < 12; on Android 12+
+      DynamicColors replaces it (and every other colour role) with the wallpaper palette.
+      colorAccent is aliased to ?attr/colorPrimary on purpose: it makes the remaining
+      AppCompat-era widgets resolve through the same dynamic role instead of hard-coded teal.
+    -->
     <style name="BaseTheme" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorAccent">@color/colorAccent</item>
         <item name="colorPrimary">@color/colorAccent</item>
+        <item name="colorAccent">?attr/colorPrimary</item>
         <item name="colorSecondaryContainer">@color/colorSecondaryContainer</item>
         <item name="android:statusBarColor">?android:colorBackground</item>
         <item name="android:navigationBarColor">?android:colorBackground</item>
+
+        <!-- Material 3 popup menus. This is what the three-dot overflow menu in the calendar
+             title bar uses; without it the popup still renders with the AppCompat look. -->
+        <item name="actionBarPopupTheme">@style/ThemeOverlay.Etar.PopupMenu</item>
+        <item name="popupMenuStyle">@style/Widget.Etar.PopupMenu</item>
+        <item name="android:itemBackground">?attr/colorSurfaceContainer</item>
+
+        <!-- Material 3 Expressive shapes: noticeably rounder than the M3 defaults. -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Etar.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Etar.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Etar.LargeComponent</item>
+
+        <!-- The Material 3 Expressive corner tokens themselves (these are the attributes the
+             Material Components library exposes for the Expressive shape scale). -->
+        <item name="shapeAppearanceCornerExtraSmall">@style/ShapeAppearance.Etar.CornerExtraSmall</item>
+        <item name="shapeAppearanceCornerSmall">@style/ShapeAppearance.Etar.CornerSmall</item>
+        <item name="shapeAppearanceCornerMedium">@style/ShapeAppearance.Etar.CornerMedium</item>
+        <item name="shapeAppearanceCornerLarge">@style/ShapeAppearance.Etar.CornerLarge</item>
+        <item name="shapeAppearanceCornerExtraLarge">@style/ShapeAppearance.Etar.CornerExtraLarge</item>
+    </style>
+
+    <style name="ShapeAppearance.Etar.CornerExtraSmall" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">8dp</item>
+    </style>
+    <style name="ShapeAppearance.Etar.CornerSmall" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Etar.CornerMedium" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Etar.CornerLarge" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">28dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Etar.CornerExtraLarge" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">32dp</item>
+    </style>
+
+    <!-- Material 3 popup menu (the three-dot overflow in the title bar). -->
+    <style name="Widget.Etar.PopupMenu" parent="Widget.Material3.PopupMenu.Overflow">
+        <item name="android:popupBackground">?attr/colorSurfaceContainer</item>
+    </style>
+
+    <style name="ThemeOverlay.Etar.PopupMenu" parent="ThemeOverlay.Material3">
+        <item name="colorSurface">?attr/colorSurfaceContainer</item>
+        <item name="android:colorBackground">?attr/colorSurfaceContainer</item>
+        <item name="android:textColorPrimary">?attr/colorOnSurface</item>
+        <item name="android:textColorSecondary">?attr/colorOnSurfaceVariant</item>
+    </style>
+
+    <style name="ShapeAppearance.Etar.SmallComponent" parent="ShapeAppearance.Material3.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Etar.MediumComponent" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">20dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Etar.LargeComponent" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">28dp</item>
     </style>
 
     <!-- Inherit base theme to allow overriding Light Theme as per API levels -->
@@ -16,30 +98,64 @@
         <item name="android:windowLightStatusBar">true</item>
     </style>
 
-    <style name="CalendarAppThemeLightTeal" parent="Theme.AppCompat.Light.NoActionBar">
-        <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
-        <item name="android:itemBackground">@android:color/white</item>
+    <!--
+      For screens that are only a dialog: the window itself must not show, or the confirmation would
+      sit on an opaque full-screen panel. windowIsTranslucent plus a transparent window background
+      leaves just the dialog visible over whatever launched it.
+    -->
+    <style name="Theme.Etar.Transparent" parent="Theme.Etar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+
+    <!--
+      The toolbar title doubles as the control that opens the date / month picker, so it is sized
+      and spaced like a control rather than like a plain heading. It is also no longer all-caps and
+      no longer clipped, because it carries text such as "10月16日 – 10月18日".
+    -->
+    <style name="TextAppearance.M3e.ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">20sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
+    <!--
+    The heading's second line, used by the day view and the week view for the weekday and the week
+    number. Smaller than the Material 3 default, which is nearly the size of the title and left the
+    two competing for the width of the bar.
+    -->
+    <style name="TextAppearance.M3e.ToolbarSubtitle" parent="TextAppearance.Material3.TitleSmall">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
+    <!--
+      Legacy style names kept because existing layouts reference them, but they now inherit
+      Material 3 instead of Theme.AppCompat so that no AppCompat theme remains in the app.
+    -->
+    <style name="CalendarAppThemeLightTeal" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:itemBackground">?attr/colorSurface</item>
         <item name="autoCompleteTextViewStyle">@style/actionbar_cursor</item>
         <item name="calendarSpinnerDisabledTextColor">@color/calendar_item_disabled</item>
     </style>
 
-    <style name="CalendarAppThemeDarkTeal" parent="Theme.AppCompat.NoActionBar">
-        <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
+    <style name="CalendarAppThemeDarkTeal" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowBackground">@color/bg_dark</item>
         <item name="actionBarPopupTheme">@style/ThemeOverlay.AppCompat.Dark</item>
         <item name="android:itemBackground">@color/bg_dark</item>
         <item name="calendarSpinnerDisabledTextColor">@color/calendar_item_disabled_dark</item>
     </style>
 
-    <style name="CalendarAppThemeBlackTeal" parent="Theme.AppCompat.NoActionBar">
-        <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/bg_black</item>
-        <item name="colorAccent">@color/colorAccent</item>
+    <style name="CalendarAppThemeBlackTeal" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowBackground">@color/bg_black</item>
+        <item name="actionBarPopupTheme">@style/ThemeOverlay.AppCompat.Dark</item>
         <item name="android:itemBackground">@color/bg_black</item>
         <item name="calendarSpinnerDisabledTextColor">@color/calendar_item_disabled_black</item>
     </style>

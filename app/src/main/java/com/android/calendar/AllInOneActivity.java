@@ -17,6 +17,7 @@
 
 package com.android.calendar;
 
+import android.content.ActivityNotFoundException;
 import static android.provider.CalendarContract.Attendees.ATTENDEE_STATUS;
 import static android.provider.CalendarContract.EXTRA_EVENT_ALL_DAY;
 import static android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME;
@@ -62,6 +63,7 @@ import android.widget.RelativeLayout;
 import android.widget.RelativeLayout.LayoutParams;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.view.ViewGroup;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.ActionBar;
@@ -84,8 +86,6 @@ import com.android.calendar.alerts.AlertService;
 import com.android.calendar.month.MonthByWeekFragment;
 import com.android.calendar.selectcalendars.SelectVisibleCalendarsFragment;
 import com.android.calendar.settings.GeneralPreferences;
-import com.android.calendar.settings.SettingsActivity;
-import com.android.calendar.settings.SettingsActivityKt;
 import com.android.calendar.settings.ViewDetailsPreferences;
 import com.android.calendar.theme.DynamicThemeKt;
 import com.android.calendar.calendarcommon2.Time;
@@ -147,8 +147,33 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             eventsChanged();
         }
     };
+
+    /**
+     * The same reaction, registered against Instances.
+     *
+     * The day, week and month grids all read CalendarContract.Instances, and CalendarProvider treats
+     * Instances as its own URI: notifying Events - which is what creating or editing an event does -
+     * does not reach an observer registered on Events only. That is why an event created from the
+     * month view did not appear until the app was restarted, while the agenda, which queries
+     * Instances directly, had it straight away.
+     */
+    private final ContentObserver mInstancesObserver = new ContentObserver(new Handler()) {
+        @Override
+        public boolean deliverSelfNotifications() {
+            return true;
+        }
+
+        @Override
+        public void onChange(boolean selfChange) {
+            eventsChanged();
+        }
+    };
     private boolean mOnSaveInstanceStateCalled = false;
     private boolean mBackToPreviousView = false;
+    /** Kept so it can be disabled when back would exit the app (enables predictive back). */
+    private OnBackPressedCallback mBackCallback;
+    /** The theme mode this activity was created with, to detect changes made in settings. */
+    private String mAppliedThemeMode;
     private ContentResolver mContentResolver;
     private int mPreviousView;
     private int mCurrentView;
@@ -204,6 +229,12 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
     private AllInOneMaterialBinding binding;
     private DrawerLayout mDrawerLayout;
     private Toolbar mToolbar;
+
+    /** The toolbar's title view, so the caret can be re-applied when the title text changes. */
+    private TextView mToolbarTitle;
+
+    /** Open month picker dialog, if any. */
+    private android.app.Dialog mTitlePopup;
     private NavigationView mNavigationView;
     private CalendarToolbarHandler mCalendarToolbarHandler;
     // Action bar
@@ -243,11 +274,19 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
 
     @Override
     protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
         String action = intent.getAction();
         if (DEBUG)
             Log.d(TAG, "New intent received " + intent);
+
+        // The year view (and its drawer) asks for an explicit view type; the plain ACTION_VIEW
+        // path below keeps the current view instead, so it has to be handled separately.
+        int requestedView = Utils.viewTypeFromIntentValue(
+                intent.getStringExtra(Utils.INTENT_KEY_VIEW_TYPE));
+        boolean explicitView = requestedView != -1;
+
         // Don't change the date if we're just returning to the app's home
-        if (Intent.ACTION_VIEW.equals(action)
+        if ((Intent.ACTION_VIEW.equals(action) || explicitView)
                 && !intent.getBooleanExtra(Utils.INTENT_KEY_HOME, false)) {
             long millis = parseViewAction(intent);
             if (millis == -1) {
@@ -257,9 +296,12 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
                 Time time = new Time(mTimeZone);
                 time.set(millis);
                 time.normalize();
-                mController.sendEvent(this, EventType.GO_TO, time, time, -1, ViewType.CURRENT);
+                mController.sendEvent(this, EventType.GO_TO, time, time, -1,
+                        explicitView ? requestedView : ViewType.CURRENT);
             }
         }
+        // Keep the activity's own intent in sync so later reads see the new extras.
+        setIntent(intent);
     }
 
     @Override
@@ -267,6 +309,8 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         super.onCreate(icicle);
         DynamicThemeKt.applyTheme(this);
         mActivity = this;
+        mAppliedThemeMode = Utils.getSharedPreference(this,
+                GeneralPreferences.KEY_THEME_PREF, "system");
         // This needs to be created before setContentView
         mController = CalendarController.getInstance(this);
 
@@ -390,11 +434,15 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
 
         mContentResolver = getContentResolver();
 
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+
+        getOnBackPressedDispatcher().addCallback(this, mBackCallback = new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 if (mCurrentView == ViewType.EDIT || mBackToPreviousView) {
                     mController.sendEvent(this, EventType.GO_TO, null, null, -1, mPreviousView);
+                } else if (mCurrentView == ViewType.DAY || mCurrentView == ViewType.WEEK) {
+                    // Day and week step back to the month view rather than straight out of the app.
+                    mController.sendEvent(this, EventType.GO_TO, null, null, -1, ViewType.MONTH);
                 } else {
                     int defaultStartView = Utils.getViewTypeFromIntentAndSharedPref(mActivity);
 
@@ -409,7 +457,34 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
                 }
             }
         });
+        updateBackCallbackEnabled();
 
+    }
+
+    /**
+     * Lets the system handle back when the next press would leave the app.
+     *
+     * While this callback is enabled it swallows back and moves between views itself, and Android
+     * then has nothing to animate. Disabling it in that one case hands back to the platform, which
+     * is what plays the predictive "back to the launcher" animation on Android 13+.
+     */
+    private void updateBackCallbackEnabled() {
+        if (mBackCallback == null) {
+            return;
+        }
+        boolean wouldExit;
+        if (mCurrentView == ViewType.EDIT || mBackToPreviousView) {
+            wouldExit = false;
+        } else if (mCurrentView == ViewType.DAY || mCurrentView == ViewType.WEEK) {
+            // These step back to the month view first.
+            wouldExit = false;
+        } else {
+            int defaultStartView = Utils.getViewTypeFromIntentAndSharedPref(mActivity);
+            wouldExit = mCurrentView == defaultStartView
+                    || defaultStartView == com.android.calendar.CalendarController.ViewType.AGENDA
+                    || defaultStartView == com.android.calendar.CalendarController.ViewType.DAY;
+        }
+        mBackCallback.setEnabled(!wouldExit);
     }
 
     private void checkAppPermissions() {
@@ -443,14 +518,35 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
 
     }
 
+    /**
+     * Asks the system first, and only warns if the user declines.
+     *
+     * The system's own prompt is the one that can actually grant the exemption, so it goes first. If
+     * the user says no there - or backs out of it - the app's own dialog follows, which spells out
+     * what refusing costs and offers to change the answer. Warning before asking told the user off
+     * for something they had not yet been asked.
+     */
     private void checkAndRequestDisablingDoze() {
-        boolean doNotCheckBatteryOptimization = Utils.getSharedPreference(getApplicationContext(), GeneralPreferences.KEY_DO_NOT_CHECK_BATTERY_OPTIMIZATION, false);
-        if (!dozeDisabled() && !doNotCheckBatteryOptimization) {
-            Intent intent = new Intent();
-            intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-            intent.setData(Uri.parse("package:" + getApplicationContext().getPackageName()));
-            startActivity(intent);
+        boolean doNotCheckBatteryOptimization = Utils.getSharedPreference(getApplicationContext(),
+                GeneralPreferences.KEY_DO_NOT_CHECK_BATTERY_OPTIMIZATION, false);
+        if (dozeDisabled() || doNotCheckBatteryOptimization) {
+            return;
         }
+        Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+        intent.setData(Uri.parse("package:" + getApplicationContext().getPackageName()));
+        try {
+            startActivityForResult(intent, REQUEST_CODE_BATTERY);
+        } catch (ActivityNotFoundException e) {
+            // No system screen for it: go straight to the app's own warning, which can still send
+            // the user to the settings list by hand.
+            showBatteryWarning();
+        }
+    }
+
+    /** The app's own warning, shown when the system prompt did not settle the question. */
+    private void showBatteryWarning() {
+        startActivity(new Intent(this,
+                com.android.calendar.chrome.compose.ComposeBatteryDialogActivity.class));
     }
 
     private Boolean dozeDisabled() {
@@ -504,11 +600,87 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         setSupportActionBar(mToolbar);
 
         mToolbar.setNavigationOnClickListener(v -> AllInOneActivity.this.openDrawer());
-        mToolbar.setOnClickListener(v -> goToDate());
         mActionBar = getSupportActionBar();
         if (mActionBar == null) return;
         mActionBar.setDisplayHomeAsUpEnabled(true);
         mActionBar.setHomeButtonEnabled(true);
+
+        // The date in the heading opens the date picker, the same control the Compose screens
+        // carry; the down caret is what marks it as something that opens.
+        mToolbar.post(this::installTitlePicker);
+    }
+
+    /**
+     * Adds the down caret to the toolbar heading and makes the heading open a picker.
+     *
+     * CalendarToolbarHandler rebuilds the title text on every view change, and the caret is a
+     * compound drawable on the same TextView, so it is re-applied each time the title changes
+     * rather than being installed once.
+     */
+    private void installTitlePicker() {
+        TextView title = findToolbarTitle();
+        if (title == null) {
+            return;
+        }
+        mToolbarTitle = title;
+        title.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                0, 0, R.drawable.ic_caret_down, 0);
+        title.setCompoundDrawablePadding((int) (4 * getResources().getDisplayMetrics().density));
+        title.setClickable(true);
+        title.setOnClickListener(v -> showTitlePicker());
+    }
+
+    /** The ActionBar's title view: the TextView in the toolbar whose text is the current title. */
+    private TextView findToolbarTitle() {
+        CharSequence wanted = mToolbar.getTitle();
+        if (wanted == null) {
+            return null;
+        }
+        return findTextViewWithText(mToolbar, wanted.toString());
+    }
+
+    private TextView findTextViewWithText(ViewGroup parent, String text) {
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            View child = parent.getChildAt(i);
+            if (child instanceof TextView && text.contentEquals(((TextView) child).getText())) {
+                return (TextView) child;
+            }
+            if (child instanceof ViewGroup) {
+                TextView found = findTextViewWithText((ViewGroup) child, text);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Which picker the heading opens depends on the view: the month view picks a month, the day
+     * and week views pick a day.
+     */
+    private void showTitlePicker() {
+        if (mCurrentView == ViewType.MONTH) {
+            showMonthPicker();
+        } else {
+            goToDate();
+        }
+    }
+
+    /** Month picker for the month view: the app's own chip row, in a drop down under the heading. */
+    private void showMonthPicker() {
+        mTitlePopup = com.android.calendar.chrome.compose.M3eMonthPickerDialog.INSTANCE.show(
+                this, mToolbar, (year, month) -> {
+                    Time selected = new Time(mTimeZone);
+                    selected.set(System.currentTimeMillis());
+                    selected.setYear(year);
+                    selected.setMonth(month - 1);
+                    selected.setDay(1);
+                    long extras = CalendarController.EXTRA_GOTO_TIME
+                            | CalendarController.EXTRA_GOTO_DATE;
+                    mController.sendEvent(this, EventType.GO_TO, selected, null, selected, -1,
+                            ViewType.MONTH, extras, null, null);
+                });
     }
 
     public void openDrawer() {
@@ -524,20 +696,57 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         mFab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //Create new Event
-                Time t = new Time();
-                t.set(mController.getTime());
-                t.setSecond(0);
-                if (t.getMinute() > 30) {
-                    t.setHour(t.getHour() + 1);
-                    t.setMinute(0);
-                } else if (t.getMinute() > 0 && t.getMinute() < 30) {
-                    t.setMinute(30);
-                }
+                Time t = buildCreateEventTime();
                 mController.sendEventRelatedEvent(
                         this, EventType.CREATE_EVENT, -1, t.toMillis(), 0, 0, 0, -1);
             }
         });
+    }
+
+    /**
+     * Where the add button puts a new event.     *
+     * In the month view the answer follows the month being looked at rather than the clock: adding
+     * from a month you have browsed to used to land on today, which in another month is an arbitrary
+     * day somewhere in the grid. A month other than this one gets its first day; the current month
+     * gets today, an hour or two ahead on the half hour, which is what "add now" should mean.
+     */
+    private Time buildCreateEventTime() {
+        Time now = new Time(mTimeZone);
+        now.set(System.currentTimeMillis());
+        now.setSecond(0);
+
+        if (mController != null && mController.getViewType() == ViewType.MONTH) {
+            // The month on screen, which the controller tracks as the visible time.
+            Time visible = new Time(mTimeZone);
+            visible.set(mController.getTime());
+            boolean sameMonth = visible.getYear() == now.getYear()
+                    && visible.getMonth() == now.getMonth();
+            if (!sameMonth) {
+                Time first = new Time(mTimeZone);
+                first.set(visible);
+                first.setDay(1);
+                // A civil hour rather than midnight, so the new event is not an all-day looking one.
+                first.setHour(9);
+                first.setMinute(0);
+                first.setSecond(0);
+                first.normalize();
+                return first;
+            }
+        }
+
+        // Round up to the next half hour, then an hour on: a slot beginning shortly rather than one
+        // that has already started.
+        Time t = new Time(mTimeZone);
+        t.set(now);
+        if (t.getMinute() >= 30) {
+            t.setHour(t.getHour() + 1);
+            t.setMinute(0);
+        } else if (t.getMinute() > 0) {
+            t.setMinute(30);
+        }
+        t.setHour(t.getHour() + 1);
+        t.normalize();
+        return t;
     }
 
     private void showActionBar() {
@@ -584,6 +793,16 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
     protected void onResume() {
         super.onResume();
 
+        // The settings screen can change the theme while this activity is stopped behind it, and
+        // nothing would recreate it: switching to pure black in particular does not change the
+        // night mode, so the platform sends no configuration change at all.
+        String themeMode = Utils.getSharedPreference(this,
+                GeneralPreferences.KEY_THEME_PREF, "system");
+        if (!themeMode.equals(mAppliedThemeMode)) {
+            recreate();
+            return;
+        }
+
         // Check if the upgrade code has ever been run. If not, force a sync just this one time.
         Utils.trySyncAndDisableUpgradeReceiver(this);
 
@@ -607,8 +826,23 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             return;
         }
 
+        // The observers live for the whole activity, not just while it is resumed.
+        //
+        // They used to be registered in onResume and unregistered in onPause, which loses exactly the
+        // notification that matters here: deleting an event happens from another screen, so this
+        // activity is paused when the provider notifies, and the observer is taken off just as it
+        // arrives. The grid then kept the deleted event until the app was restarted.
+        //
+        // Unregistered first because onResume can run more than once per instance; ContentResolver
+        // simply ignores a removal of something it does not have.
+        mContentResolver.unregisterContentObserver(mObserver);
+        mContentResolver.unregisterContentObserver(mInstancesObserver);
         mContentResolver.registerContentObserver(CalendarContract.Events.CONTENT_URI,
                 true, mObserver);
+        // The grids read Instances, which is a separate URI as far as the provider's notifications
+        // are concerned, so it needs its own observer.
+        mContentResolver.registerContentObserver(CalendarContract.Instances.CONTENT_URI,
+                true, mInstancesObserver);
         if (mUpdateOnResume) {
             initFragments(mController.getTime(), mController.getViewType(), null);
             mUpdateOnResume = false;
@@ -617,6 +851,10 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         t.set(mController.getTime());
         mController.sendEvent(this, EventType.UPDATE_TITLE, t, t, -1, ViewType.CURRENT,
                 mController.getDateFlags(), null, null);
+
+        // Returning from the year view (or any other screen) must restore the drawer state,
+        // because the year entry shares the exclusive group with the real views.
+        syncNavigationCheckedItem();
 
         if (mControlsMenu != null) {
             mControlsMenu.setTitle(mHideControls ? mShowString : mHideString);
@@ -642,8 +880,27 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         // Make sure the today icon is up to date
         invalidateOptionsMenu();
 
+        // Re-read the current view on the way back in.
+        //
+        // Creating or editing an event happens on another screen. CalendarProvider notifies
+        // asynchronously, and a notification delivered while this activity was paused reaches an
+        // observer that is about to be unregistered again - so the grid could still hold its
+        // pre-edit contents and only catch up when the app was restarted. Asking for the current
+        // time again is the cheapest way to make the view re-query, and it is a no-op when nothing
+        // changed.
+        if (mController != null && viewInitialised) {
+            Time now = new Time(mTimeZone);
+            now.set(mController.getTime());
+            mController.sendEvent(this, EventType.GO_TO, now, now, -1, ViewType.CURRENT,
+                    CalendarController.EXTRA_GOTO_DATE, null, null);
+        }
+        viewInitialised = true;
+
         mCalIntentReceiver = Utils.setTimeChangesReceiver(this, mTimeChangesUpdater);
     }
+
+    /** True once the first onResume has run, so the forced re-read does not double the first load. */
+    private boolean viewInitialised = false;
 
 
     @Override
@@ -660,7 +917,6 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             return;
         }
 
-        mContentResolver.unregisterContentObserver(mObserver);
         if (isFinishing()) {
             // Stop listening for changes that would require this to be refreshed
             SharedPreferences prefs = GeneralPreferences.Companion.getSharedPreferences(this);
@@ -671,7 +927,18 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             Utils.setDefaultView(this, mController.getViewType());
         }
         Utils.resetMidnightUpdater(mHandler, mTimeChangesUpdater);
-        Utils.clearTimeChangesReceiver(this, mCalIntentReceiver);
+
+        // Cleared once it has been unregistered, and only unregistered when there is something to
+        // unregister.
+        //
+        // onResume can return before it installs this receiver - it does exactly that when the theme
+        // changed, calling recreate() and leaving - and onPause then ran regardless. Unregistering
+        // something that was never registered throws IllegalArgumentException, which is what made
+        // switching theme crash. The field is nulled so a second pause cannot unregister it again.
+        if (mCalIntentReceiver != null) {
+            Utils.clearTimeChangesReceiver(this, mCalIntentReceiver);
+            mCalIntentReceiver = null;
+        }
     }
 
     @Override
@@ -700,6 +967,13 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
 
     @Override
     protected void onDestroy() {
+        // The observers are registered for the whole activity, so they are released here rather than
+        // in onPause - see onResume for why.
+        if (Utils.isCalendarPermissionGranted(this, false)) {
+            mContentResolver.unregisterContentObserver(mObserver);
+            mContentResolver.unregisterContentObserver(mInstancesObserver);
+        }
+
         super.onDestroy();
 
         SharedPreferences prefs = GeneralPreferences.Companion.getSharedPreferences(this);
@@ -833,6 +1107,17 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         }
 
         mSearchMenu = menu.findItem(R.id.action_search);
+        if (mSearchMenu != null) {
+            // Placed in the bar rather than the overflow, and given its icon here.
+            //
+            // The menu resource asks for the same thing, but an item with a collapsed action
+            // view is easy for the framework to demote into the overflow, where an icon is not
+            // drawn at all. Setting it in code is what the title bar's other actions do not need
+            // and this one does.
+            mSearchMenu.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS
+                    | MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW);
+            mSearchMenu.setIcon(R.drawable.ic_menu_search);
+        }
         mSearchView = (SearchView) menu.findItem(R.id.action_search).getActionView();
         if (mSearchView != null) {
             Utils.setUpSearchView(mSearchView, this);
@@ -869,19 +1154,11 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         LayerDrawable icon = (LayerDrawable) menuItem.getIcon();
         Utils.setTodayIcon(icon, this, mTimeZone);
 
-        // Handle warning for disabling battery optimizations
-        boolean doNotCheckBatteryOptimization = Utils.getSharedPreference(getApplicationContext(), GeneralPreferences.KEY_DO_NOT_CHECK_BATTERY_OPTIMIZATION, false);
-        if (dozeDisabled() || doNotCheckBatteryOptimization) {
-            MenuItem menuInfoItem = menu.findItem(R.id.action_info);
-            if (menuInfoItem != null) {
-                menuInfoItem.setVisible(false);
-            }
-        }
-
         return true;
     }
 
     private static final int REQUEST_CODE_IMPORT = 101;
+    private static final int REQUEST_CODE_BATTERY = 102;
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
@@ -920,18 +1197,27 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         } else if (itemId == R.id.action_search) {
             return false;
         } else if (itemId == R.id.action_import) {
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("*/*");
-            String[] mimetypes = {"text/calendar", "text/x-vcalendar", "application/ics"};
-            intent.putExtra(Intent.EXTRA_MIME_TYPES, mimetypes);
-            startActivityForResult(intent, REQUEST_CODE_IMPORT);
+            // The same dialog the settings screen and the other screens' overflow menus offer: a file
+            // on the device, or a url to download.
+            //
+            // This used to be a bare document picker whose result was handed straight to
+            // ImportActivity, which is why the month view's import looked different from everywhere
+            // else's.
+            startActivity(new Intent(this,
+                    com.android.calendar.chrome.compose.ComposeImportActivity.class));
+        } else if (itemId == R.id.action_m3e_calendars) {
+            // Material 3 Expressive calendars manager.
+            startActivity(new Intent(this,
+                    com.android.calendar.selectcalendars.compose.ComposeCalendarsActivity.class));
+        } else if (itemId == R.id.action_m3e_agenda) {
+            // Material 3 Expressive agenda screen.
+            startActivity(new Intent(this,
+                    com.android.calendar.agenda.compose.ComposeAgendaActivity.class));
         } else if (itemId == R.id.action_view_settings) {
-            Intent intent = new Intent(this, SettingsActivity.class);
-            intent.putExtra(SettingsActivityKt.EXTRA_SHOW_FRAGMENT, ViewDetailsPreferences.class.getName());
-            startActivity(intent);
-        } else if (itemId == R.id.action_info) {
-            checkAndRequestDisablingDoze();
+            // "View details" now opens the Material 3 Expressive settings screen, which hosts
+            // the month-view layout options that used to live on the old preference page.
+            startActivity(new Intent(this,
+                    com.android.calendar.settings.compose.ComposeSettingsActivity.class));
         } else {
                 return mExtensions.handleItemSelected(item, this);
         }
@@ -941,6 +1227,16 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_CODE_BATTERY) {
+            // Whatever the system screen reported, the exemption either is in place or is not;
+            // asking the PowerManager is the only answer that can be trusted, because backing
+            // out of the screen also arrives here as a result.
+            if (!dozeDisabled()) {
+                showBatteryWarning();
+            }
+            super.onActivityResult(requestCode, resultCode, data);
+            return;
+        }
         if (requestCode == REQUEST_CODE_IMPORT && resultCode == RESULT_OK && data != null) {
             Uri uri = data.getData();
             if (uri != null) {
@@ -963,22 +1259,86 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             if (mCurrentView != ViewType.WEEK) {
                 mController.sendEvent(this, EventType.GO_TO, null, null, -1, ViewType.WEEK);
             }
+        } else if (itemId == R.id.threeday_menu_item) {
+            // Like the year and agenda entries, the three day view is its own screen, so this
+            // activity keeps the view it was showing underneath and the check mark goes back to it.
+            startActivity(new Intent(this,
+                    com.android.calendar.threeday.compose.ComposeThreeDayActivity.class));
+            syncNavigationCheckedItem();
         } else if (itemId == R.id.month_menu_item) {
             if (mCurrentView != ViewType.MONTH) {
                 mController.sendEvent(this, EventType.GO_TO, null, null, -1, ViewType.MONTH);
             }
         } else if (itemId == R.id.agenda_menu_item) {
-            if (mCurrentView != ViewType.AGENDA) {
-                mController.sendEvent(this, EventType.GO_TO, null, null, -1, ViewType.AGENDA);
-            }
+            // The agenda is the Material 3 Expressive screen now. It is its own activity, so this
+            // activity keeps whatever view it was showing underneath, like the year view does.
+            startActivity(new Intent(this,
+                    com.android.calendar.agenda.compose.ComposeAgendaActivity.class));
+            syncNavigationCheckedItem();
+        } else if (itemId == R.id.year_menu_item) {
+            // The year view is its own Compose screen, so this activity stays on its current
+            // view; restore the check mark the drawer just moved.
+            startActivity(new Intent(this,
+                    com.android.calendar.year.compose.ComposeYearActivity.class));
+            syncNavigationCheckedItem();
+        } else if (itemId == R.id.action_date_calculator) {
+            startActivity(new Intent(this,
+                    com.android.calendar.datecalc.compose.ComposeDateCalculatorActivity.class));
+        } else if (itemId == R.id.action_countdown) {
+            // A tool screen of its own, like the date calculator: this activity stays on its current
+            // view underneath, and its own drawer entry shows as checked while it is open.
+            startActivity(new Intent(this,
+                    com.android.calendar.countdown.compose.ComposeCountdownActivity.class));
         } else if (itemId == R.id.action_settings) {
             mController.sendEvent(this, EventType.LAUNCH_SETTINGS, null, null, 0, 0);
         } else if (itemId == R.id.action_about) {
-            Intent intent = new Intent(this, AboutActivity.class);
+            Intent intent = new Intent(this,
+                    com.android.calendar.about.compose.ComposeAboutActivity.class);
             startActivity(intent);
         }
         mDrawerLayout.closeDrawers();
         return true;
+    }
+
+    /** Puts the navigation check mark back on the view this activity is actually showing. */
+    private void syncNavigationCheckedItem() {
+        if (mNavigationView == null) {
+            return;
+        }
+        Menu menu = mNavigationView.getMenu();
+
+        // The year and three day entries share the exclusive group with the real views, but they
+        // open their own screens. Setting another item checked does NOT clear them, so clear them
+        // explicitly - otherwise the drawer keeps claiming the user is in the year view.
+        MenuItem yearItem = menu.findItem(R.id.year_menu_item);
+        if (yearItem != null) {
+            yearItem.setChecked(false);
+        }
+        MenuItem threeDayItem = menu.findItem(R.id.threeday_menu_item);
+        if (threeDayItem != null) {
+            threeDayItem.setChecked(false);
+        }
+
+        int itemId;
+        switch (mCurrentView) {
+            case ViewType.AGENDA:
+                itemId = R.id.agenda_menu_item;
+                break;
+            case ViewType.WEEK:
+                itemId = R.id.week_menu_item;
+                break;
+            case ViewType.MONTH:
+                itemId = R.id.month_menu_item;
+                break;
+            case ViewType.DAY:
+            default:
+                itemId = R.id.day_menu_item;
+                break;
+        }
+        MenuItem item = menu.findItem(itemId);
+        if (item != null) {
+            item.setChecked(true);
+        }
     }
 
     /**
@@ -1047,6 +1407,9 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             }
             mCurrentView = viewType;
         }
+        // The back callback must stop swallowing back once the app would exit, so that Android can
+        // play the predictive "back to the launcher" animation.
+        updateBackCallbackEnabled();
         // Create new fragment
         Fragment frag = null;
         Fragment secFrag = null;
@@ -1290,6 +1653,7 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
                 // Clear the flag is change to a different view type
                 mBackToPreviousView = false;
             }
+            updateBackCallbackEnabled();
 
             // Check toMillis method for the value -1 and if yes add one hour.
             // This prevents the date "1970" from being displayed on the day of the daylight saving time changeover when you tap on the hour that is skipped.
@@ -1381,39 +1745,16 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
                     mController.sendEvent(this, EventType.GO_TO, event.selectedTime,
                             event.selectedTime, -1, ViewType.CURRENT);
                 }
-                int response = event.getResponse();
-                if ((mCurrentView == ViewType.AGENDA && mShowEventInfoFullScreenAgenda) ||
-                        ((mCurrentView == ViewType.DAY || (mCurrentView == ViewType.WEEK) ||
-                                mCurrentView == ViewType.MONTH) && mShowEventInfoFullScreen)){
-                    // start event info as activity
-                    Intent intent = new Intent(Intent.ACTION_VIEW);
-                    Uri eventUri = ContentUris.withAppendedId(Events.CONTENT_URI, event.id);
-                    intent.setData(eventUri);
-                    intent.setClass(this, EventInfoActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT |
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                    intent.putExtra(EXTRA_EVENT_BEGIN_TIME, event.startTime.toMillis());
-                    intent.putExtra(EXTRA_EVENT_END_TIME, event.endTime.toMillis());
-                    intent.putExtra(ATTENDEE_STATUS, response);
-                    startActivity(intent);
-                } else {
-                    // start event info as a dialog
-                    EventInfoFragment fragment = new EventInfoFragment(this,
-                            event.id, event.startTime.toMillis(),
-                            event.endTime.toMillis(), response, true,
-                            EventInfoFragment.DIALOG_WINDOW_STYLE,
-                            null /* No reminders to explicitly pass in. */);
-                    fragment.setDialogParams(event.x, event.y, mActionBar.getHeight());
-                    FragmentManager fm = getSupportFragmentManager();
-                    FragmentTransaction ft = fm.beginTransaction();
-                    // if we have an old popup replace it
-                    Fragment fOld = fm.findFragmentByTag(EVENT_INFO_FRAGMENT_TAG);
-                    if (fOld != null && fOld.isAdded()) {
-                        ft.remove(fOld);
-                    }
-                    ft.add(fragment, EVENT_INFO_FRAGMENT_TAG);
-                    ft.commit();
-                }
+                // Every view now opens the Material 3 Expressive details screen. The classic
+                // EventInfoActivity / EventInfoFragment pair is still reachable from elsewhere, but
+                // tapping an event in the calendar no longer lands in it.
+                Intent details = new Intent(this,
+                        com.android.calendar.event.compose.ComposeEventDetailsActivity.class);
+                details.putExtra(
+                        com.android.calendar.event.compose.ComposeEventDetailsActivity
+                                .EXTRA_EVENT_ID,
+                        event.id);
+                startActivity(details);
             }
             displayTime = event.startTime.toMillis();
         } else if (event.eventType == EventType.UPDATE_TITLE) {
@@ -1421,6 +1762,9 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             if (!mIsTabletConfig) {
                 refreshActionbarTitle(mController.getTime());
             }
+            // The title text is replaced on every view change, and the caret rides on that same
+            // view, so it is re-applied here.
+            installTitlePicker();
         }
         updateSecondaryTitleFields(displayTime);
     }

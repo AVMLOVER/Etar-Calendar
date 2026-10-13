@@ -26,6 +26,15 @@
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+
+    <!--
+      Only needed to save a countdown card as a PNG on API 24-28. From 29 the image goes through
+      MediaStore, which needs no permission, so this is capped rather than requested on modern
+      devices where it would look like a demand for storage access the app does not use.
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -33,6 +42,8 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Needed by the "import from a url" flow, which downloads an .ics file. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <queries>
         <intent>
@@ -52,7 +63,10 @@
         </intent>
     </queries>
 
-    <application android:name="com.android.calendar.CalendarApplication"
+    <!-- Opt in to the predictive back gesture (Android 13+). The app-wide switch in the
+         Material 3 settings screen only gates the app's own predictive handling. -->
+    <application
+        android:enableOnBackInvokedCallback="true" android:name="com.android.calendar.CalendarApplication"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/standalone_app_label"
@@ -112,13 +126,17 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="com.android.calendar.event.EditEventActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize">
-        </activity>
+        <!--
+          The public entry points for creating and editing an event.
 
+          These used to target the classic EditEventActivity. That editor is gone, so the aliases now
+          point at the Material 3 Expressive one - which is what keeps "add to calendar" from other
+          apps, and the calendar's own ACTION_INSERT/ACTION_EDIT paths, working. The alias names are
+          kept exactly as they were because they are what other apps and the widget refer to.
+        -->
         <activity-alias android:name="com.android.calendar.EditEventActivity"
             android:exported="true"
-            android:targetActivity="com.android.calendar.event.EditEventActivity">
+            android:targetActivity="com.android.calendar.event.compose.ComposeEventEditorActivity">
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
                 <action android:name="android.intent.action.INSERT" />
@@ -165,15 +183,116 @@
             </intent-filter>
         </activity>
 
+        <!-- Material 3 Expressive settings UI. This is the only settings screen; the classic
+             PreferencesFragmentCompat screens were removed. -->
         <activity
-            android:name="com.android.calendar.settings.SettingsActivity"
+            android:name="com.android.calendar.settings.compose.ComposeSettingsActivity"
+            android:exported="false"
             android:label="@string/preferences_title"
-            android:parentActivityName="com.android.calendar.AllInOneActivity" />
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+
+        <!-- Material 3 Expressive agenda screen. -->
+        <activity
+            android:name="com.android.calendar.agenda.compose.ComposeAgendaActivity"
+            android:exported="false"
+            android:label="@string/agenda_view"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+
+        <!-- Material 3 Expressive calendars manager. -->
+        <activity
+            android:name="com.android.calendar.selectcalendars.compose.ComposeCalendarsActivity"
+            android:exported="false"
+            android:label="@string/m3e_calendars_title"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+
+        <!-- Material 3 Expressive read-only event details. -->
+        <activity
+            android:name="com.android.calendar.event.compose.ComposeEventDetailsActivity"
+            android:exported="false"
+            android:label="@string/event_info_title"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+
+        <!-- Material 3 Expressive event editor. -->
+        <activity
+            android:name="com.android.calendar.event.compose.ComposeEventEditorActivity"
+            android:exported="false"
+            android:label="@string/m3e_event_edit"
+            android:windowSoftInputMode="adjustResize"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+
+        <!-- Material 3 Expressive quick-response editor. -->
+        <activity
+            android:name="com.android.calendar.settings.compose.ComposeQuickResponsesActivity"
+            android:exported="false"
+            android:label="@string/quick_response_settings"
+            android:theme="@style/Theme.Etar" />
+
+        <!-- Material 3 Expressive year view. -->
+        <activity
+            android:name="com.android.calendar.year.compose.ComposeYearActivity"
+            android:exported="false"
+            android:label="@string/m3e_year_view"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+
+        <!-- Material 3 Expressive three day view. Sits between the day and the week in the
+             drawer, and is a screen of its own rather than a view type of the calendar. -->
+        <activity
+            android:name="com.android.calendar.threeday.compose.ComposeThreeDayActivity"
+            android:exported="false"
+            android:label="@string/threeday_view"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+
+        <!-- Material 3 Expressive date calculator. -->
+        <activity
+            android:name="com.android.calendar.datecalc.compose.ComposeDateCalculatorActivity"
+            android:exported="false"
+            android:label="@string/m3e_date_calculator_title"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+
+        <!-- Material 3 Expressive countdown. -->
+        <activity
+            android:name="com.android.calendar.countdown.compose.ComposeCountdownActivity"
+            android:exported="false"
+            android:label="@string/m3e_countdown_title"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+
+        <!--
+          The event delete confirmation, reached from the day view's long-press menu. Transparent and
+          without a title, because only the dialog it draws should be visible.
+        -->
+        <activity
+            android:name="com.android.calendar.event.compose.ComposeEventDeleteActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Etar.Transparent" />
+
+        <!--
+          Configuration for the countdown widgets. Started by the launcher, so it has to be exported
+          and carry the APPWIDGET_CONFIGURE action.
+        -->
+        <activity
+            android:name="com.android.calendar.countdown.compose.CountdownWidgetConfigActivity"
+            android:exported="true"
+            android:label="@string/m3e_countdown_widget_choose"
+            android:theme="@style/Theme.Etar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
 
         <!-- Declarations for search -->
         <!-- Make all activities a searchable context -->
         <meta-data android:name="android.app.default_searchable"
-            android:value="com.android.calendar.SearchActivity"/>
+            android:value="com.android.calendar.search.compose.ComposeSearchActivity"/>
 
         <activity
             android:name="com.android.calendar.SearchActivity"
@@ -187,18 +306,62 @@
             <meta-data android:name="android.app.searchable" android:resource="@xml/searchable"/>
         </activity>
 
+        <activity
+            android:name="com.android.calendar.chrome.compose.ComposeImportActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Etar.Transparent" />
+        <activity
+            android:name="com.android.calendar.about.compose.ComposeAboutActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustPan" />
+
+        <activity
+            android:name="com.android.calendar.chrome.compose.ComposeBatteryDialogActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Etar.Transparent" />
+
+        <activity
+            android:name="com.android.calendar.search.compose.ComposeSearchActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustPan">
+            <intent-filter>
+                <action android:name="android.intent.action.SEARCH" />
+            </intent-filter>
+            <!-- Carries res/xml/searchable.xml, which names this activity. Without it the system's
+                 search routing has nothing to follow to here. -->
+            <meta-data
+                android:name="android.app.searchable"
+                android:resource="@xml/searchable" />
+        </activity>
         <activity android:name="com.android.calendar.ImportActivity"
             android:exported="true"
             android:theme="@android:style/Theme.NoDisplay"
             android:launchMode="singleTop">
+             <!--
+                 Two filters, not one.
+
+                 Every <data> element inside a single filter is ANDed together, so the previous
+                 single filter required a calendar MIME type *and* a content or file scheme. A file
+                 manager opening a downloaded .ics sends the uri with no type at all, which matched
+                 neither, so the app never appeared in the chooser.
+             -->
              <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="content" />
-                <data android:scheme="file" />
                 <data android:mimeType="text/x-vcalendar" />
                 <data android:mimeType="text/calendar" />
                 <data android:mimeType="application/ics" />
+                <data android:mimeType="text/ics" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
             </intent-filter>
         </activity>
 
@@ -282,6 +445,39 @@
                 <action android:name="com.android.calendar.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/appwidget_info" />
+        </receiver>
+
+        <!--
+          Countdown widgets, one receiver per size so the launcher lists them separately.
+        -->
+        <receiver android:name="com.android.calendar.widget.CountdownSmallWidgetProvider"
+            android:exported="true"
+            android:label="@string/m3e_countdown_widget_2x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/countdown_widget_info_2x2" />
+        </receiver>
+
+        <receiver android:name="com.android.calendar.widget.CountdownMediumWidgetProvider"
+            android:exported="true"
+            android:label="@string/m3e_countdown_widget_4x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/countdown_widget_info_4x2" />
+        </receiver>
+
+        <receiver android:name="com.android.calendar.widget.CountdownLargeWidgetProvider"
+            android:exported="true"
+            android:label="@string/m3e_countdown_widget_4x4">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/countdown_widget_info_4x4" />
         </receiver>
 
         <receiver android:name="com.android.calendar.widget.CalendarAppWidgetService$CalendarFactory"

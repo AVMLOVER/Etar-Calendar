@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Material 3 Expressive widget event chip (accepted / tentative / going).
+
+  Replaces the old nine-patch bitmap so the chip gets a proper Material 3 corner radius; the
+  widget tints it with the monet-derived event colour via setColorFilter.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="14dp" />
+    <solid android:color="#FFFFFFFF" />
+</shape>

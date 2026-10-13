@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.ec4j.editorconfig)
+    alias(libs.plugins.kotlin.compose)
 }
 
 editorconfig {
@@ -17,6 +18,8 @@ android {
 	compileSdk = 37
 
 	defaultConfig {
+		// 24 (was 23): androidx.compose.material3:material3 1.5.0 declares minSdk 24. Android 6.0
+		// is effectively extinct, so requiring 7.0 is a cheaper trade than forking the ripple lib.
 		minSdk = 24
 		targetSdk = 37
 		versionCode = 57
@@ -52,6 +55,7 @@ android {
         buildConfig = true
 		viewBinding = true
 		resValues = true
+		compose = true
 	}
 
 	/*
@@ -76,7 +80,7 @@ android {
 		println("Found sign properties in gradle.properties! Signing build…")
 
 		signingConfigs {
-            register("release") {
+			named("release").configure {
 				storeFile = File(signingStoreLocation!!)
 				storePassword = signingStorePassword
 				keyAlias = signingKeyAlias
@@ -84,14 +88,15 @@ android {
 			}
 		}
 
-        buildTypes.named("release") {
-            signingConfig = signingConfigs.getByName("release")
-        }
-    } else {
-        buildTypes.named("release") {
-            signingConfig = null
-        }
-    }
+		buildTypes.named("release").get().signingConfig = signingConfigs.named("release").get()
+	} else {
+		/*
+		 * No release keystore was configured. Sign the release build with the debug key so the
+		 * APK is directly installable for testing; it is not minified, because R8 shrinking made
+		 * the app crash and was dropped.
+		 */
+		buildTypes.named("release").get().signingConfig = signingConfigs.getByName("debug")
+	}
 
 	lint {
 		lintConfig = file("lint.xml")
@@ -138,4 +143,16 @@ dependencies {
 
 	// lifecycle
 	implementation(libs.androidx.lifecycle.livedata)
+
+	// ---- Material 3 Expressive (Compose) ------------------------------------------------
+	implementation(platform(libs.androidx.compose.bom))
+	implementation(libs.androidx.compose.ui)
+	implementation(libs.androidx.compose.ui.graphics)
+	implementation(libs.androidx.compose.ui.tooling.preview)
+	implementation(libs.androidx.compose.material3)
+	implementation(libs.androidx.graphics.shapes)
+	implementation(libs.androidx.activity.compose)
+	implementation(libs.androidx.lifecycle.runtime.compose)
+	implementation(libs.androidx.lifecycle.viewmodel.compose)
+	debugImplementation(libs.androidx.compose.ui.tooling)
 }

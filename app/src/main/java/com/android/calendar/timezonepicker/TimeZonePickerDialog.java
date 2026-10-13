@@ -21,6 +21,8 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.view.Window;
 import android.view.WindowManager;
 
@@ -58,6 +60,9 @@ public class TimeZonePickerDialog extends DialogFragment implements
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
+        // Let the layout's rounded background be what you see: an opaque window
+        // background would square the corners off again.
+        getDialog().getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         long timeMillis = 0;
         String timeZone = null;
         Bundle b = getArguments();

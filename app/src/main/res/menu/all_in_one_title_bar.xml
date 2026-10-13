@@ -19,45 +19,51 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_search"
+        android:alphabeticShortcut="f"
+        android:icon="@drawable/ic_m3e_search"
+        android:imeOptions="actionSearch"
+        android:orderInCategory="1"
+        android:title="@string/search"
+        app:actionViewClass="androidx.appcompat.widget.SearchView"
+        app:showAsAction="always|collapseActionView" />
+    <item
         android:id="@+id/action_today"
         android:alphabeticShortcut="t"
         android:icon="@drawable/today_icon"
-        android:orderInCategory="1"
+        android:orderInCategory="2"
         android:title="@string/goto_today"
-        app:showAsAction="ifRoom" />
-    <item
-        android:id="@+id/action_info"
-        android:alphabeticShortcut="i"
-        android:icon="@drawable/ic_error_outline"
-        android:orderInCategory="1"
-        android:title="@string/menu_info"
         app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_goto"
         android:alphabeticShortcut="g"
-        android:orderInCategory="2"
+        android:orderInCategory="3"
         android:title="@string/goto_date"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_refresh"
         android:alphabeticShortcut="r"
-        android:orderInCategory="3"
+        android:orderInCategory="4"
         android:title="@string/calendar_refresh"
         app:showAsAction="never" />
-    <item
-        android:id="@+id/action_search"
-        android:alphabeticShortcut="f"
-        android:imeOptions="actionSearch"
-        android:orderInCategory="4"
-        android:title="@string/search"
-        app:actionViewClass="androidx.appcompat.widget.SearchView"
-        app:showAsAction="never|collapseActionView" />
     <item
         android:id="@+id/action_import"
         android:alphabeticShortcut="i"
         android:title="@string/cal_import_menu_title"
         android:orderInCategory="7"
         app:showAsAction="never"/>
+    <item
+        android:id="@+id/action_m3e_calendars"
+        android:alphabeticShortcut="c"
+        android:orderInCategory="6"
+        android:title="@string/m3e_calendars_menu_title"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_m3e_agenda"
+        android:alphabeticShortcut="a"
+        android:orderInCategory="6"
+        android:title="@string/m3e_agenda_menu_title"
+        app:showAsAction="never" />
     <item
         android:id="@+id/action_view_settings"
         android:alphabeticShortcut="v"

@@ -188,7 +188,11 @@ public class EditEventHelper {
      */
     public static final String EVENT_ALL_DAY = "allDay";
 
-    static final String[] CALENDARS_PROJECTION = new String[] {
+    /**
+     * Column order [setModelFromCalendarCursor] expects. Public because the Material 3 editor builds
+     * a new event from this projection as well; the two must stay in step.
+     */
+    public static final String[] CALENDARS_PROJECTION = new String[] {
             Calendars._ID, // 0
             Calendars.CALENDAR_DISPLAY_NAME, // 1
             Calendars.OWNER_ACCOUNT, // 2
@@ -495,34 +499,27 @@ public class EditEventHelper {
 
         ContentProviderOperation.Builder b;
 
-        boolean hasUrl = model.mUrl != null && !model.mUrl.isBlank();
-        if (hasUrl || !newEvent) {
+        if (model.mUrl != null && !model.mUrl.isBlank()) {
             Uri extendedPropUri = ExtendedProperty.contentUri(model.mCalendarAccountName, model.mCalendarAccountType);
+            values.clear();
+            values.put(ExtendedProperties.NAME, ExtendedProperty.URL_NAME);
+            values.put(ExtendedProperties.VALUE, model.mUrl);
 
-            if (!newEvent) {
-                // First delete any URL extended property associated with the event so that
-                // clearing the URL removes it and re-saving does not duplicate it.
+            if (newEvent) {
+                b = ContentProviderOperation.newInsert(extendedPropUri)
+                        .withValues(values);
+                b.withValueBackReference(ExtendedProperties.EVENT_ID, eventIdIndex);
+            } else {
+                values.put(ExtendedProperties.EVENT_ID, model.mId);
+                // First delete the URL extended properties associated with the event
                 b = ContentProviderOperation.newDelete(extendedPropUri)
                         .withSelection(EXTENDED_WHERE_EVENT_NAME, new String[] { Long.toString(model.mId), ExtendedProperty.URL_NAME });
                 ops.add(b.build());
+                // And then, insert the new url
+                b = ContentProviderOperation.newInsert(extendedPropUri)
+                        .withValues(values);
             }
-
-            if (hasUrl) {
-                values.clear();
-                values.put(ExtendedProperties.NAME, ExtendedProperty.URL_NAME);
-                values.put(ExtendedProperties.VALUE, model.mUrl);
-
-                if (newEvent) {
-                    b = ContentProviderOperation.newInsert(extendedPropUri)
-                            .withValues(values);
-                    b.withValueBackReference(ExtendedProperties.EVENT_ID, eventIdIndex);
-                } else {
-                    values.put(ExtendedProperties.EVENT_ID, model.mId);
-                    b = ContentProviderOperation.newInsert(extendedPropUri)
-                            .withValues(values);
-                }
-                ops.add(b.build());
-            }
+            ops.add(b.build());
         }
 
         boolean hasAttendeeData = model.mHasAttendeeData;

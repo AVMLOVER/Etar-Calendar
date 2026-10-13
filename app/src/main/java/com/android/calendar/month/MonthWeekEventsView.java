@@ -634,14 +634,33 @@ public class MonthWeekEventsView extends SimpleWeekView {
                 isFocusMonth = mFocusDay[i];
                 mMonthNumPaint.setColor(isFocusMonth ? mMonthNumColor : mMonthNumOtherColor);
             }
-            x = computeDayLeftPosition(i - offset) - (mSidePaddingMonthNumber);
+            // The cell index of this day.
+            //
+            // mDayNumbers is one-based: slot 0 holds the week number when the week column is shown,
+            // and the seven days follow at 1..7. The loop's i is therefore one past the cell it draws,
+            // which is why the cell is computed as i - offset - 1.
+            int cell = i - offset - 1;
+            float cellLeft = computeDayLeftPosition(cell);
+            float cellRight = computeDayLeftPosition(cell + 1);
+
+            // The number starts at the left edge of its cell, with the align set to match.
+            //
+            // Set the align rather than subtracting a measured width: the framework already knows how
+            // wide the text is, and the paint is shared with the lunar text, whose size differs.
+            mMonthNumPaint.setTextSize(mTextSizeMonthNumber);
+            mMonthNumPaint.setTextAlign(Align.LEFT);
+            x = (int) cellLeft;
             canvas.drawText(mDayNumbers[i], x, y, mMonthNumPaint);
+            // Where the number ends, which is the left limit for the lunar text.
+            float numberEnd = cellLeft + mMonthNumPaint.measureText(mDayNumbers[i]);
             if (isBold) {
                 mMonthNumPaint.setFakeBoldText(isBold = false);
             }
 
+            // The lunar name for this day, if any.
+            ArrayList<String> lunarInfos = null;
             if (LunarUtils.showLunar(getContext())) {
-                // adjust the year and month
+                lunarInfos = new ArrayList<String>();
                 int year = time.getYear();
                 int month = time.getMonth();
                 int julianMondayDay = time.getDay();
@@ -654,7 +673,7 @@ public class MonthWeekEventsView extends SimpleWeekView {
                             month = 11;
                             year = year - 1;
                         }
-                    } else if (offsetDay < -6) {
+                    } else if (offsetDay < 0) {
                         month = month + 1;
                         if (month > 11) {
                             month = 0;
@@ -662,38 +681,55 @@ public class MonthWeekEventsView extends SimpleWeekView {
                         }
                     }
                 }
-
-                ArrayList<String> infos = new ArrayList<String>();
                 LunarUtils.get(getContext(), year, month, monthDay,
                         LunarUtils.FORMAT_LUNAR_SHORT | LunarUtils.FORMAT_MULTI_FESTIVAL, false,
-                        infos);
-                if (infos.size() > 0) {
-                    float originalTextSize = mMonthNumPaint.getTextSize();
-                    mMonthNumPaint.setTextSize(mTextSizeLunar);
-                    Resources res = getResources();
-                    int mOrientation = res.getConfiguration().orientation;
+                        lunarInfos);
+            }
 
-                    int num = 0;
-                    for (int index = 0; index < infos.size(); index++) {
-                        String info = infos.get(index);
-                        if (TextUtils.isEmpty(info)) continue;
+            // The number is drawn from the left, with the align switched to match.
+            //
+            // The paint is right aligned and the lunar text needs no alignment of the pair, so the
+            // number's left edge is simply the cell's left edge: set the align to LEFT and draw at x.
+            if (lunarInfos != null && !lunarInfos.isEmpty()) {
+                for (int index = 0; index < lunarInfos.size(); index++) {
+                    String info = lunarInfos.get(index);
+                    if (TextUtils.isEmpty(info)) continue;
 
-                        int infoX = 0;
-                        int infoY = 0;
-                        if (mOrientation == Configuration.ORIENTATION_LANDSCAPE) {
-                            infoX = x - mMonthNumHeight - mTopPaddingMonthNumber;
-                            infoY = y + (mMonthNumHeight + mLunarPaddingLunar) * num;
-                        } else {
-                            infoX = x;
-                            infoY = y + (mMonthNumHeight + mLunarPaddingLunar) * (num + 1);
-                        }
-                        canvas.drawText(info, infoX, infoY, mMonthNumPaint);
-                        num = num + 1;
+                    // A three character name - a festival such as "国庆节" - is wider than the room it
+                    // has, so it is set smaller. Measured in characters rather than in pixels because
+                    // the text size is scaled per screen density.
+                    float size = info.codePointCount(0, info.length()) > 2
+                            ? mTextSizeLunar * 0.75f
+                            : mTextSizeLunar;
+                    mMonthNumPaint.setTextSize(size);
+
+                    // Against the right edge of the cell, so the day reads as a number on the left and
+                    // its lunar name on the right.
+                    //
+                    // Right aligned rather than drawn at a computed x: the text's own width is then
+                    // the framework's business, and a name too wide for the cell is clipped from the
+                    // left rather than running over the next day's number.
+                    mMonthNumPaint.setTextAlign(Align.RIGHT);
+                    float lunarRight = cellRight - mSidePaddingMonthNumber;
+                    float available = lunarRight - numberEnd - 2f * mScale;
+                    if (available > 0f) {
+                        canvas.save();
+                        // One line only: the lunar text shares the number's baseline, so a second
+                        // entry would land on top of the first.
+                        //
+                        // The clip starts where the number ends, so a name too wide for the room left
+                        // is cut from its left rather than drawn over the number.
+                        canvas.clipRect(
+                                numberEnd, 0f, lunarRight, (float) getHeight()
+                        );
+                        canvas.drawText(info, lunarRight, y, mMonthNumPaint);
+                        canvas.restore();
                     }
-
-                    // restore the text size.
-                    mMonthNumPaint.setTextSize(originalTextSize);
+                    break;
                 }
+                // The size goes back to the number's: the paint is shared, and the next day's number
+                // would otherwise be drawn at the lunar size.
+                mMonthNumPaint.setTextSize(mTextSizeMonthNumber);
             }
         }
     }
@@ -1773,12 +1809,23 @@ public class MonthWeekEventsView extends SimpleWeekView {
     }
 
     public int getDayIndexFromLocation(float x) {
-        int dayStart = mPadding;
-        if (x < dayStart || x > mWidth - mPadding) {
+        // The same cell edges the drawing uses.
+        //
+        // This used to divide by (mWidth - mPadding) while the day numbers and the separators are
+        // drawn from computeDayLeftPosition, which knows nothing about mPadding. The two disagreed by
+        // a cell at the right hand side, so a day looked like it was in one column and answered as
+        // though it were in the next.
+        if (x < 0 || x > mWidth) {
             return -1;
         }
-        // Selection is (x - start) / (pixels/day) == (x -s) * day / pixels
-        return ((int) ((x - dayStart) * mNumDays / (mWidth - dayStart - mPadding)));
+        int index = (int) (x * mNumDays / mWidth);
+        if (index < 0) {
+            index = 0;
+        }
+        if (index >= mNumDays) {
+            index = mNumDays - 1;
+        }
+        return index;
     }
 
     @Override

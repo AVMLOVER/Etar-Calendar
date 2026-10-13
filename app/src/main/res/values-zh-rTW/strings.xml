@@ -40,6 +40,7 @@
     <string name="show_day_view" msgid="5782512782605466016">"顯示天"</string>
     <string name="agenda_view" msgid="5566084759423843245">"待辦事項"</string>
     <string name="day_view" msgid="4467754504843584437">"天"</string>
+    <string name="threeday_view">"三日"</string>
     <string name="week_view" msgid="6775043022159508060">"週"</string>
     <string name="month_view" msgid="7287101431749285412">"月"</string>
     <string name="event_view" msgid="7621353079385122317">檢視事件</string>
@@ -246,7 +247,7 @@
     <string name="duplicate_label">複製</string>
     <string name="goto_date">前往…</string>
     <string name="display_time">顯示時間</string>
-    <string name="view_settings">檢視設定</string>
+    <string name="view_settings">軟體設定</string>
     <string name="default_start_last">上次使用的檢視</string>
     <string name="preferences_days_per_week_title">每週天數</string>
     <string name="preferences_real_event_colors">使用實際的事件顏色</string>
@@ -361,4 +362,8 @@
     <string name="discard">捨棄</string>
     <string name="cal_export_success">活動已成功匯出</string>
     <string name="cal_export_error">未能匯出活動</string>
+    <string name="preferences_show_lunar_title">顯示農曆</string>
+    <string name="preferences_show_lunar_summary">在月檢視與週檢視中，於每天的日期下方顯示農曆日期與傳統節日</string>
+    <string name="cal_import_no_calendar">沒有可寫入的行事曆，請先在設定裡新增帳戶。</string>
+        <string name="cal_import_result">已匯入 %1$d 個行程，%2$d 個已存在，%3$d 個無法讀取。</string>
 </resources>

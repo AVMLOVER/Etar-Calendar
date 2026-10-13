@@ -44,7 +44,6 @@ import com.android.calendar.CalendarController.EventType;
 import com.android.calendar.CalendarEventModel;
 import com.android.calendar.Utils;
 import com.android.calendar.settings.GeneralPreferences;
-import com.android.calendar.settings.SettingsActivity;
 import com.android.calendar.calendarcommon2.Time;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -242,7 +241,11 @@ public class CreateEventDialogFragment extends DialogFragment implements TextWat
                     .setMessage(R.string.no_calendars_found)
                     .setPositiveButton(R.string.add_calendar, (dialog, which) -> {
                         if (activity != null) {
-                            Intent nextIntent = new Intent(activity, SettingsActivity.class);
+                            // Straight to the Material 3 calendars screen, which carries the
+                            // CalDAV / EteSync / offline actions.
+                            Intent nextIntent = new Intent(activity,
+                                    com.android.calendar.selectcalendars.compose
+                                            .ComposeCalendarsActivity.class);
                             activity.startActivity(nextIntent);
                         }
                     })

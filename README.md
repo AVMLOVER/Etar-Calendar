@@ -25,6 +25,18 @@ this app would be just a dream. So thanks to them!
 - Support sharing calendars via ICS and the ability to import/export from SD card.
 - Multilingual UI.
 
+## Germanium Mod Edition Features
+- Scrollable year view and three day view.
+- Date calcuator and high degree of Countdown customization.
+- Countdown and event collaboration.
+- Redesigned almost everything in Material 3 Expressive.
+- Countdown Widgets.
+- Lunar calendar integrate.
+- Redesigned agenda view and agenda adjunction.
+- Redirectable of dates&months in views.
+- ICS import fixes.
+- Predictable return on supported devices.
+
 ## How to use Etar
 Store your calendar on the phone only:
   - Create an offline calendar.

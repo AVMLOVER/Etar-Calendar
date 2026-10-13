@@ -2,12 +2,14 @@ package com.android.calendar;
 
 import android.content.Context;
 import android.os.Handler;
+import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.view.LayoutInflater;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import com.android.calendar.LunarUtils;
 import com.android.calendar.calendarcommon2.Time;
 
 import java.util.Formatter;
@@ -81,7 +83,7 @@ public class CalendarToolbarHandler {
     private void updateTitle() {
         switch (mCurrentViewType) {
             case CalendarController.ViewType.DAY:
-                mToolbar.setSubtitle(buildDayOfWeek());
+                mToolbar.setSubtitle(buildDayOfWeek(mCurrentViewType));
                 mToolbar.setTitle(buildFullDate());
                 break;
             case CalendarController.ViewType.WEEK:
@@ -97,7 +99,7 @@ public class CalendarToolbarHandler {
                 mToolbar.setTitle(buildMonthYearDate());
                 break;
             case CalendarController.ViewType.AGENDA:
-                mToolbar.setSubtitle(buildDayOfWeek());
+                mToolbar.setSubtitle(buildDayOfWeek(mCurrentViewType));
                 mToolbar.setTitle(buildFullDate());
                 break;
         }
@@ -119,7 +121,13 @@ public class CalendarToolbarHandler {
 
     // Builds a string with the day of the week and the word yesterday/today/tomorrow
     // before it if applicable.
-    private String buildDayOfWeek() {
+    /**
+     * The weekday line, with the lunar date appended when it is switched on.
+     *
+     * @param viewType the view asking, because the day view names the lunar month and the others do
+     *                 not - see the comment on the format choice below.
+     */
+    private String buildDayOfWeek(int viewType) {
 
         Time t = new Time(mTimeZone);
         t.set(mMilliTime);
@@ -142,6 +150,22 @@ public class CalendarToolbarHandler {
         } else {
             dayOfWeek = DateUtils.formatDateRange(mContext, mFormatter, mMilliTime, mMilliTime,
                     DateUtils.FORMAT_SHOW_WEEKDAY, mTimeZone).toString();
+        }
+        // Lunar date, when it is enabled, rides along on the same line as the weekday, e.g.
+        // "今天，星期一，正月初六". Time.month is 0-based, which is what LunarUtils expects.
+        //
+        // The day view names the lunar month; the other screens that share this line do not. The three
+        // day view draws its own lunar line per column, and the agenda is a list rather than a
+        // calendar page, so a bare day number is enough there.
+        if (LunarUtils.showLunar(mContext)) {
+            int lunarFormat = viewType == CalendarController.ViewType.DAY
+                    ? LunarUtils.FORMAT_LUNAR_MONTH_DAY | LunarUtils.FORMAT_ONE_FESTIVAL
+                    : LunarUtils.FORMAT_LUNAR_SHORT | LunarUtils.FORMAT_ONE_FESTIVAL;
+            String lunar = LunarUtils.get(mContext, t.getYear(), t.getMonth(), t.getDay(),
+                    lunarFormat, false, null);
+            if (!TextUtils.isEmpty(lunar)) {
+                dayOfWeek = dayOfWeek + "，" + lunar;
+            }
         }
         return dayOfWeek;
     }

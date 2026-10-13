@@ -412,20 +412,11 @@ public class SimpleWeekView extends View {
      * @param canvas The canvas to draw on
      */
     protected void drawBackground(Canvas canvas) {
-        if (mHasSelectedDay) {
-            p.setColor(mSelectedWeekBGColor);
-            p.setStyle(Style.FILL);
-        } else {
-            return;
-        }
-        r.top = 1;
-        r.bottom = mHeight - 1;
-        r.left = mPadding;
-        r.right = mSelectedLeft;
-        canvas.drawRect(r, p);
-        r.left = mSelectedRight;
-        r.right = mWidth - mPadding;
-        canvas.drawRect(r, p);
+        // The week containing the selected day used to be filled either side of it with
+        // colorSecondaryContainer. That is a purple-tinted container colour, so as the grid scrolled
+        // and the selected week moved, whole rows picked up a background that belonged to no other
+        // part of the screen and then lost it again. Selection is already legible from the selected
+        // day's own highlight, so nothing is painted here.
     }
 
     /**

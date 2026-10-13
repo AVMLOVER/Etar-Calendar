@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Drawer (hamburger) icon for the Compose toolbar.
+
+  Deliberately no android:tint here: the icon is loaded through Compose's painterResource, which
+  parses the vector itself rather than going through the View drawable path, and a theme-attribute
+  tint is not resolved the same way. Icon() tints it from the content colour instead.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M3,6h18v2h-18z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M3,11h18v2h-18z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M3,16h18v2h-18z" />
+</vector>

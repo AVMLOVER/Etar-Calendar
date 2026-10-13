@@ -23,6 +23,8 @@ import android.animation.ValueAnimator;
 import android.app.Service;
 import android.content.ContentResolver;
 import android.content.ContentUris;
+import com.google.android.material.color.DynamicColors;
+import com.google.android.material.color.MaterialColors;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
@@ -419,6 +421,12 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
     private static int DAY_HEADER_BOTTOM_MARGIN = 3;
     private static float DAY_HEADER_FONT_SIZE = 14;
     private static float DATE_HEADER_FONT_SIZE = 32;
+    /** Font size of the lunar-date line drawn on its own line under the weekday name. */
+    private static float LUNAR_HEADER_FONT_SIZE = 11;
+    /** Distance from the top of the day header to the first line's baseline. */
+    private static int DAY_HEADER_TOP_MARGIN = 4;
+    /** Gap between the stacked lines of the day header. */
+    private static int DAY_HEADER_LINE_GAP = 2;
     private static float NORMAL_FONT_SIZE = 12;
     private static float EVENT_TEXT_FONT_SIZE = 12;
     private static float HOURS_TEXT_SIZE = 12;
@@ -676,6 +684,7 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
 
         DATE_HEADER_FONT_SIZE = (int) mResources.getDimension(R.dimen.date_header_text_size);
         DAY_HEADER_FONT_SIZE = (int) mResources.getDimension(R.dimen.day_label_text_size);
+        LUNAR_HEADER_FONT_SIZE = Math.max(9f, DAY_HEADER_FONT_SIZE * 0.8f);
         ONE_DAY_HEADER_HEIGHT = (int) mResources.getDimension(R.dimen.one_day_header_height);
         DAY_HEADER_BOTTOM_MARGIN = (int) mResources.getDimension(R.dimen.day_header_bottom_margin);
         EXPAND_ALL_DAY_BOTTOM_MARGIN = (int) mResources.getDimension(R.dimen.all_day_bottom_margin);
@@ -759,7 +768,16 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         HOURS_MARGIN = HOURS_LEFT_MARGIN + HOURS_RIGHT_MARGIN;
         DAY_HEADER_HEIGHT = mNumDays == 1 ? ONE_DAY_HEADER_HEIGHT : MULTI_DAY_HEADER_HEIGHT;
         if (LunarUtils.showLunar(mContext) && mNumDays != 1) {
-            DAY_HEADER_HEIGHT = (int) (DAY_HEADER_HEIGHT + DAY_HEADER_FONT_SIZE + 2);
+            // Three stacked lines: date number / weekday / lunar date. The height is computed
+            // from the line metrics themselves, so the lines can never collide whatever the
+            // configured dimens are.
+            //
+            // The single-day view is deliberately excluded: it keeps its original one-line header
+            // and puts the lunar date after the weekday instead (see drawDayHeader).
+            DAY_HEADER_HEIGHT = (int) (DAY_HEADER_TOP_MARGIN
+                    + DATE_HEADER_FONT_SIZE + DAY_HEADER_LINE_GAP
+                    + DAY_HEADER_FONT_SIZE + DAY_HEADER_LINE_GAP
+                    + LUNAR_HEADER_FONT_SIZE + DAY_HEADER_BOTTOM_MARGIN);
         }
 
         mCurrentTimeLine = ResourcesCompat.getDrawable(mResources, R.drawable.timeline_indicator_holo_light, null);
@@ -2559,28 +2577,68 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         // Draw day of the month
         String dateNumStr = String.valueOf(dateNum);
         if (mNumDays > 1) {
-            float y = -1;
-            if (LunarUtils.showLunar(mContext)) {
-                y = DAY_HEADER_HEIGHT - DAY_HEADER_BOTTOM_MARGIN - DATE_HEADER_FONT_SIZE - 2;
-            } else {
-                y = DAY_HEADER_HEIGHT - DAY_HEADER_BOTTOM_MARGIN;
-            }
-            // Draw day of the month
+            final boolean showLunar = LunarUtils.showLunar(mContext);
+
             x = computeDayLeftPosition(day) + DAY_HEADER_RIGHT_MARGIN;
             p.setTextAlign(Align.LEFT);
-            p.setTextSize(DATE_HEADER_FONT_SIZE);
 
+            // With the lunar line enabled the three lines are laid out top-down starting at
+            // DAY_HEADER_TOP_MARGIN, so their baselines cannot collide. Without it the original
+            // bottom-anchored two-line layout is preserved.
+            float y = showLunar
+                    ? DAY_HEADER_TOP_MARGIN + DATE_HEADER_FONT_SIZE
+                    : DAY_HEADER_HEIGHT - DAY_HEADER_BOTTOM_MARGIN;
+
+            // Draw day of the month, on line 1
+            p.setTextSize(DATE_HEADER_FONT_SIZE);
             p.setTypeface(todayIndex == day ? mBold : Typeface.DEFAULT);
             p.setColor(todayIndex == day? mWeek_todayColor : color);
             canvas.drawText(dateNumStr, x, y, p);
 
-            // Draw day of the week
-            y -= DATE_HEADER_FONT_SIZE;
+            // Draw day of the week, on line 2
+            y += showLunar ? (DAY_HEADER_FONT_SIZE + DAY_HEADER_LINE_GAP) : -DATE_HEADER_FONT_SIZE;
             p.setTextSize(DAY_HEADER_FONT_SIZE);
             p.setTypeface(Typeface.DEFAULT);
             canvas.drawText(dayStr, x, y, p);
 
-            // To show the lunar info.
+            // To show the lunar info, on line 3
+            if (showLunar) {
+                // adjust the year and month
+                int month = mBaseDate.getMonth();
+                int year = mBaseDate.getYear();
+                if (dateNum > mMonthLength || dateNum < mFirstVisibleDate) {
+                    month = month + 1;
+                    if (month > 11) {
+                        month = 0;
+                        year = year + 1;
+                    }
+                }
+
+                String lunarInfo = LunarUtils.get(mContext, year, month, dateNum,
+                        LunarUtils.FORMAT_LUNAR_SHORT | LunarUtils.FORMAT_ONE_FESTIVAL,
+                        false, null);
+                if (!TextUtils.isEmpty(lunarInfo)) {
+                    y += LUNAR_HEADER_FONT_SIZE + DAY_HEADER_LINE_GAP;
+                    p.setTextSize(LUNAR_HEADER_FONT_SIZE);
+                    canvas.drawText(lunarInfo, x, y, p);
+                    p.setTextSize(DAY_HEADER_FONT_SIZE);
+                }
+            }
+        } else {
+            float y = ONE_DAY_HEADER_HEIGHT - DAY_HEADER_ONE_DAY_BOTTOM_MARGIN;
+            p.setTextAlign(Align.LEFT);
+
+
+            // Draw day of the week
+            x = computeDayLeftPosition(day) + DAY_HEADER_ONE_DAY_LEFT_MARGIN;
+            p.setTextSize(DAY_HEADER_FONT_SIZE);
+            p.setTypeface(Typeface.DEFAULT);
+            canvas.drawText(dayStr, x, y, p);
+            x += p.measureText(dayStr);
+
+            // The single-day header keeps everything on one line, so the lunar date goes right
+            // after the weekday - which already reads Today / Yesterday / Tomorrow for the
+            // adjacent days and the weekday name otherwise.
             if (LunarUtils.showLunar(mContext)) {
                 // adjust the year and month
                 int month = mBaseDate.getMonth();
@@ -2597,22 +2655,16 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
                         LunarUtils.FORMAT_LUNAR_SHORT | LunarUtils.FORMAT_ONE_FESTIVAL,
                         false, null);
                 if (!TextUtils.isEmpty(lunarInfo)) {
-                    canvas.drawText(lunarInfo, x, y + DAY_HEADER_FONT_SIZE + 2, p);
+                    x += DAY_HEADER_ONE_DAY_RIGHT_MARGIN;
+                    p.setTextSize(LUNAR_HEADER_FONT_SIZE);
+                    canvas.drawText(lunarInfo, x, y, p);
+                    x += p.measureText(lunarInfo);
+                    p.setTextSize(DAY_HEADER_FONT_SIZE);
                 }
             }
-        } else {
-            float y = ONE_DAY_HEADER_HEIGHT - DAY_HEADER_ONE_DAY_BOTTOM_MARGIN;
-            p.setTextAlign(Align.LEFT);
-
-
-            // Draw day of the week
-            x = computeDayLeftPosition(day) + DAY_HEADER_ONE_DAY_LEFT_MARGIN;
-            p.setTextSize(DAY_HEADER_FONT_SIZE);
-            p.setTypeface(Typeface.DEFAULT);
-            canvas.drawText(dayStr, x, y, p);
 
             // Draw day of the month
-            x += p.measureText(dayStr) + DAY_HEADER_ONE_DAY_RIGHT_MARGIN;
+            x += DAY_HEADER_ONE_DAY_RIGHT_MARGIN;
             p.setTextSize(DATE_HEADER_FONT_SIZE);
             p.setTypeface(todayIndex == day ? mBold : Typeface.DEFAULT);
             canvas.drawText(dateNumStr, x, y, p);
@@ -3511,6 +3563,68 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         setSelectedEvent(startEvent);
     }
 
+    /**
+
+     * Harmonises a per-calendar event colour with the current Material 3 primary colour, which
+
+     * under "monet" is derived from the user's wallpaper. Results are cached per colour and the
+
+     * cache is invalidated whenever the primary colour changes (that is, when the wallpaper or
+
+     * the light/dark mode changes). On devices without dynamic colour the colour is returned
+
+     * unchanged so the classic per-calendar palette is preserved.
+
+     */
+
+    private int harmonizeEventColor(int color) {
+
+        if (!DynamicColors.isDynamicColorAvailable()) {
+
+            return color;
+
+        }
+
+        final int primary = MaterialColors.getColor(this, androidx.appcompat.R.attr.colorPrimary, 0);
+
+        if (primary == 0) {
+
+            return color;
+
+        }
+
+        if (primary != mHarmonizedPrimary) {
+
+            mHarmonizedPrimary = primary;
+
+            mHarmonizedColors.clear();
+
+        }
+
+        final int index = mHarmonizedColors.indexOfKey(color);
+
+        if (index >= 0) {
+
+            return mHarmonizedColors.valueAt(index);
+
+        }
+
+        final int harmonized = MaterialColors.harmonize(color, primary);
+
+        mHarmonizedColors.put(color, harmonized);
+
+        return harmonized;
+
+    }
+
+    
+
+    private int mHarmonizedPrimary = 0;
+
+    private final android.util.SparseIntArray mHarmonizedColors = new android.util.SparseIntArray();
+
+    
+
     private void drawEventRect(Event event, Canvas canvas, Paint p, int visibleLeft, int visibleTop,
             int visibleRight, int visibleBot) {
         // Draw the Event Rect
@@ -3524,7 +3638,9 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         if (event == mClickedEvent) {
                 color = mClickedColor;
         } else {
-            color = event.color;
+            // Pull the per-calendar colour towards the wallpaper-derived primary ("monet") so
+            // event blocks follow the dynamic palette while staying distinguishable per calendar.
+            color = harmonizeEventColor(event.color);
         }
 
         switch (event.selfAttendeeStatus) {
@@ -4430,8 +4546,29 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         }
     }
 
-    public void onCreateContextMenu(ContextMenu menu, View view, ContextMenuInfo menuInfo) {
-        MenuItem item;
+    /**
+     * Lets the host take over deleting an event that was long-pressed in the day view.
+     *
+     * There is one delete confirmation, and it lives with the agenda: it knows about a paired
+     * countdown and offers to remove it too. The day view is a View, so it cannot show a Compose
+     * dialog itself; routing the request up keeps one dialog rather than two that can drift.
+     */
+    public interface OnEventDeleteRequested {
+        /**
+         * @return true when the host has taken the request; false to let the day view delete
+         *         directly, which is what happens with no listener installed.
+         */
+        boolean onEventDeleteRequested(long eventId, String title);
+    }
+
+    private static OnEventDeleteRequested eventDeleteListener;
+
+    /** Installed by the host activity; see {@link OnEventDeleteRequested}. */
+    public static void setEventDeleteListener(OnEventDeleteRequested listener) {
+        eventDeleteListener = listener;
+    }
+
+    public void onCreateContextMenu(ContextMenu menu, View view, ContextMenuInfo menuInfo) {        MenuItem item;
 
         // If the trackball is held down, then the context menu pops up and
         // we never get onKeyUp() for the long-press. So check for it here
@@ -4452,13 +4589,10 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         if (mNumDays == 1) {
             // Day view.
 
-            // If there is a selected event, then allow it to be viewed and
-            // edited.
+            // A long press on an event offers the two things you would want to do to it: change it,
+            // or remove it. "View" is redundant - a tap already opens the event - and "New event" is
+            // not about the event that was pressed at all, so both are left out.
             if (numSelectedEvents >= 1) {
-                item = menu.add(0, MENU_EVENT_VIEW, 0, R.string.event_view);
-                item.setOnMenuItemClickListener(mContextMenuHandler);
-                item.setIcon(android.R.drawable.ic_menu_info_details);
-
                 int accessLevel = getEventAccessLevel(mContext, mSelectedEvent);
                 if (accessLevel == ACCESS_LEVEL_EDIT) {
                     item = menu.add(0, MENU_EVENT_EDIT, 0, R.string.event_edit);
@@ -4472,11 +4606,6 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
                     item.setOnMenuItemClickListener(mContextMenuHandler);
                     item.setIcon(android.R.drawable.ic_menu_delete);
                 }
-
-                item = menu.add(0, MENU_EVENT_CREATE, 0, R.string.event_create);
-                item.setOnMenuItemClickListener(mContextMenuHandler);
-                item.setIcon(android.R.drawable.ic_menu_add);
-                item.setAlphabeticShortcut('n');
             } else {
                 // Otherwise, if the user long-pressed on a blank hour, allow
                 // them to create an event. They can also do this by tapping.
@@ -4564,11 +4693,25 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
                 case MENU_EVENT_DELETE: {
                     if (mSelectedEvent != null) {
                         Event selectedEvent = mSelectedEvent;
-                        long begin = selectedEvent.startMillis;
-                        long end = selectedEvent.endMillis;
-                        long id = selectedEvent.id;
-                        mController.sendEventRelatedEvent(this, EventType.DELETE_EVENT, id, begin,
-                                end, 0, 0, -1);
+                        // The confirmation opens as its own screen.
+                        //
+                        // It is the same dialog the agenda and the countdown list show, but reached
+                        // through an Activity rather than called from here: a composable cannot be
+                        // invoked from Java without passing its synthetic composer parameter, and a
+                        // second implementation of this question is exactly what should not exist.
+                        android.content.Intent confirm = new android.content.Intent(
+                                mContext,
+                                com.android.calendar.event.compose.ComposeEventDeleteActivity.class);
+                        confirm.putExtra(
+                                com.android.calendar.event.compose.ComposeEventDeleteActivity
+                                        .EXTRA_EVENT_ID,
+                                selectedEvent.id);
+                        confirm.putExtra(
+                                com.android.calendar.event.compose.ComposeEventDeleteActivity
+                                        .EXTRA_EVENT_TITLE,
+                                selectedEvent.title == null
+                                        ? null : selectedEvent.title.toString());
+                        mContext.startActivity(confirm);
                     }
                     break;
                 }

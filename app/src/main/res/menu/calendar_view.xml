@@ -6,6 +6,13 @@
             android:checked="true"
             android:icon="@drawable/outline_calendar_view_day"
             android:title="@string/day_view" />
+        <!-- Three day sits between Day and Week, matching the order Google Calendar uses. It is a
+             standalone screen like the year view, so the handler restores this item's checked
+             state when one of the three day blocks is on screen. -->
+        <item
+            android:id="@+id/threeday_menu_item"
+            android:icon="@drawable/outline_calendar_view_threeday"
+            android:title="@string/threeday_view" />
         <item
             android:id="@+id/week_menu_item"
             android:icon="@drawable/outline_calendar_view_week"
@@ -15,13 +22,36 @@
             android:icon="@drawable/outline_calendar_view_month"
             android:title="@string/month_view" />
 
+        <!-- Sits between Month and Agenda. It opens its own screen rather than switching the
+             view of the hosting activity, so the handler restores this item's checked state. -->
+        <item
+            android:id="@+id/year_menu_item"
+            android:icon="@drawable/outline_year_view"
+            android:title="@string/m3e_year_view" />
+
         <item
             android:id="@+id/agenda_menu_item"
             android:icon="@drawable/outline_view_agenda"
             android:title="@string/agenda_view" />
 
     </group>
+    <group android:id="@+id/navigation_tools" android:checkableBehavior="single">
+        <item
+            android:id="@+id/action_date_calculator"
+            android:icon="@drawable/outline_date_calculator"
+            android:title="@string/m3e_date_calculator_title" />
+        <!-- Sits directly under the date calculator: both are tools rather than calendar views, and
+             the group is single choice so whichever is open shows as the current screen. -->
+        <item
+            android:id="@+id/action_countdown"
+            android:icon="@drawable/outline_countdown"
+            android:title="@string/m3e_countdown_title" />
+    </group>
+
     <group android:id="@+id/navigation_subheader" android:checkableBehavior="none">
+        <!-- The date calculator gets its own single-choice group so it can show as the
+             current screen; it must not share the view group above. -->
+
         <item
             android:id="@+id/action_settings"
             android:alphabeticShortcut="s"

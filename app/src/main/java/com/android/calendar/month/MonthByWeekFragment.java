@@ -71,11 +71,23 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
     private static final String WHERE_CALENDARS_VISIBLE = Calendars.VISIBLE + "=1";
     private static final String INSTANCES_SORT_ORDER = Instances.START_DAY + ","
             + Instances.START_MINUTE + "," + Instances.TITLE;
-    private static final int WEEKS_BUFFER = 1;
+    /**
+     * Weeks loaded either side of the visible ones.
+     *
+     * One week was not enough to keep ahead of a fling: the scroll reached the end of the loaded
+     * range before the next query came back, and the days past it drew without their events.
+     */
+    private static final int WEEKS_BUFFER = 2;
     // How long to wait after scroll stops before starting the loader
     // Using scroll duration because scroll state changes don't update
     // correctly when a scroll is triggered programmatically.
-    private static final int LOADER_DELAY = 200;
+    /**
+     * How long to wait after the scroll settles before querying.
+     *
+     * This delay is what made the events appear a moment after the scroll; it is there to batch a
+     * burst of scroll callbacks, which 50ms does just as well as 200ms.
+     */
+    private static final int LOADER_DELAY = 50;
     // The minimum time between requeries of the data if the db is
     // changing
     private static final int LOADER_THROTTLE_DELAY = 500;
@@ -421,21 +433,56 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
         return EventType.GO_TO | EventType.EVENTS_CHANGED;
     }
 
+    /**
+     * True when the time falls in the month this fragment is showing.
+     *
+     * The grid draws whole weeks, so its first and last rows hold days of the neighbouring
+     * months. Those are the days this is asked about.
+     */
+    private boolean isInCurrentMonth(Time time) {
+        if (time == null || mSelectedDay == null) {
+            return true;
+        }
+        // Compared through a Time of its own: mSelectedDay is the day the screen is on, which
+        // is what defines the month being shown.
+        // Compared through the accessors: Time's fields are private.
+        return time.getYear() == mSelectedDay.getYear()
+                && time.getMonth() == mSelectedDay.getMonth();
+    }
+
     @Override
     public void handleEvent(EventInfo event) {
         if (event.eventType == EventType.GO_TO) {
-            boolean animate = true;
-            if (mDaysPerWeek * mNumWeeks * 2 < Math.abs(
-                    Time.getJulianDay(event.selectedTime.toMillis(), event.selectedTime.getGmtOffset())
-                    - Time.getJulianDay(mFirstVisibleDay.toMillis(), mFirstVisibleDay.getGmtOffset())
-                    - mDaysPerWeek * mNumWeeks / 2)) {
-                animate = false;
-            }
             mDesiredDay.set(event.selectedTime);
             mDesiredDay.normalize();
+
+            // A day tapped in the leading or trailing days of the grid belongs to the month before or
+            // after the one on screen.
+            //
+            // Scrolling to it moved the whole page onto that month, so tapping the tail of the grid
+            // looked like the calendar had jumped on its own. The day is still selected - that is what
+            // the tap asked for - but the month stays where it is.
+            // The today button is the exception: it exists to move the calendar, and today is
+            // usually in another month, so holding the view still would make it do nothing.
+            boolean gotoToday = (event.extraLong & CalendarController.EXTRA_GOTO_TODAY) != 0;
+            if (!gotoToday && !isInCurrentMonth(event.selectedTime)) {
+                mSelectedDay.set(event.selectedTime);
+                mSelectedDay.normalize();
+                mAdapter.notifyDataSetChanged();
+                return;
+            }
+
+            // The animation is off only when the week we are going to is already on screen: that
+            // would play a scroll with nowhere to go. The calendar re-reads its current period on
+            // resume, which lands here, and that must stay silent.
+            //
+            // It used to be switched off whenever the destination was more than about a screen away
+            // too - the list was hard-jumped to a nearby position and eased from there, which reads
+            // as a jump rather than a movement. That is exactly what the Today button hits whenever
+            // the user is not already near the current month.
+            boolean animate = !isWeekVisible(event.selectedTime.toMillis());
             boolean animateToday = (event.extraLong & CalendarController.EXTRA_GOTO_TODAY) != 0;
-            boolean delayAnimation = goTo(event.selectedTime.toMillis(), animate, true, false);
-            if (animateToday) {
+            boolean delayAnimation = goTo(event.selectedTime.toMillis(), animate, true, false);            if (animate && animateToday) {
                 // If we need to flash today start the animation after any
                 // movement from listView has ended.
                 mHandler.postDelayed(new Runnable() {
@@ -487,7 +534,16 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
         synchronized (mUpdateLoader) {
             if (scrollState != OnScrollListener.SCROLL_STATE_IDLE) {
                 mShouldLoad = false;
-                stopLoader();
+                // A load already in flight is left to finish while the fling runs.
+                //
+                // It used to be cancelled for every kind of scrolling, so a fling into unloaded
+                // days threw away the query that would have filled them and started another one
+                // only after the scroll stopped - which is why the events arrived a beat late.
+                // While the finger is down the cancellation is still wanted: that scroll is the
+                // user changing their mind about where to go.
+                if (scrollState == OnScrollListener.SCROLL_STATE_TOUCH_SCROLL) {
+                    stopLoader();
+                }
                 mDesiredDay.set(System.currentTimeMillis());
             } else {
                 mHandler.removeCallbacks(mUpdateLoader);

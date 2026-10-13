@@ -39,9 +39,9 @@ import android.provider.CalendarContract.Events;
 import android.util.Log;
 import android.util.Pair;
 
-import com.android.calendar.event.EditEventActivity;
+import com.android.calendar.event.compose.ComposeEventEditorActivity;
 import com.android.calendar.settings.GeneralPreferences;
-import com.android.calendar.settings.SettingsActivity;
+import com.android.calendar.settings.compose.ComposeSettingsActivity;
 import com.android.calendar.calendarcommon2.Time;
 
 import java.lang.ref.WeakReference;
@@ -550,7 +550,8 @@ public class CalendarController {
 
     private void launchSettings() {
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setClass(mContext, SettingsActivity.class);
+        // The Material 3 Expressive Compose settings screen is the primary entry point now.
+        intent.setClass(mContext, ComposeSettingsActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         mContext.startActivity(intent);
     }
@@ -566,7 +567,9 @@ public class CalendarController {
     public Intent generateCreateEventIntent(long startMillis, long endMillis,
                                             boolean allDayEvent, String title, long calendarId) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setClass(mContext, EditEventActivity.class);
+        // The Material 3 Expressive editor handles a new event as well as an existing one: with no
+        // event id it builds the model from these extras.
+        intent.setClass(mContext, com.android.calendar.event.compose.ComposeEventEditorActivity.class);
         intent.putExtra(EXTRA_EVENT_BEGIN_TIME, startMillis);
         intent.putExtra(EXTRA_EVENT_END_TIME, endMillis);
         intent.putExtra(EXTRA_EVENT_ALL_DAY, allDayEvent);
@@ -592,7 +595,10 @@ public class CalendarController {
         Intent intent = new Intent(Intent.ACTION_EDIT, uri);
         intent.putExtra(EXTRA_EVENT_BEGIN_TIME, startMillis);
         intent.putExtra(EXTRA_EVENT_END_TIME, endMillis);
-        intent.setClass(mContext, EditEventActivity.class);
+        intent.setClass(mContext, com.android.calendar.event.compose.ComposeEventEditorActivity.class);
+        // The Material 3 editor edits the series as a whole, which is what "edit" from the calendar
+        // has always meant here.
+        intent.putExtra(ComposeEventEditorActivity.EXTRA_EVENT_ID, eventId);
         intent.putExtra(EVENT_EDIT_ON_LAUNCH, edit);
         mEventId = eventId;
         mContext.startActivity(intent);

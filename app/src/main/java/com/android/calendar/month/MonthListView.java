@@ -43,7 +43,14 @@ public class MonthListView extends ListView {
     private static int MULTIPLE_MONTH_VELOCITY_THRESHOLD = 2000;
     private static int FLING_VELOCITY_DIVIDER = 500;
     private static int FLING_TIME = 1000;
-    private static int LEFT_RIGHT_DISTANCE = 150;
+    /**
+     * How far sideways a drag has to go before it counts as a month swipe.
+     *
+     * In density independent pixels, and scaled with the rest of these in init(): the value is
+     * compared against raw touch coordinates, so as a bare 150 it demanded about 55dp on a modern
+     * display and the swipe felt like it hardly ever registered.
+     */
+    private static int LEFT_RIGHT_DISTANCE = 80;
     private static double LEFT_RIGHT_RATIO = 1.25;
 
     // disposable variable used for time calculations
@@ -82,6 +89,13 @@ public class MonthListView extends ListView {
 
     private void init(Context c) {
         mListContext = c;
+        // No overscroll bounce.
+        //
+        // The grid is bounded - the adapter covers 1970 to 2037 - so at either end the list used to
+        // rubber-band past its own edge. Scrolled up that drags the weeks over the status bar, which
+        // is not something a calendar should do; a clean stop at the boundary is what the content
+        // actually is.
+        setOverScrollMode(OVER_SCROLL_NEVER);
         mTracker  = VelocityTracker.obtain();
         mTempTime = new Time(Utils.getTimeZone(c,mTimezoneUpdater));
         if (mScale == 0) {
@@ -90,6 +104,7 @@ public class MonthListView extends ListView {
                 MIN_VELOCITY_FOR_FLING *= mScale;
                 MULTIPLE_MONTH_VELOCITY_THRESHOLD *= mScale;
                 FLING_VELOCITY_DIVIDER *= mScale;
+                LEFT_RIGHT_DISTANCE *= mScale;
             }
         }
     }
@@ -97,6 +112,22 @@ public class MonthListView extends ListView {
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
         return processEvent(ev) || super.onTouchEvent(ev);
+    }
+
+    /**
+     * Stops the grid being dragged past its own first row.
+     *
+     * overscroll mode is not enough on its own: the custom fling below drives the list with
+     * smoothScrollBy, and a negative offset there scrolls past the top regardless of the mode - which
+     * is what pulled the weeks up over the status bar. A calendar has nothing above its first row, so
+     * the position is clamped instead.
+     */
+    @Override
+    public void onOverScrolled(int scrollX, int scrollY, boolean clampedX, boolean clampedY) {
+        super.onOverScrolled(scrollX, scrollY, clampedX, clampedY);
+        if (scrollY < 0) {
+            setSelectionFromTop(0, 0);
+        }
     }
 
     @Override
@@ -216,22 +247,41 @@ public class MonthListView extends ListView {
 
         // Get the day at the top right corner
         int day = getUpperRightJulianDay();
-        // Get the day of the first day of the next/previous month
-        // (according to scroll direction) and make sure we're crossing
-        // the boundry.
+        if (day < 0) {
+            return;
+        }
+
+        // Target: the first day of the month one step away.
+        //
+        // Done with Calendar rather than by adding to Time.getMonth(): that value is zero based, so
+        // adding one to December (11) gives 12, and normalize() then rolls the *year* forward while
+        // the month it lands on is January of the year after what the caller asked for. Stepping from
+        // December therefore used to land two years on, and the same arithmetic drifted for any other
+        // month boundary.
         mTempTime.setJulianDay(day + 6);
+        java.util.Calendar target = java.util.Calendar.getInstance(
+                java.util.TimeZone.getTimeZone(mTempTime.getTimezone()));
+        target.clear();
+        target.set(mTempTime.getYear(), mTempTime.getMonth(), 1);
+        target.add(java.util.Calendar.MONTH, monthsToJump);
+
+        mTempTime.set(target.getTimeInMillis());
         mTempTime.setDay(1);
-        mTempTime.setMonth(mTempTime.getMonth() + monthsToJump);
-        long timeInMillis = mTempTime.normalize();
+        mTempTime.normalize();
+        // The day of the first of that month, plus its hour, so the comparison below sits on the same
+        // footing as the "day" it is subtracted from.
+        int targetJulianDay = Time.getJulianDay(mTempTime.toMillis(), mTempTime.getGmtOffset());
         // Since each view is 7 days, round the target day up to make sure the
         // scroll will be  at least one view.
-        int scrollToDay = Time.getJulianDay(timeInMillis, mTempTime.getGmtOffset())
-                + ((monthsToJump > 0) ? 6 : 0);
+        int scrollToDay = targetJulianDay + ((monthsToJump > 0) ? 6 : 0);
 
         // Since all views have the same height, scroll by pixels instead of
         // "to position".
         // Compensate for the top view offset from the top.
         View firstView = getChildAt(0);
+        if (firstView == null || firstView.getHeight() == 0) {
+            return;
+        }
         int firstViewHeight = firstView.getHeight();
         // Get visible part length
         firstView.getLocalVisibleRect(mFirstViewRect);

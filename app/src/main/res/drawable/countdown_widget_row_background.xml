@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Countdown widget row outline.
+
+The row's colour is set at runtime, and a runtime colour is drawn as a plain rectangle - it ignores
+this drawable's corners. What this supplies is the *outline*: with clipToOutline on the row, the
+runtime colour is clipped to these corners. Concentric with the widget's own 24dp, less the outer
+padding.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#00000000" />
+    <corners android:radius="14dp" />
+</shape>

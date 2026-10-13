@@ -24,10 +24,6 @@
             app:entryValues="@array/pref_theme_values"
             app:defaultValue="@string/pref_theme_default" />
         <SwitchPreference
-            app:key="pref_pure_black_night_mode"
-            app:defaultValue="false"
-            app:title="@string/preferences_pure_black_night_mode" />
-        <SwitchPreference
             app:key="pref_real_event_colors"
             app:defaultValue="false"
             app:title="@string/preferences_real_event_colors" />
@@ -54,6 +50,10 @@
             app:key="preferences_show_week_num"
             app:defaultValue="false"
             app:title="@string/preferences_show_week_num_title" />
+        <SwitchPreference
+            app:key="pref_show_lunar"
+            app:title="@string/preferences_show_lunar_title"
+            app:summary="@string/preferences_show_lunar_summary" />
         <ListPreference
             app:key="preferences_week_start_day"
             app:defaultValue="@string/preferences_week_start_day_default"

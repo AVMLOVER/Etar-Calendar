@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+One countdown, 2x2: name, then the number large, then the date and weekday.
+
+The colour is a bitmap in the ImageView rather than a background colour on the row. A colour set at
+runtime is painted as a plain rectangle - it ignores the corners of a background drawable, and
+RemoteViews cannot hand it a rounded shape - so the rounded corners have to be drawn into a bitmap
+and placed behind the content.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/countdown_row_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/countdown_row_fill"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="10dp">
+
+        <TextView
+            android:id="@+id/countdown_row_name_heading"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/countdown_row_value"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:maxLines="1"
+            android:textSize="44sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/countdown_row_unit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/countdown_row_date"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:maxLines="1"
+            android:textSize="11sp" />
+    </LinearLayout>
+</FrameLayout>

@@ -4,15 +4,15 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- *     Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *     Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *     Neither the name of The Linux Foundation nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
  * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
@@ -31,15 +31,25 @@ package com.android.calendar;
 
 import android.content.AsyncTaskLoader;
 import android.content.Context;
-import android.database.Cursor;
-import android.net.Uri;
 import android.text.TextUtils;
 import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Locale;
 
+/**
+ * Lunar (农历) information for a given day.
+ *
+ * <p>Originally this class only read its data from the Qualcomm vendor provider
+ * {@code content://com.qualcomm.qti.lunarinfo/...}, so it produced nothing at all on any device
+ * that does not ship that provider — which is nearly all of them, including every
+ * LineageOS/AOSP build. The data source has therefore been replaced by the built-in
+ * {@link LunarCalendar}, which computes the Chinese lunisolar date locally from a compact
+ * table covering 1900-2100.
+ *
+ * <p>The public API is unchanged so that the month view ({@code MonthWeekEventsView}) and the
+ * week/day view ({@code DayView}) keep working without modification.
+ */
 public class LunarUtils {
     private static final String TAG = "LunarUtils";
 
@@ -50,20 +60,47 @@ public class LunarUtils {
     public static final int FORMAT_MULTI_FESTIVAL = 0x00008;
     public static final int FORMAT_ANIMAL = 0x00010;
 
+    /**
+     * Month and day, without the year: {@code 正月初一}, {@code 冬月廿一}, {@code 腊月廿二}.
+     *
+     * FORMAT_LUNAR_SHORT drops the month on every day but the 1st, so a date line reads as a bare
+     * "二十" wherever the month is not otherwise shown. FORMAT_LUNAR_LONG carries the year too, which
+     * is more than a heading needs. This is the middle ground, and it is what the day view uses.
+     */
+    public static final int FORMAT_LUNAR_MONTH_DAY = 0x00020;
+
+    /** Settings key backing the "show lunar date" switch in General preferences. */
+    public static final String PREF_SHOW_LUNAR = "pref_show_lunar";
+
+    /**
+     * Default of {@link #PREF_SHOW_LUNAR}: on in Chinese-script locales, off everywhere else.
+     *
+     * The lunar line is only meaningful to readers of Chinese, and it is also what drives the
+     * year view's 初一 underlines, so non-Chinese locales start with both switched off.
+     * Traditional Chinese counts as Chinese here.
+     */
+    public static boolean defaultShowLunar() {
+        return "zh".equals(java.util.Locale.getDefault().getLanguage());
+    }
+
     private static final String INFO_SEPARATE = " ";
     private static final String MORE_FESTIVAL_SUFFIX = "*";
+
+    /** Upper bound of the on-demand cache; cleared wholesale when it grows past this. */
+    private static final int MAX_CACHE_ENTRIES = 2048;
 
     private static HashMap<String, LunarInfo> sLunarInfos = new HashMap<String, LunarInfo>();
 
     /**
-     * If need show the lunar info now. As default, it will need shown if the current
-     * language is zh-cn.
+     * Whether the lunar info should be drawn. Controlled by the "show lunar date" switch in
+     * General preferences. It used to be hard-wired to the zh-CN locale, which is the other
+     * reason the feature never appeared.
      */
     public static boolean showLunar(Context context) {
-        Locale locale = Locale.getDefault();
-        String language = locale.getLanguage().toLowerCase();
-        String country = locale.getCountry().toLowerCase();
-        return ("zh".equals(language) && "cn".equals(country));
+        if (context == null) {
+            return false;
+        }
+        return Utils.getSharedPreference(context, PREF_SHOW_LUNAR, defaultShowLunar());
     }
 
     /**
@@ -75,9 +112,12 @@ public class LunarUtils {
     }
 
     /**
-     * Used to get the lunar, festival and animal info of the date. Before you call this
-     * function to get the info, you need make sure already load the info by calling
-     * {@link LunarInfoLoader#load} to pre-load them.
+     * Used to get the lunar, festival and animal info of the date.
+     *
+     * <p>The value is computed on demand and cached, so there is no longer any need to pre-load
+     * a date range first.
+     *
+     * @param month Gregorian month, <b>0-based</b>, as returned by {@code android.text.format.Time}.
      * @param format Format which info need append to the result.
      *     The format {@link #FORMAT_LUNAR_LONG} and {@link #FORMAT_LUNAR_SHORT},
      *     {@link #FORMAT_ONE_FESTIVAL} and {@link #FORMAT_MULTI_FESTIVAL} could not
@@ -91,22 +131,46 @@ public class LunarUtils {
             boolean showLunarBeforeFestival, ArrayList<String> result) {
         if (context == null || format < FORMAT_LUNAR_LONG) return null;
 
-        String res = null;
-
-        // Try to find the matched lunar info from the hash map.
         String key = getKey(year, month, day);
         LunarInfo info = sLunarInfos.get(key);
-        if (info != null) {
-            res = buildInfo(info, format, showLunarBeforeFestival, result);
-        } else {
-            Log.d(TAG, "Couldn't get the lunar info for " + key);
+        if (info == null) {
+            info = buildLocalInfo(year, month, day);
+            if (info == null) {
+                Log.d(TAG, "Couldn't get the lunar info for " + key);
+                return null;
+            }
+            if (sLunarInfos.size() >= MAX_CACHE_ENTRIES) {
+                sLunarInfos.clear();
+            }
+            sLunarInfos.put(key, info);
         }
 
-        return res;
+        return buildInfo(info, format, showLunarBeforeFestival, result);
     }
 
     private static String getKey(int year, int month, int day) {
         return year + "-" + month + "-" + day;
+    }
+
+    /** Computes the lunar info locally. Returns null when the date is outside 1900-2100. */
+    private static LunarInfo buildLocalInfo(int year, int month, int day) {
+        LunarCalendar.Lunar lunar = LunarCalendar.fromSolar(year, month, day);
+        if (lunar == null) {
+            return null;
+        }
+
+        LunarInfo info = new LunarInfo();
+        info._label_short = LunarCalendar.shortLabel(lunar);
+        info._label_long = LunarCalendar.longLabel(lunar);
+        info._label_month_day = LunarCalendar.monthDayLabel(lunar);
+        info._animal = LunarCalendar.animal(lunar.year);
+
+        String[] festivals = LunarCalendar.festivals(year, month, day, lunar, 4);
+        info._festival1 = festivals.length > 0 ? festivals[0] : null;
+        info._festival2 = festivals.length > 1 ? festivals[1] : null;
+        info._festival3 = festivals.length > 2 ? festivals[2] : null;
+        info._festival4 = festivals.length > 3 ? festivals[3] : null;
+        return info;
     }
 
     private static String buildInfo(LunarInfo info, int format, boolean showLunarBeforeFestival,
@@ -119,6 +183,8 @@ public class LunarUtils {
             // The format should not support long and short at one time.
             if ((format & FORMAT_LUNAR_LONG) == FORMAT_LUNAR_LONG) {
                 appendInfo(result, info._label_long, list);
+            } else if ((format & FORMAT_LUNAR_MONTH_DAY) == FORMAT_LUNAR_MONTH_DAY) {
+                appendInfo(result, info._label_month_day, list);
             } else if ((format & FORMAT_LUNAR_SHORT) == FORMAT_LUNAR_SHORT) {
                 appendInfo(result, info._label_short, list);
             }
@@ -154,51 +220,12 @@ public class LunarUtils {
         if (list != null) list.add(info);
     }
 
+    /**
+     * Kept for API compatibility with {@code CalendarViewAdapter}. Pre-loading is no longer
+     * needed because {@link #get} computes and caches on demand, so the background work is a
+     * no-op. It no longer touches the Qualcomm content provider.
+     */
     public static class LunarInfoLoader extends AsyncTaskLoader<Void> {
-        private static final Uri CONTENT_URI_GET_ONE_DAY =
-                Uri.parse("content://com.qualcomm.qti.lunarinfo/one_day");
-        private static final Uri CONTENT_URI_GET_ONE_MONTH =
-                Uri.parse("content://com.qualcomm.qti.lunarinfo/one_month");
-        private static final Uri CONTENT_URI_GET_FROM_TO =
-                Uri.parse("content://com.qualcomm.qti.lunarinfo/from_to");
-
-        // The query parameters used to get lunar info.
-        private static final String PARAM_YEAR = "year";
-        private static final String PARAM_MONTH = "month";
-        private static final String PARAM_DAY = "day";
-        private static final String PARAM_FROM_YEAR = "from_year";
-        private static final String PARAM_FROM_MONTH = "from_month";
-        private static final String PARAM_FROM_DAY = "from_day";
-        private static final String PARAM_TO_YEAR = "to_year";
-        private static final String PARAM_TO_MONTH = "to_month";
-        private static final String PARAM_TO_DAY = "to_day";
-
-        // The columns for result.
-        private static final String COL_ID = "_id";
-        private static final String COL_YEAR = "year";
-        private static final String COL_MONTH = "month";
-        private static final String COL_DAY = "day";
-        private static final String COL_LUNAR_LABEL_LONG = "lunar_label_long";
-        private static final String COL_LUNAR_LABEL_SHORT = "lunar_label_short";
-        private static final String COL_ANIMAL = "animal";
-        private static final String COL_FESTIVAL_1 = "festival_1";
-        private static final String COL_FESTIVAL_2 = "festival_2";
-        private static final String COL_FESTIVAL_3 = "festival_3";
-        private static final String COL_FESTIVAL_4 = "festival_4";
-
-        private static int sIndexId = -1;
-        private static int sIndexYear = -1;
-        private static int sIndexMonth = -1;
-        private static int sIndexDay = -1;
-        private static int sIndexLunarLabelLong = -1;
-        private static int sIndexLunarLabelShort = -1;
-        private static int sIndexAnimal = -1;
-        private static int sIndexFestival1 = -1;
-        private static int sIndexFestival2 = -1;
-        private static int sIndexFestival3 = -1;
-        private static int sIndexFestival4 = -1;
-
-        private Uri mUri;
 
         public LunarInfoLoader(Context context) {
             super(context);
@@ -206,23 +233,12 @@ public class LunarUtils {
 
         public void load(int year, int month, int day) {
             reset();
-            // Build the query uri.
-            mUri = CONTENT_URI_GET_ONE_DAY.buildUpon()
-                    .appendQueryParameter(PARAM_YEAR, String.valueOf(year))
-                    .appendQueryParameter(PARAM_MONTH, String.valueOf(month))
-                    .appendQueryParameter(PARAM_DAY, String.valueOf(day))
-                    .build();
             startLoading();
             forceLoad();
         }
 
         public void load(int year, int month) {
             reset();
-            // Build the query uri.
-            mUri = CONTENT_URI_GET_ONE_MONTH.buildUpon()
-                    .appendQueryParameter(PARAM_YEAR, String.valueOf(year))
-                    .appendQueryParameter(PARAM_MONTH, String.valueOf(month))
-                    .build();
             startLoading();
             forceLoad();
         }
@@ -230,72 +246,20 @@ public class LunarUtils {
         public void load(int from_year, int from_month, int from_day,
                 int to_year, int to_month, int to_day) {
             reset();
-            // Build the query uri.
-            mUri = CONTENT_URI_GET_FROM_TO.buildUpon()
-                    .appendQueryParameter(PARAM_FROM_YEAR, String.valueOf(from_year))
-                    .appendQueryParameter(PARAM_FROM_MONTH, String.valueOf(from_month))
-                    .appendQueryParameter(PARAM_FROM_DAY, String.valueOf(from_day))
-                    .appendQueryParameter(PARAM_TO_YEAR, String.valueOf(to_year))
-                    .appendQueryParameter(PARAM_TO_MONTH, String.valueOf(to_month))
-                    .appendQueryParameter(PARAM_TO_DAY, String.valueOf(to_day))
-                    .build();
             startLoading();
             forceLoad();
         }
 
         @Override
         public Void loadInBackground() {
-            Cursor cursor = getContext().getContentResolver().query(mUri, null, null, null, null);
-            try {
-                if (cursor == null || cursor.getCount() < 1) return null;
-
-                if (sIndexId < 0) getIndexValue(cursor);
-                while (cursor.moveToNext()) {
-                    int year = cursor.getInt(sIndexYear);
-                    int month = cursor.getInt(sIndexMonth);
-                    int day = cursor.getInt(sIndexDay);
-
-                    LunarInfo info = new LunarInfo();
-                    info._label_long = cursor.getString(sIndexLunarLabelLong);
-                    info._label_short = cursor.getString(sIndexLunarLabelShort);
-                    info._animal = cursor.getString(sIndexAnimal);
-                    info._festival1 = cursor.getString(sIndexFestival1);
-                    info._festival2 = cursor.getString(sIndexFestival2);
-                    info._festival3 = cursor.getString(sIndexFestival3);
-                    info._festival4 = cursor.getString(sIndexFestival4);
-
-                    sLunarInfos.put(getKey(year, month, day), info);
-                }
-            } finally {
-                if (cursor != null) {
-                    cursor.close();
-                }
-            }
-
             return null;
         }
-
-        private void getIndexValue(Cursor cursor) {
-            if (cursor == null) return;
-
-            sIndexId = cursor.getColumnIndexOrThrow(COL_ID);
-            sIndexYear = cursor.getColumnIndexOrThrow(COL_YEAR);
-            sIndexMonth = cursor.getColumnIndexOrThrow(COL_MONTH);
-            sIndexDay = cursor.getColumnIndexOrThrow(COL_DAY);
-            sIndexLunarLabelLong = cursor.getColumnIndexOrThrow(COL_LUNAR_LABEL_LONG);
-            sIndexLunarLabelShort = cursor.getColumnIndexOrThrow(COL_LUNAR_LABEL_SHORT);
-            sIndexAnimal = cursor.getColumnIndexOrThrow(COL_ANIMAL);
-            sIndexFestival1 = cursor.getColumnIndexOrThrow(COL_FESTIVAL_1);
-            sIndexFestival2 = cursor.getColumnIndexOrThrow(COL_FESTIVAL_2);
-            sIndexFestival3 = cursor.getColumnIndexOrThrow(COL_FESTIVAL_3);
-            sIndexFestival4 = cursor.getColumnIndexOrThrow(COL_FESTIVAL_4);
-        }
-
     }
 
     private static class LunarInfo {
         public String _label_long;
         public String _label_short;
+        public String _label_month_day;
         public String _animal;
         public String _festival1;
         public String _festival2;

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Host chrome for the standalone Material 3 screens (year view, agenda, date calculator).
+
+  This deliberately mirrors res/layout/all_in_one_material.xml - same DrawerLayout, same
+  NavigationView driven by the same @menu/calendar_view, same Toolbar driven by the same
+  @menu/all_in_one_title_bar - so these screens get the app's own drawer and top bar rather than
+  a re-implementation. The Compose content goes into @id/m3e_content.
+-->
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/drawer_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!--
+      A LinearLayout, not a CoordinatorLayout: with the content and the AppBarLayout as siblings in a
+      CoordinatorLayout the content is laid out from the top of the parent and the toolbar floats over
+      it, so the first row of every Compose screen sat hidden under the bar and read as a gap. Here
+      the bar takes its own space and the content starts below it.
+    -->
+    <LinearLayout
+        android:id="@+id/coordinator_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <com.google.android.material.appbar.AppBarLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <androidx.appcompat.widget.Toolbar
+                android:id="@+id/toolbar"
+                android:background="?attr/android:windowBackground"
+                android:layout_width="match_parent"
+                android:layout_height="?attr/actionBarSize"
+                android:minHeight="?attr/actionBarSize"
+                app:menu="@menu/all_in_one_title_bar"
+                app:navigationIcon="@drawable/ic_menu_navigator"
+                app:subtitleTextAppearance="@style/TextAppearance.M3e.ToolbarSubtitle"
+            app:titleTextAppearance="@style/TextAppearance.M3e.ToolbarTitle" />
+        </com.google.android.material.appbar.AppBarLayout>
+
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/m3e_content"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+    </LinearLayout>
+
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/navigation_view"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:fitsSystemWindows="true"
+        app:menu="@menu/calendar_view" />
+</androidx.drawerlayout.widget.DrawerLayout>

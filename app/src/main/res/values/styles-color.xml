@@ -1,8 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+Window background overrides for the dark themes.
+
+Applied at runtime by DynamicTheme.applyTheme, one or the other depending on the theme the user
+chose. Neither leaves the colour to ?android:colorBackground, which would make the difference between
+Dark and Black depend on how a parent theme resolves that attribute - a thing that cannot be seen
+from the code that makes the choice.
+-->
 <resources>
 
+    <!-- Pure black: the Black theme. -->
     <style name="colorBackgroundBlack">
         <item name="android:colorBackground">@color/bg_black</item>
+    </style>
+
+    <!-- The ordinary dark surface: the Dark theme, and a dark system in System. -->
+    <style name="colorBackgroundDark">
+        <item name="android:colorBackground">@color/bg_dark</item>
     </style>
 
 </resources>

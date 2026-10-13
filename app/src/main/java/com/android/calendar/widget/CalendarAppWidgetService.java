@@ -24,6 +24,7 @@ import android.content.Context;
 import android.content.CursorLoader;
 import android.content.Intent;
 import android.content.Loader;
+import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.database.MatrixCursor;
@@ -35,6 +36,9 @@ import android.provider.CalendarContract.Calendars;
 import android.provider.CalendarContract.Events;
 import android.provider.CalendarContract.Instances;
 import android.text.format.DateUtils;
+
+import com.google.android.material.color.DynamicColors;
+import com.google.android.material.color.MaterialColors;
 import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -247,6 +251,21 @@ public class CalendarAppWidgetService extends RemoteViewsService {
                     R.layout.appwidget_loading);
         }
 
+        /**
+         * Pulls an event colour towards the wallpaper-derived primary so the widget follows
+         * "monet" exactly like the month / week / day / agenda views do. Without dynamic colour
+         * the calendar's own colour is kept.
+         */
+        private int harmonizeWithTheme(Context context, int color) {
+            if (!DynamicColors.isDynamicColorAvailable()) {
+                return color;
+            }
+            final int primary = MaterialColors.getColor(
+                    CalendarAppWidgetProvider.themed(context),
+                    androidx.appcompat.R.attr.colorPrimary, 0);
+            return primary == 0 ? color : MaterialColors.harmonize(color, primary);
+        }
+
         @Override
         public RemoteViews getViewAt(int position) {
             // we use getCount here so that it doesn't return null when empty
@@ -288,18 +307,28 @@ public class CalendarAppWidgetService extends RemoteViewsService {
                 } else {
                     views = new RemoteViews(mContext.getPackageName(), R.layout.widget_item);
                 }
-                int displayColor = Utils.getDisplayColorFromColor(mContext, eventInfo.color);
+                // Materials 3 "monet": pull the calendar colour towards the wallpaper primary so
+                // the widget matches the month / week / day / agenda views.
+                int displayColor = harmonizeWithTheme(mContext,
+                        Utils.getDisplayColorFromColor(mContext, eventInfo.color));
                 int adaptiveTextColor = Utils.getAdaptiveTextColor(mContext, mStandardColor, displayColor);
                 int adaptiveAllDayTextColor = Utils.getAdaptiveTextColor(mContext, mAllDayColor, displayColor);
 
+                // Rounded row container, tinted with a Material 3 surface role. Rows for events
+                // that are happening right now use the lower (dimmer) container role.
+                // The lookup must use a themed context, otherwise the roles never resolve.
+                final Context rowTheme = CalendarAppWidgetProvider.themed(mContext);
+                final int rowSurface = MaterialColors.getColor(rowTheme,
+                        com.google.android.material.R.attr.colorSurfaceContainerHigh, 0xFFFFFFFF);
+                final int rowSurfaceInProgress = MaterialColors.getColor(rowTheme,
+                        com.google.android.material.R.attr.colorSurfaceContainerLow, 0xFFEFEFEF);
+
                 final long now = System.currentTimeMillis();
-                if (!eventInfo.allDay && eventInfo.start <= now && now <= eventInfo.end) {
-                    int past_bg_color = R.color.agenda_past_days_bar_background_color;
-                    views.setInt(R.id.widget_row, "setBackgroundResource", past_bg_color);
-                } else {
-                    int future_bg_color = DynamicThemeKt.getWidgetBackgroundStyle(mContext);
-                    views.setInt(R.id.widget_row, "setBackgroundResource", future_bg_color);
-                }
+                final boolean inProgress = !eventInfo.allDay
+                        && eventInfo.start <= now && now <= eventInfo.end;
+                views.setInt(R.id.widget_row, "setBackgroundResource", R.drawable.widget_row_m3e);
+                views.setColorStateList(R.id.widget_row, "setBackgroundTintList",
+                        ColorStateList.valueOf(inProgress ? rowSurfaceInProgress : rowSurface));
 
                 if (!eventInfo.allDay) {
                     updateTextView(views, R.id.when, eventInfo.visibWhen, eventInfo.when);

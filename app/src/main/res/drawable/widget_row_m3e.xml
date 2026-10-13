@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material 3 Expressive widget row: rounded container, tinted with a surface role. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="16dp" />
+    <solid android:color="#FFFFFFFF" />
+</shape>

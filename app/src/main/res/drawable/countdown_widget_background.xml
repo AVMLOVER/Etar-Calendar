@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Countdown list widget backdrop.
+
+Filled with a Material surface role rather than the translucent white it used to be, so the widget
+matches the app's palette - including the wallpaper-derived one on Android 12+. The attribute is
+resolved in the host's themed context when the widget is inflated.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="?attr/colorSurfaceContainer" />
+    <corners android:radius="24dp" />
+</shape>

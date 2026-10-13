@@ -185,9 +185,7 @@ public class VEvent {
         // Enforce line length requirements
         sb = IcalendarUtils.enforceICalLineLength(sb);
 
-        if (mOrganizer != null) {
-            sb.append(mOrganizer.getICalFormattedString());
-        }
+        sb.append(mOrganizer.getICalFormattedString());
 
         // Add event Attendees
         for (Attendee attendee : mAttendees) {

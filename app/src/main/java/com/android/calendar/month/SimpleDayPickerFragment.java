@@ -452,6 +452,41 @@ public class SimpleDayPickerFragment extends ListFragment implements OnScrollLis
         return false;
     }
 
+    /**
+     * True when the week holding [time] is already among the weeks on screen.
+     *
+     * Callers use this to avoid a scroll that would not move anything. It matters now that every
+     * jump is animated: a no-op goTo - the calendar re-reading its current period, say - would
+     * otherwise play a scroll animation with nothing to scroll to.
+     */
+    protected boolean isWeekVisible(long time) {
+        if (!isResumed() || mListView == null) {
+            return false;
+        }
+        mTempTime.set(time);
+        long millis = mTempTime.normalize();
+        int position = Utils.getWeeksSinceEpochFromJulianDay(
+                Time.getJulianDay(millis, mTempTime.getGmtOffset()), mFirstDayOfWeek);
+
+        View child;
+        int i = 0;
+        int top = 0;
+        do {
+            child = mListView.getChildAt(i++);
+            if (child == null) {
+                break;
+            }
+            top = child.getTop();
+        } while (top < 0);
+
+        int firstPosition = child != null ? mListView.getPositionForView(child) : 0;
+        int lastPosition = firstPosition + mNumWeeks - 1;
+        if (top > BOTTOM_BUFFER) {
+            lastPosition--;
+        }
+        return position >= firstPosition && position <= lastPosition;
+    }
+
      /**
      * Updates the title and selected month if the view has moved to a new
      * month.

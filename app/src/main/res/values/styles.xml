@@ -24,18 +24,17 @@
 
     </style>
 
-    <style name="Base.CalendarAppThemeWithActionBar" parent="Theme.AppCompat.Light.DarkActionBar">
+    <style name="Base.CalendarAppThemeWithActionBar" parent="Theme.Material3.Light">
         <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
+        <item name="colorAccent">?attr/colorPrimary</item>
     </style>
 
-    <style name="Widget.CalendarAppTheme.ActionBar" parent="Widget.AppCompat.ActionBar">
+    <style name="Widget.CalendarAppTheme.ActionBar" parent="Widget.Material3.Toolbar">
         <item name="android:theme">@style/ThemeOverlay.CalendarAppTheme.ActionBar</item>
-        <item name="popupTheme">@style/ThemeOverlay.AppCompat.Light</item>
+        <item name="popupTheme">@style/ThemeOverlay.Etar.PopupMenu</item>
     </style>
 
-    <style name="ThemeOverlay.CalendarAppTheme.ActionBar" parent="ThemeOverlay.AppCompat.ActionBar">
+    <style name="ThemeOverlay.CalendarAppTheme.ActionBar" parent="ThemeOverlay.Material3.ActionBar">
         <item name="android:textColorPrimary">@color/titleTextColor</item>
     </style>
 

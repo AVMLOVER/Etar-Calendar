@@ -107,6 +107,27 @@ public class Utils {
     public static final String INTENT_KEY_DETAIL_VIEW = "DETAIL_VIEW";
     public static final String INTENT_KEY_VIEW_TYPE = "VIEW";
     public static final String INTENT_VALUE_VIEW_TYPE_DAY = "DAY";
+    public static final String INTENT_VALUE_VIEW_TYPE_WEEK = "WEEK";
+    /** Used by the year view (and its drawer) to open the month view on a specific month. */
+    public static final String INTENT_VALUE_VIEW_TYPE_MONTH = "MONTH";
+    public static final String INTENT_VALUE_VIEW_TYPE_AGENDA = "AGENDA";
+
+    /** Maps one of the INTENT_VALUE_VIEW_TYPE_* strings to a ViewType, or -1. */
+    public static int viewTypeFromIntentValue(String value) {
+        if (INTENT_VALUE_VIEW_TYPE_DAY.equals(value)) {
+            return ViewType.DAY;
+        }
+        if (INTENT_VALUE_VIEW_TYPE_WEEK.equals(value)) {
+            return ViewType.WEEK;
+        }
+        if (INTENT_VALUE_VIEW_TYPE_MONTH.equals(value)) {
+            return ViewType.MONTH;
+        }
+        if (INTENT_VALUE_VIEW_TYPE_AGENDA.equals(value)) {
+            return ViewType.AGENDA;
+        }
+        return -1;
+    }
     public static final String INTENT_KEY_HOME = "KEY_HOME";
     public static final int EPOCH_JULIAN_DAY = 2440588;
     public static final int MONDAY_BEFORE_JULIAN_EPOCH = EPOCH_JULIAN_DAY - 3;
@@ -278,6 +299,10 @@ public class Utils {
             } else if (INTENT_VALUE_VIEW_TYPE_DAY.equals(extras.getString(INTENT_KEY_VIEW_TYPE))) {
                 // Not sure who uses this. This logic came from LaunchActivity
                 return ViewType.DAY;
+            } else if (viewTypeFromIntentValue(
+                    extras.getString(INTENT_KEY_VIEW_TYPE)) != -1) {
+                // The year view and its drawer ask for week / month / agenda explicitly.
+                return viewTypeFromIntentValue(extras.getString(INTENT_KEY_VIEW_TYPE));
             }
         }
 

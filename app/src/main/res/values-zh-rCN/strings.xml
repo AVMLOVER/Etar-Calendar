@@ -40,6 +40,7 @@
     <string name="show_day_view" msgid="5782512782605466016">"显示日期"</string>
     <string name="agenda_view" msgid="5566084759423843245">"日程"</string>
     <string name="day_view" msgid="4467754504843584437">"天"</string>
+    <string name="threeday_view">"三日"</string>
     <string name="week_view" msgid="6775043022159508060">"周"</string>
     <string name="month_view" msgid="7287101431749285412">"月"</string>
     <string name="event_view" msgid="7621353079385122317">"查看活动"</string>
@@ -259,7 +260,7 @@
     <string name="cal_import_error_msg">导入日历失败</string>
     <string name="cal_import_error_date_msg">无法理解给定日期:%s</string>
     <string name="cal_pick_ics">选择导入文件</string>
-    <string name="view_settings">查看设置</string>
+    <string name="view_settings">软件设置</string>
     <string name="preferences_month_view_portrait">月视图布局(纵向)</string>
     <string name="preferences_month_view_landscape">月视图布局(横向)</string>
     <string name="display_options">查看细节</string>
@@ -358,4 +359,8 @@
     <string name="week_start_locale_default">使用当地默认值</string>
     <string name="preferences_staggered_display_title">交错显示</string>
     <string name="preferences_staggered_display_summary">以交错布局显示重叠活动</string>
+    <string name="preferences_show_lunar_title">显示农历</string>
+    <string name="preferences_show_lunar_summary">在月视图和周视图中，于每天的日期下方显示农历日期与传统节日</string>
+    <string name="cal_import_no_calendar">没有可写入的日历，请先在设置里添加账户。</string>
+        <string name="cal_import_result">已导入 %1$d 个日程，%2$d 个已存在，%3$d 个无法读取。</string>
 </resources>

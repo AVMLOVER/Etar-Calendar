@@ -17,25 +17,25 @@
 
 package com.android.calendar.settings
 
-import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.Configuration
-import android.os.Bundle
-import androidx.preference.ListPreference
-import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceManager
-import androidx.preference.PreferenceScreen
 import com.android.calendar.Utils
 import com.android.calendar.Utils.SHARED_PREFS_NAME
 import ws.xsoh.etar.R
-import java.util.Arrays
 
-
-class ViewDetailsPreferences : PreferenceFragmentCompat() {
-
-    private val landscapeConf = PreferenceConfiguration(LANDSCAPE_PREFS)
-    private val portraitConf = PreferenceConfiguration(PORTRAIT_PREFS)
+/**
+ * How event text (time, location, line count) is laid out in the month and week views.
+ *
+ * This used to be a PreferenceFragmentCompat screen as well. The Material 3 settings screen
+ * replaced that UI, so only the data part remains - [Preferences] is what the month view's
+ * drawing code reads on every layout pass, and it cannot be removed with the screen.
+ *
+ * setDefaultValues still reads res/xml/view_details_preferences.xml, which is kept purely as the
+ * declaration of the default values.
+ */
+class ViewDetailsPreferences private constructor() {
 
     enum class TimeVisibility(val value: Int) {
         SHOW_NONE(0),
@@ -45,44 +45,9 @@ class ViewDetailsPreferences : PreferenceFragmentCompat() {
         SHOW_TIME_RANGE_BELOW(4)
     }
 
-    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        preferenceManager.sharedPreferencesName = GeneralPreferences.SHARED_PREFS_NAME
-
-        setPreferencesFromResource(R.xml.view_details_preferences, rootKey)
-
-        landscapeConf.onCreate(preferenceScreen, activity)
-        portraitConf.onCreate(preferenceScreen, activity)
-    }
-
-    override fun onActivityCreated(savedInstanceState: Bundle?) {
-        super.onActivityCreated(savedInstanceState)
-        activity?.title = getString(R.string.display_options)
-    }
-
     private class PreferenceKeys(val KEY_DISPLAY_TIME: String,
                                  val KEY_DISPLAY_LOCATION: String,
                                  val KEY_MAX_NUMBER_OF_LINES: String)
-
-    private class PreferenceConfiguration(val keys: PreferenceKeys) {
-        private lateinit var displayTime: ListPreference
-
-        fun onCreate(preferenceScreen: PreferenceScreen, activity: Activity?) {
-            displayTime = preferenceScreen.findPreference(keys.KEY_DISPLAY_TIME)!!
-            initDisplayTime(activity)
-        }
-
-        private fun initDisplayTime(activity: Activity?) {
-            if (!Utils.getConfigBool(activity, R.bool.show_time_in_month)) {
-                val entries = displayTime.entries
-                val newEntries = Arrays.copyOf(entries, entries.size - 1)
-                displayTime.entries = newEntries
-            }
-            if (displayTime.entry == null || displayTime.entry!!.isEmpty()) {
-                displayTime.value = getDefaultTimeToShow(activity).toString()
-            }
-        }
-
-    }
 
     private class DynamicPreferences(private val context: Context) {
         private val prefs: SharedPreferences = GeneralPreferences.getSharedPreferences(context)
@@ -95,7 +60,9 @@ class ViewDetailsPreferences : PreferenceFragmentCompat() {
             }
 
         fun getTimeVisibility(keys: PreferenceKeys): TimeVisibility {
-            val visibility = prefs.getString(keys.KEY_DISPLAY_TIME, getDefaultTimeToShow(context).toString())
+            val visibility = prefs.getString(
+                keys.KEY_DISPLAY_TIME, getDefaultTimeToShow(context).toString()
+            )
             return TimeVisibility.values()[visibility!!.toInt()]
         }
 
@@ -106,7 +73,6 @@ class ViewDetailsPreferences : PreferenceFragmentCompat() {
         fun getMaxNumberOfLines(keys: PreferenceKeys): Int {
             return prefs.getString(keys.KEY_MAX_NUMBER_OF_LINES, null)!!.toInt()
         }
-
     }
 
     class Preferences {
@@ -162,11 +128,19 @@ class ViewDetailsPreferences : PreferenceFragmentCompat() {
         private const val KEY_MAX_NUMBER_OF_LINES_V_PREF = "pref_number_of_lines_vertical"
         private const val KEY_MAX_NUMBER_OF_LINES_H_PREF = "pref_number_of_lines_horizontal"
 
-        private val LANDSCAPE_PREFS = PreferenceKeys(KEY_DISPLAY_TIME_H_PREF, KEY_DISPLAY_LOCATION_H_PREF, KEY_MAX_NUMBER_OF_LINES_H_PREF)
-        private val PORTRAIT_PREFS = PreferenceKeys(KEY_DISPLAY_TIME_V_PREF, KEY_DISPLAY_LOCATION_V_PREF, KEY_MAX_NUMBER_OF_LINES_V_PREF)
+        private val LANDSCAPE_PREFS = PreferenceKeys(
+            KEY_DISPLAY_TIME_H_PREF, KEY_DISPLAY_LOCATION_H_PREF, KEY_MAX_NUMBER_OF_LINES_H_PREF
+        )
+        private val PORTRAIT_PREFS = PreferenceKeys(
+            KEY_DISPLAY_TIME_V_PREF, KEY_DISPLAY_LOCATION_V_PREF, KEY_MAX_NUMBER_OF_LINES_V_PREF
+        )
 
         private fun getDefaultTimeToShow(context: Context?): Int {
-            return if (Utils.getConfigBool(context, R.bool.show_time_in_month)) TimeVisibility.SHOW_TIME_RANGE_BELOW.value else TimeVisibility.SHOW_NONE.value
+            return if (Utils.getConfigBool(context, R.bool.show_time_in_month)) {
+                TimeVisibility.SHOW_TIME_RANGE_BELOW.value
+            } else {
+                TimeVisibility.SHOW_NONE.value
+            }
         }
 
         fun getPreferences(context: Context?): Preferences {

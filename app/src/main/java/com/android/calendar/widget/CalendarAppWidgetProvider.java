@@ -28,17 +28,21 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.provider.CalendarContract;
 import android.text.format.DateUtils;
 import android.util.Log;
 import android.widget.RemoteViews;
 
+import androidx.appcompat.view.ContextThemeWrapper;
+import androidx.core.content.ContextCompat;
+
 import com.android.calendar.AllInOneActivity;
 import com.android.calendar.theme.DynamicThemeKt;
 import com.android.calendar.EventInfoActivity;
 import com.android.calendar.Utils;
-import com.android.calendar.event.EditEventActivity;
+import com.google.android.material.color.MaterialColors;
 import com.android.calendar.calendarcommon2.Time;
 
 import ws.xsoh.etar.R;
@@ -186,8 +190,17 @@ public class CalendarAppWidgetProvider extends AppWidgetProvider {
      * @param changedEventIds Specific events known to be changed. If present,
      *            we use it to decide if an update is necessary.
      */
-    private void performUpdate(Context context,
-            AppWidgetManager appWidgetManager, int[] appWidgetIds,
+    /**
+     * The app widget callback receives a context that carries no theme, so every Material 3 role
+     * lookup on it fails and falls back to the hard-coded default - which is why the widget used
+     * to render plain white. Wrapping it in the app theme makes the roles resolve to the same
+     * values the app itself shows, wallpaper-derived ones included.
+     */
+    static Context themed(Context context) {
+        return new ContextThemeWrapper(context, R.style.Theme_Etar);
+    }
+
+    private void performUpdate(Context context,            AppWidgetManager appWidgetManager, int[] appWidgetIds,
             long[] changedEventIds) {
         if (!isWidgetSupported(context)) {
             return;
@@ -216,13 +229,28 @@ public class CalendarAppWidgetProvider extends AppWidgetProvider {
             views.setTextViewText(R.id.day_of_week, dayOfWeek);
             views.setTextViewText(R.id.date, date);
 
-            // Set widget header background based on chosen primary app color
-            int headerColor = DynamicThemeKt.getColorId(DynamicThemeKt.getPrimaryColor(context));
-            views.setInt(R.id.header, "setBackgroundResource", headerColor);
+            // Material 3 Expressive header: primary container role on a top-rounded shape.
+            // The lookup has to go through a themed context - the app widget context carries no
+            // theme, so MaterialColors would otherwise hand back its hard-coded fallback.
+            Context themed = themed(context);
+            int headerColor = MaterialColors.getColor(themed,
+                    com.google.android.material.R.attr.colorPrimaryContainer, 0xFFEADDFF);
+            int onHeaderColor = MaterialColors.getColor(themed,
+                    com.google.android.material.R.attr.colorOnPrimaryContainer, 0xFF21005D);
+            views.setInt(R.id.header, "setBackgroundResource", R.drawable.widget_header_m3e);
+            views.setColorStateList(R.id.header, "setBackgroundTintList",
+                    ColorStateList.valueOf(headerColor));
+            views.setInt(R.id.day_of_week, "setTextColor", onHeaderColor);
+            views.setInt(R.id.date, "setTextColor", onHeaderColor);
 
-            // Set widget background color based on chosen app theme
-            int backgroundColor = DynamicThemeKt.getWidgetBackgroundStyle(context);
-            views.setInt(R.id.widget_background, "setBackgroundResource", backgroundColor);
+            // Body: the app's own background choice (follow system / light / dark / black), so the
+            // widget matches whatever the user picked in the app rather than being always white.
+            int backgroundColor = ContextCompat.getColor(context,
+                    DynamicThemeKt.getWidgetBackgroundStyle(context));
+            views.setInt(R.id.widget_background, "setBackgroundResource",
+                    R.drawable.widget_background_m3e);
+            views.setColorStateList(R.id.widget_background, "setBackgroundTintList",
+                    ColorStateList.valueOf(backgroundColor));
 
             // Attach to list of events
             views.setRemoteAdapter(R.id.events_list, updateIntent);
@@ -240,7 +268,9 @@ public class CalendarAppWidgetProvider extends AppWidgetProvider {
 
             // Open Add event option when user clicks on the add button on widget
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setClass(context, EditEventActivity.class);
+            // The Material 3 Expressive editor; with no event id it starts a new event.
+            intent.setClass(context,
+                    com.android.calendar.event.compose.ComposeEventEditorActivity.class);
             intent.putExtra(EXTRA_EVENT_ALL_DAY, false);
             intent.putExtra(CalendarContract.Events.CALENDAR_ID, -1L);
 

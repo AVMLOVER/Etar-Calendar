@@ -35,6 +35,8 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
@@ -426,6 +428,9 @@ public class RecurrencePickerDialog extends DialogFragment implements OnItemSele
         mRecurrence.wkst = EventRecurrence.timeDay2Day(Utils.getFirstDayOfWeek(getActivity()));
 
         getDialog().getWindow().requestFeature(Window.FEATURE_NO_TITLE);
+        // Let the layout's rounded background be what you see: an opaque window background would
+        // square the corners off again.
+        getDialog().getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
         boolean endCountHasFocus = false;
         if (savedInstanceState != null) {

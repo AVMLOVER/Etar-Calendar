@@ -111,7 +111,6 @@ import com.android.calendar.CalendarEventModel.Attendee;
 import com.android.calendar.CalendarEventModel.ReminderEntry;
 import com.android.calendar.alerts.QuickResponseActivity;
 import com.android.calendar.event.AttendeesView;
-import com.android.calendar.event.EditEventActivity;
 import com.android.calendar.event.EditEventHelper;
 import com.android.calendar.event.EventColorPickerDialog;
 import com.android.calendar.event.EventViewUtils;
@@ -1311,13 +1310,12 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         // save current state before duplicating
         saveEvent();
 
-        final Intent intent = new Intent(mContext, EditEventActivity.class);
+        // The Material 3 Expressive editor, opened as a new event: it reads the same
+        // CalendarContract extras this method already puts on the intent, so the copy starts with the
+        // original's title, times, recurrence, availability and visibility.
+        final Intent intent = new Intent(mContext,
+                com.android.calendar.event.compose.ComposeEventEditorActivity.class);
         intent.setType("vnd.android.cursor.item/event");
-        // Default the duplicate to the source event's calendar, but only when it is writeable;
-        // otherwise fall back to the default calendar so we never preselect a read-only one.
-        if (mCanModifyCalendar) {
-            intent.putExtra(CalendarContract.Events.CALENDAR_ID, mEventCursor.getLong(EVENT_INDEX_CALENDAR_ID));
-        }
         intent.putExtra(CalendarContract.Events.TITLE, mEventCursor.getString(EVENT_INDEX_TITLE));
         intent.putExtra(CalendarContract.Events.DESCRIPTION, mEventCursor.getString(EVENT_INDEX_DESCRIPTION));
         intent.putExtra(CalendarContract.Events.EVENT_LOCATION, mEventCursor.getString(EVENT_INDEX_EVENT_LOCATION));
@@ -1329,15 +1327,30 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         intent.putExtra(CalendarContract.Events.EVENT_TIMEZONE, mEventCursor.getString(EVENT_INDEX_EVENT_TIMEZONE));
         intent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, mStartMillis);
         intent.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, mEndMillis);
-        intent.putExtra(EditEventActivity.EXTRA_EVENT_REMINDERS, mReminders);
-        intent.putExtra(EditEventActivity.EXTRA_EVENT_COLOR, mCurrentColor);
         intent.putExtra(ExtendedProperty.URL, mEventUrl);
 
         final String allAttendees = Stream.of(mAcceptedAttendees, mDeclinedAttendees, mTentativeAttendees, mNoResponseAttendees)
                 .flatMap(Collection::stream)
                 .map(attendee -> attendee.mEmail)
                 .collect(Collectors.joining());
-        intent.putExtra(Intent.EXTRA_EMAIL, allAttendees);
+
+        // The two properties the CalendarContract extras above do not carry. Both are only consulted
+        // by the editor when it is starting a new event, which is exactly this case - so the copy
+        // starts with the original's notifications and colour instead of losing them.
+        if (mReminders != null) {
+            int[] minutes = new int[mReminders.size()];
+            for (int i = 0; i < mReminders.size(); i++) {
+                minutes[i] = mReminders.get(i).getMinutes();
+            }
+            intent.putExtra(
+                    com.android.calendar.event.compose.ComposeEventEditorActivity.EXTRA_REMINDERS,
+                    minutes);
+        }
+        if (mCurrentColorInitialized) {
+            intent.putExtra(
+                    com.android.calendar.event.compose.ComposeEventEditorActivity.EXTRA_EVENT_COLOR,
+                    mCurrentColor);
+        }
 
         startActivity(intent);
     }
@@ -1505,17 +1518,14 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         // This ensures that we aren't in the process of closing and have been
         // unattached already
         if (c != null) {
-            Uri uri = ContentUris.withAppendedId(Events.CONTENT_URI, mEventId);
-            Intent intent = new Intent(Intent.ACTION_EDIT, uri);
-            intent.setClass(mActivity, EditEventActivity.class);
-            intent.putExtra(EXTRA_EVENT_BEGIN_TIME, mStartMillis);
-            intent.putExtra(EXTRA_EVENT_END_TIME, mEndMillis);
-            intent.putExtra(EXTRA_EVENT_ALL_DAY, mAllDay);
-            intent.putExtra(EditEventActivity.EXTRA_EVENT_COLOR, mCurrentColor);
-            intent.putExtra(EditEventActivity.EXTRA_EVENT_REMINDERS, EventViewUtils
-                    .reminderItemsToReminders(mReminderViews, mReminderMinuteValues,
-                    mReminderMethodValues));
-            intent.putExtra(EVENT_EDIT_ON_LAUNCH, true);
+            // The Material 3 Expressive editor, which is now the only editor. It reloads the event
+            // from the provider itself, so only the id has to be handed over; the extras the classic
+            // editor needed are no longer required.
+            Intent intent = new Intent(mActivity,
+                    com.android.calendar.event.compose.ComposeEventEditorActivity.class);
+            intent.putExtra(
+                    com.android.calendar.event.compose.ComposeEventEditorActivity.EXTRA_EVENT_ID,
+                    mEventId);
             startActivity(intent);
         }
     }

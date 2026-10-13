@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Countdown widget, 4x2 and 4x4: a header with an add button, then the rows.
+
+Rows are added at runtime, so the container is empty here.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/countdown_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/countdown_widget_background"
+    android:clipToOutline="true"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="6dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/m3e_countdown_title"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/countdown_widget_add"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:contentDescription="@string/m3e_countdown_add"
+            android:padding="4dp"
+            android:src="@drawable/ic_add" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/countdown_widget_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
+        android:id="@+id/countdown_widget_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:padding="8dp"
+        android:text="@string/m3e_countdown_empty"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="12sp"
+        android:visibility="gone" />
+</LinearLayout>

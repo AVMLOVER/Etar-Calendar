@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Countdown widget, 2x2: one countdown.
+
+The root carries the rounded shape and the row inside it carries the countdown's colour, which is set
+at runtime. A RemoteViews cannot round a runtime background colour, so the rounding lives here.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/countdown_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/countdown_widget_background"
+    android:clipToOutline="true"
+    android:padding="12dp">
+
+    <FrameLayout
+        android:id="@+id/countdown_widget_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
+        android:id="@+id/countdown_widget_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:padding="8dp"
+        android:text="@string/m3e_countdown_empty"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="12sp"
+        android:visibility="gone" />
+</LinearLayout>

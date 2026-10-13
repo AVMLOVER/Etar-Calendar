@@ -1,0 +1,12 @@
+<!-- Down caret shown next to the toolbar heading, marking it as something that opens a picker. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorOnSurface"
+    android:autoMirrored="true">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M7,10L12,15L17,10H7Z" />
+</vector>
