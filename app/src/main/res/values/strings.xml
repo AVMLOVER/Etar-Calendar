@@ -15,7 +15,7 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- This is the app label used for alert notifications -->
-    <string name="standalone_app_label" translatable="false">Etar</string>
+    <string name="standalone_app_label" translatable="false">Etar-Mod</string>
     <!-- This is the label underneath the icon for Calendar -->
     <string name="app_label">Calendar</string>
 
@@ -141,7 +141,7 @@
     <string name="goto_today">"Today"</string>
     <!-- This is a label on a menu item. Pressing this menu
          item opens new dialog shown the date that the user wants to go. -->
-    <string name="goto_date">Go to\u2026</string>
+    <string name="goto_date">Go to…</string>
     <!-- This is a label on a menu item. Pressing this menu item allows the
          user to view and edit his Settings (or Preferences) -->
     <string name="menu_preferences">"Settings"</string>
@@ -286,7 +286,7 @@
     <!-- This is shown in the popup picker when emailing attendees -->
     <string name="email_picker_label">Email with</string>
     <!-- The is shown in the email subject as the prefix appended to the event title -->
-    <string name="email_subject_prefix" translatable="false">Re:\u0020</string>
+    <string name="email_subject_prefix" translatable="false">Re: </string>
     <!-- Toast message displayed when the event id was not found LIMIT=30] -->
     <string name="event_not_found">"Event not found."</string>
 
@@ -317,7 +317,7 @@
         <item>Sorry, I can\'t make it. We\'ll have to reschedule.</item>
         </string-array>
     <!-- Option to create a custom response instead of using defaults [CHAR LIMIT=none] -->
-    <string name="quick_response_custom_msg">Write your own\u2026</string>
+    <string name="quick_response_custom_msg">Write your own…</string>
 
     <!-- Event Info strings-->
 
@@ -335,7 +335,7 @@
     <!-- This is shown as part of the heading at the top of a list of today's events. -->
     <string name="agenda_tomorrow">Tomorrow, <xliff:g id="date">%1$s</xliff:g></string>
     <!-- This is shown while the calendar events are being loading to the screen. -->
-    <string name="loading">Loading\u2026</string>
+    <string name="loading">Loading…</string>
     <!-- This is shown at the top of the agenda view showing the beginning of the searched range. If the user taps on this string and Calendar will find events older than what is visible and display them to the user -->
     <string name="show_older_events">Touch to view events before <xliff:g id="oldest_search_range">%1$s</xliff:g></string>
     <!-- This is shown at the bottom of the agenda view showing the end of the searched range. If the user taps on this string and Calendar will find events later/newer than what is visible and display them to the user -->
@@ -398,7 +398,7 @@
     </plurals>
     <!-- A label in a multiple-choice list for the specifying that an event
          repeats every weekday (Monday through Friday) -->
-    <string name="every_weekday">"Every weekday (Mon\u2013Fri)"</string>
+    <string name="every_weekday">"Every weekday (Mon–Fri)"</string>
     <!-- A description for an event that repeats weekly on some day of the week. For example,
          'Weekly on Tuesday' or Every 2 weeks on Monday, Tuesday.  [CHAR LIMIT=25]-->
     <plurals name="weekly">
@@ -485,11 +485,13 @@
 
     <!-- This is the title of a section in the Settings screen for settings
          related to reminders for calendar events -->
-    <string name="preferences_reminder_title">Notifications \u0026 reminders</string>
+    <string name="preferences_reminder_title">Notifications &amp; reminders</string>
     <!-- Settings check box label to hide events that the user has declined to attend -->
     <string name="preferences_hide_declined_title">Hide declined events</string>
     <!-- Label values for the default start page preference. -->
     <string name="default_start_title">Default view</string>
+    <string name="preferences_view_switch_buttons">View buttons in the toolbar</string>
+    <string name="preferences_view_switch_buttons_summary">Switch between the day, week and month views in one tap (months are abbreviated in the title)</string>
     <string name="display_options">Display options</string>
     <string name="display_time">Display time</string>
     <string name="display_location">Display location</string>
@@ -567,12 +569,12 @@
     <!-- About dialog strings -->
     <string name="app_authors" translatable="false">The Etar Project - Powered by Germanium Mod</string>
     <string name="app_authors_url" translatable="false">https://github.com/AVMLOVER/Etar-Calendar</string>
-    <string name="app_changelog" translatable="false">https://github.com/Etar-Group/Etar-Calendar/releases</string>
-    <string name="app_copyright">\u00a9 2015-<xliff:g>%1$s</xliff:g> The Etar Project. Portions \u00a9 2005-<xliff:g>%1$s</xliff:g> The Android Open Source Project.</string>
-    <string name="app_issues_url" translatable="false">https://github.com/Etar-Group/Etar-Calendar/issues</string>
+    <string name="app_changelog" translatable="false">https://github.com/AVMLOVER/Etar-Calendar/releases</string>
+    <string name="app_copyright">© 2015-<xliff:g>%1$s</xliff:g> The Etar Project. Portions © 2005-<xliff:g>%1$s</xliff:g> The Android Open Source Project.</string>
+    <string name="app_issues_url" translatable="false">https://github.com/AVMLOVER/Etar-Calendar/issues</string>
     <string name="app_license" translatable="false">GPLv3</string>
     <string name="app_license_url" translatable="false">https://www.gnu.org/licenses/gpl-3.0.html</string>
-    <string name="app_source_url" translatable="false">https://github.com/Etar-Group/Etar-Calendar</string>
+    <string name="app_source_url" translatable="false">https://github.com/AVMLOVER/Etar-Calendar</string>
     <string name="authors">Authors</string>
     <string name="changelog">Changelog</string>
     <string name="license">License</string>
@@ -610,7 +612,7 @@
 
     <!-- Displayed in email address autocomplete list when searching for contacts
          in corporate directories. Example:  "Searching bigcompany.com..." [CHAR LIMIT=64] -->
-    <string name="directory_searching_fmt">Searching <xliff:g id="domain">%s</xliff:g>\u2026</string>
+    <string name="directory_searching_fmt">Searching <xliff:g id="domain">%s</xliff:g>…</string>
 
     <!-- Accessibility Events -->
     <!-- Strings that describes actions for buttons without text -->
@@ -812,7 +814,7 @@
     <string name="preferences_list_add_offline_button">Add calendar</string>
     <string name="preferences_list_add_offline_name">Name</string>
     <string name="preferences_list_add_offline_cancel">Cancel</string>
-    <string name="preferences_menu_about">About Etar</string>
+    <string name="preferences_menu_about">About Etar-Mod</string>
 
     <string name="offline_account_name">Offline Calendar</string>
     <string name="after_start_of_event">after start of event</string>
@@ -853,7 +855,7 @@
     <string name="palestine_display_name">Palestine</string>
 
     <!-- Text displayed when the recipientedittextview is not focused. Displays the total number of recipients since the field is shrunk to just display a portion -->
-    <string name="more_string">\u002B<xliff:g id="count">%1$d</xliff:g></string>
+    <string name="more_string">+<xliff:g id="count">%1$d</xliff:g></string>
     <!-- Text displayed when the user long presses on a chip to copy the recipients email address [CHAR LIMIT=200] -->
     <string name="copy_email">Copy email address</string>
     <!-- Text displayed when the user long presses on a chip to copy the recipient's phone number [CHAR LIMIT=200] -->

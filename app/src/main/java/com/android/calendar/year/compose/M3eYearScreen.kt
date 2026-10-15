@@ -16,6 +16,8 @@
  */
 package com.android.calendar.year.compose
 
+import android.content.res.Configuration
+import androidx.compose.runtime.key
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -60,6 +62,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -85,7 +88,22 @@ import java.util.concurrent.ConcurrentHashMap
 /** Years the lunar table can resolve. */
 private const val FIRST_YEAR = 1900
 private const val LAST_YEAR = 2100
-private const val MONTH_COLUMNS = 3
+/**
+ * Months across, for the width the screen actually has.
+ *
+ * Three by four on a phone held upright, which is what this was fixed at. A phone on its side has the
+ * width for four, and a tablet - which this is told about separately, because a phone on its side is
+ * also wide - has the width for six, which brings the year down to two rows and removes most of the
+ * scrolling.
+ *
+ * The tablet test is on the shortest side rather than the current one: a phone turned sideways
+ * reports a wide screen, and picking the layout from that alone would give a phone the tablet grid.
+ */
+private fun monthColumns(configuration: Configuration): Int = when {
+    configuration.smallestScreenWidthDp >= 600 -> 6
+    configuration.orientation == Configuration.ORIENTATION_LANDSCAPE -> 4
+    else -> 3
+}
 
 private enum class Underline { NONE, THIN, THICK }
 
@@ -109,23 +127,30 @@ fun M3eYearScreen(
     horizontal: Boolean,
     onVisibleYearChanged: (Int) -> Unit,
     onOpenMonth: (year: Int, month: Int) -> Unit,
+    screenKey: Int = 0,
 ) {
-    if (horizontal) {
-        HorizontalYearPager(
-            initialYear = initialYear,
-            firstDayOfWeek = firstDayOfWeek,
-            showLunar = showLunar,
-            onVisibleYearChanged = onVisibleYearChanged,
-            onOpenMonth = onOpenMonth,
-        )
-    } else {
-        VerticalYearList(
-            initialYear = initialYear,
-            firstDayOfWeek = firstDayOfWeek,
-            showLunar = showLunar,
-            onVisibleYearChanged = onVisibleYearChanged,
-            onOpenMonth = onOpenMonth,
-        )
+    // Keyed on the mode as well as the resume count, so switching between sideways and up-and-down
+    // builds the other one from scratch. Without the key the two share a composition slot and the
+    // pager's remembered state survives the switch, which leaves the new mode looking half applied
+    // until the view is left and opened again.
+    key(horizontal, screenKey) {
+        if (horizontal) {
+            HorizontalYearPager(
+                initialYear = initialYear,
+                firstDayOfWeek = firstDayOfWeek,
+                showLunar = showLunar,
+                onVisibleYearChanged = onVisibleYearChanged,
+                onOpenMonth = onOpenMonth,
+            )
+        } else {
+            VerticalYearList(
+                initialYear = initialYear,
+                firstDayOfWeek = firstDayOfWeek,
+                showLunar = showLunar,
+                onVisibleYearChanged = onVisibleYearChanged,
+                onOpenMonth = onOpenMonth,
+            )
+        }
     }
 }
 
@@ -219,7 +244,10 @@ private fun YearSection(
     val months = remember(year, firstDayOfWeek, showLunar) {
         cachedYear(year, firstDayOfWeek, showLunar)
     }
-    val monthRows = remember(months) { months.chunked(MONTH_COLUMNS) }
+    // Read here rather than passed in, so a rotation rebuilds the grid with the new count: the
+    // composition is already keyed on the screen, and LocalConfiguration changes with it.
+    val columns = monthColumns(LocalConfiguration.current)
+    val monthRows = remember(months, columns) { months.chunked(columns) }
     val isCurrentYear = year == today.year
 
     Column(
@@ -259,7 +287,7 @@ private fun YearSection(
             color = MaterialTheme.colorScheme.outlineVariant,
         )
 
-        // 3 x 4 month grid.
+        // Months across by four down, in the count the width calls for.
         monthRows.forEach { row ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 row.forEach { grid ->
@@ -273,7 +301,7 @@ private fun YearSection(
                         )
                     }
                 }
-                repeat(MONTH_COLUMNS - row.size) {
+                repeat(columns - row.size) {
                     Spacer(Modifier.weight(1f))
                 }
             }

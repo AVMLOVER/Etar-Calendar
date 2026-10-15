@@ -74,7 +74,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-/** How many days ahead the screen loads. */
+/** How many days either side of the window's centre the screen loads. */
 private const val AGENDA_DAYS = 90
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -100,6 +100,14 @@ fun M3eAgendaScreen(
     searchQuery: String? = null,
     /** Called as the search field is edited; null closes the search. */
     onSearchQueryChange: ((String?) -> Unit)? = null,
+    /**
+     * The day the window is centred on: AGENDA_DAYS either side of it are loaded.
+     *
+     * The view the agenda was opened from hands its day over, so the list shows what is around
+     * that day rather than what is around today. Null - an entry point with no day of its own -
+     * centres on today, which is where the screen used to start.
+     */
+    initialDate: LocalDate? = null,
 ) {
     val context = LocalContext.current
     val zone = remember { ZoneId.systemDefault() }
@@ -131,8 +139,12 @@ fun M3eAgendaScreen(
             zone = zone,
         )
 
-    // Start of the 90 day window that is currently loaded. The two buttons below shift it.
-    var windowStart by remember { mutableStateOf(LocalDate.now(zone)) }
+    // The day the loaded window is centred on, and the first day of that window. The window holds
+    // AGENDA_DAYS either side of the centre; the two buttons below move the centre.
+    val centreDate = remember(initialDate) { initialDate ?: LocalDate.now(zone) }
+    var windowStart by remember(centreDate) {
+        mutableStateOf(centreDate.minusDays(AGENDA_DAYS.toLong()))
+    }
 
     LaunchedEffect(windowStart, refreshKey, searchQuery) {
         loading = true
@@ -142,7 +154,9 @@ fun M3eAgendaScreen(
             if (term.isNullOrEmpty()) {
                 repository.load(
                     windowStart.atStartOfDay(zone).toInstant().toEpochMilli(),
-                    windowStart.plusDays(AGENDA_DAYS.toLong())
+                    // The last day of the window is the centre plus AGENDA_DAYS, and the range is
+                    // exclusive of its end, so the query ends on the day after it.
+                    windowStart.plusDays(AGENDA_DAYS * 2L + 1L)
                         .atStartOfDay(zone).toInstant().toEpochMilli(),
                 )
             } else {
@@ -184,34 +198,55 @@ fun M3eAgendaScreen(
                     },
                 )
             } else {
-                // Two explicit controls instead of an endless list: step the window back or forward
-                // by the same 90 days the screen shows at a time.
-                Row(
+                // Two explicit controls instead of an endless list: each moves the day the window
+                // is centred on back or forward by the 90 days the button names, so the window keeps
+                // its 90 days either side. The date of the window's first day goes on its own line
+                // underneath them.
+                //
+                // It sat beside the buttons, and there was never room for it there: pinned right it
+                // wrapped to one character per line, and moved next to them it was cut off entirely.
+                // A line of its own is the only place a date spelled out in full always fits, and it
+                // is a caption for the two buttons anyway.
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    FilledTonalButton(
-                        onClick = { windowStart = windowStart.minusDays(AGENDA_DAYS.toLong()) },
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(stringResource(R.string.m3e_agenda_prev90))
+                        FilledTonalButton(
+                            onClick = { windowStart = windowStart.minusDays(AGENDA_DAYS.toLong()) },
+                        ) {
+                            Text(stringResource(R.string.m3e_agenda_prev90))
+                        }
+                        FilledTonalButton(
+                            onClick = { windowStart = windowStart.plusDays(AGENDA_DAYS.toLong()) },
+                        ) {
+                            Text(stringResource(R.string.m3e_agenda_next90))
+                        }
                     }
-                    FilledTonalButton(
-                        onClick = { windowStart = windowStart.plusDays(AGENDA_DAYS.toLong()) },
-                    ) {
-                        Text(stringResource(R.string.m3e_agenda_next90))
-                    }
-                    Spacer(Modifier.weight(1f))
                     Text(
                         text = remember(windowStart) {
-                            android.text.format.DateFormat.getDateFormat(context)
+                            // Month, day and the full year, with the month named rather than
+                            // numbered: "14. Okt. 2026", "Oct 14, 2026", "2026年10月14日".
+                            //
+                            // getDateFormat gives the numeric form the locale would write, which is
+                            // harder to read at a glance, and the year is written out in full rather
+                            // than abbreviated because this is a standalone caption with room for it.
+                            val pattern = android.text.format.DateFormat.getBestDateTimePattern(
+                                java.util.Locale.getDefault(), "yMMMd",
+                            )
+                            java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault())
                                 .format(Date(windowStart.atStartOfDay(zone)
                                     .toInstant().toEpochMilli()))
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 4.dp, start = 2.dp),
                     )
                 }
             }

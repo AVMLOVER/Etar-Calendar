@@ -34,8 +34,13 @@ this app would be just a dream. So thanks to them!
 - Lunar calendar integrate.
 - Redesigned agenda view and agenda adjunction.
 - Redirectable of dates&months in views.
-- ICS import fixes.
-- Predictable return on supported devices.
+- ICS Offline/Online import supplement. (Note: This feature requires network permissions; if you do not need this feature, you can disable network access for this app.)
+- Refined new global animations.
+- Details supplement.
+- The mod`s full localization is available in Chinese (Simplifed/Traditional), English and German. 
+- Other Language`s localization is not ready, keeping vanilla language library.
+- Renamed to Etar-Mod.
+- Plenty of bugs fixed.
 
 ## How to use Etar
 Store your calendar on the phone only:

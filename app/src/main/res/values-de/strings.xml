@@ -282,6 +282,8 @@
     <string name="view_settings">Ansichtseinstellungen</string>
     <string name="preferences_month_view_portrait">Monatsansicht (Portrait)</string>
     <string name="preferences_month_view_landscape">Monatsansicht (Landscape)</string>
+    <string name="preferences_view_switch_buttons">Ansichtsknöpfe in der Symbolleiste</string>
+    <string name="preferences_view_switch_buttons_summary">Mit einem Tippen zwischen Tag, Woche und Monat wechseln (der Monat wird im Titel abgekürzt)</string>
     <string name="display_options">Anzeigeoptionen</string>
     <string name="display_time">Zeit anzeigen</string>
     <string name="display_location">Ort anzeigen</string>
@@ -314,7 +316,7 @@
     <string name="preferences_calendar_delete_message">Willst du diesen Kalender wirklich löschen\?</string>
     <string name="preferences_calendar_delete_delete">Kalender löschen</string>
     <string name="preferences_calendar_delete_cancel">Abbrechen</string>
-    <string name="preferences_menu_about">Über Etar</string>
+    <string name="preferences_menu_about">Über Etar-Mod</string>
     <string name="offline_account_name">Offline-Kalender</string>
     <string name="preferences_calendar_color_warning_message">Die Änderung der Farbe kann zurückgesetzt werden, wenn der Kalender erneut synchronisiert wird.
 \n
@@ -373,4 +375,7 @@
     <string name="week_start_locale_default">Gebietsschema - Standard</string>
     <string name="cal_export_success">Termin erfolgreich exportiert</string>
     <string name="cal_export_error">Termin konnte nicht exportiert werden</string>
+    <string name="threeday_view">3 Tage</string>
+    <string name="preferences_show_lunar_title">Mondkalender anzeigen</string>
+    <string name="preferences_show_lunar_summary">Den chinesischen Mondkalender und die traditionellen Feste unter dem Datum in der Monats- und Wochenansicht anzeigen</string>
 </resources>

@@ -29,10 +29,40 @@
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
                 android:minHeight="?attr/actionBarSize"
+                android:theme="@style/ThemeOverlay.CalendarAppTheme.ActionBar"
+                app:contentInsetStart="0dp"
+                app:contentInsetStartWithNavigation="0dp"
                 app:menu="@menu/all_in_one_title_bar"
                 app:navigationIcon="@drawable/ic_menu_navigator"
                 app:subtitleTextAppearance="@style/TextAppearance.M3e.ToolbarSubtitle"
-                app:titleTextAppearance="@style/TextAppearance.M3e.ToolbarTitle" />
+                app:titleTextAppearance="@style/TextAppearance.M3e.ToolbarTitle">
+
+                <!--
+                  The heading, both lines in one view.
+
+                  The ActionBar's own title and subtitle were used for a while, and the two did not
+                  line up: they are separate views, each inset by the toolbar's start inset, and the
+                  first line sits a little further right than the second because a view's edge is the
+                  start of its line box rather than the start of its first glyph - the gap is the font's
+                  left side bearing, and it is not the same for the two sizes. One view holding both
+                  lines gives them one origin and they cannot disagree.
+
+                  Two lines rather than one joined line: the second line is a smaller span, and a size
+                  span and auto-sizing do not work together - auto-sizing measures the whole text and
+                  picks one size for all of it. With the lines apart, the size span applies and the
+                  subtitle still fits, which is what the Chinese date needs.
+                -->
+                <TextView
+                    android:id="@+id/m3e_title_text"
+                    android:layout_width="wrap_content"
+                    android:maxWidth="280dp"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="2"
+                    android:textAppearance="@style/TextAppearance.M3e.ToolbarHeading"
+                    android:textColor="?attr/colorOnSurface" />
+
+            </androidx.appcompat.widget.Toolbar>
         </com.google.android.material.appbar.AppBarLayout>
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -56,5 +86,6 @@
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:fitsSystemWindows="true"
+        app:itemBackground="@drawable/m3e_drawer_item_background"
         app:menu="@menu/calendar_view" />
 </androidx.drawerlayout.widget.DrawerLayout>

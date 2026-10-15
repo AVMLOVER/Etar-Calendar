@@ -14,13 +14,26 @@
      limitations under the License.
 -->
 
+<!--
+     The root is the day and week screen's surface, behind the Canvas-drawn grid.
+
+     It asked for @color/day_past_background_color, a pre-Material 3 grey that is not themed at all
+     and so stayed grey whatever the theme. The grid inside it takes its colours from DynamicTheme
+     and the frame around it did not, which is why these two screens looked older than the month and
+     three day views. Resolving a Material 3 role attribute instead puts the frame on the same
+     surface as the rest of the app and lets the monet palette reach it.
+
+     The grid paints its own background over this one; this shows in the strips it does not cover.
+
+     The one dip of top padding that used to be here is gone. It lifted the whole grid by a pixel
+     against the month view for no stated reason, and against a themed surface the untaken strip
+     read as a band of nothing above the time labels.
+-->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/day_past_background_color"
-    android:foregroundGravity="fill_horizontal|top"
-    android:paddingTop="1dip">
+    android:background="?attr/colorSurface">
     <ViewSwitcher
         android:id="@+id/switcher"
         android:layout_width="match_parent"

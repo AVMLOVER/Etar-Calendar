@@ -16,6 +16,7 @@
 
 package com.android.calendar.month;
 
+
 import android.app.Activity;
 import android.content.ContentUris;
 import android.content.res.Resources;
@@ -168,6 +169,18 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
     };
 
 
+    /**
+     * Whether this is the small month beside the calendar controls rather than the screen's own
+     * month view.
+     *
+     * Saved and restored because the framework rebuilds a fragment with its no-argument constructor,
+     * and that one says "mini month". A full month view that went through a rotation or a theme
+     * change therefore came back as the small one: a rounded card, its own month heading inside it,
+     * and a grid that did not respond to a tap. Only the portrait screen ever looked right, because
+     * only it had not been rebuilt.
+     */
+    private static final String BUNDLE_KEY_MINI_MONTH = "key_mini_month";
+
     public MonthByWeekFragment() {
         this(System.currentTimeMillis(), true);
     }
@@ -299,6 +312,18 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
     }
 
     @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // Put back what the no-argument constructor cannot know, here rather than in onCreateView:
+        // this runs for every path a fragment can be rebuilt by, and the value is read by
+        // onActivityCreated as well as by onCreateView.
+        if (savedInstanceState != null
+                && savedInstanceState.containsKey(BUNDLE_KEY_MINI_MONTH)) {
+            mIsMiniMonth = savedInstanceState.getBoolean(BUNDLE_KEY_MINI_MONTH, mIsMiniMonth);
+        }
+    }
+
+    @Override
     public View onCreateView(
             LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View v;
@@ -309,6 +334,12 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
         }
         mDayNamesHeader = (ViewGroup) v.findViewById(R.id.day_names);
         return v;
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(BUNDLE_KEY_MINI_MONTH, mIsMiniMonth);
     }
 
     @Override
@@ -462,10 +493,14 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
             // Scrolling to it moved the whole page onto that month, so tapping the tail of the grid
             // looked like the calendar had jumped on its own. The day is still selected - that is what
             // the tap asked for - but the month stays where it is.
-            // The today button is the exception: it exists to move the calendar, and today is
-            // usually in another month, so holding the view still would make it do nothing.
+            //
+            // Two things are excepted. The today button exists to move the calendar, and today is
+            // usually in another month, so holding the view still would make it do nothing. A month
+            // chosen in the year view is the user naming where to go, and it arrives marked as
+            // explicit, so it moves too.
             boolean gotoToday = (event.extraLong & CalendarController.EXTRA_GOTO_TODAY) != 0;
-            if (!gotoToday && !isInCurrentMonth(event.selectedTime)) {
+            boolean explicit = (event.extraLong & CalendarController.EXTRA_GOTO_EXPLICIT) != 0;
+            if (!gotoToday && !explicit && !isInCurrentMonth(event.selectedTime)) {
                 mSelectedDay.set(event.selectedTime);
                 mSelectedDay.normalize();
                 mAdapter.notifyDataSetChanged();
@@ -495,6 +530,36 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
             }
         } else if (event.eventType == EventType.EVENTS_CHANGED) {
             eventsChanged();
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        // Coming back, the controller's time is the destination - not this fragment's own remembered
+        // day.
+        //
+        // The fragment keeps the day it is showing in mSelectedDay, and super.onResume() above ends by
+        // scrolling to exactly that, which is right for a plain return to the screen. It is wrong when
+        // the return carries a new destination: a month picked in the year view is dispatched as a
+        // controller event before this fragment resumes, so the event arrives, is held back by the rule
+        // that stops a tapped grid tail from moving the page, and is then undone by the scroll back to
+        // mSelectedDay that runs a couple of milliseconds later. The event cannot simply be let
+        // through either, because holding still is the behaviour a tapped tail needs.
+        //
+        // Read here instead, at the one moment the two can be told apart: this runs after the resume
+        // and so after the destination has been recorded, and it only runs on a resume, which a tap
+        // does not cause. The controller is not written to - that is what would move the month on a tap.
+        if (!mIsMiniMonth) {
+            CalendarController controller = CalendarController.getInstance(mContext);
+            long target = controller == null ? -1 : controller.getTime();
+            Time current = new Time(mSelectedDay.getTimezone());
+            current.set(target);
+            current.normalize();
+            if (target > 0 && !isInCurrentMonth(current)) {
+                goTo(target, false, true, true);
+            }
         }
     }
 

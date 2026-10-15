@@ -10,10 +10,13 @@ package com.android.calendar.agenda.compose
 
 import android.content.Intent
 import android.os.Bundle
+import android.provider.CalendarContract
 import com.android.calendar.chrome.M3eHostActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import java.time.Instant
+import java.time.ZoneId
 import ws.xsoh.etar.R
 
 class ComposeAgendaActivity : M3eHostActivity() {
@@ -31,8 +34,16 @@ class ComposeAgendaActivity : M3eHostActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // The day the list is centred on, handed over by the view the agenda was opened from.
+        // Nothing arrives when there is no view behind it, and the screen then centres on today.
+        val initialDate = intent
+            .getLongExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, 0L)
+            .takeIf { it > 0L }
+            ?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() }
+
         setM3eContent {
             M3eAgendaScreen(
+                initialDate = initialDate,
                 onOpenEvent = { event -> openEvent(event) },
                 onDeleteEvent = { event -> deleteEvent(event) },
                 onReminderChanged = { event, minutes -> setReminder(event, minutes) },

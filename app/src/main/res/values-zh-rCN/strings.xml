@@ -263,6 +263,8 @@
     <string name="view_settings">软件设置</string>
     <string name="preferences_month_view_portrait">月视图布局(纵向)</string>
     <string name="preferences_month_view_landscape">月视图布局(横向)</string>
+    <string name="preferences_view_switch_buttons">工具栏视图按钮</string>
+    <string name="preferences_view_switch_buttons_summary">一键切换日、周、月视图（标题中的月份会缩写）</string>
     <string name="display_options">查看细节</string>
     <string name="display_time">显示时间</string>
     <string name="display_location">显示位置</string>
@@ -298,7 +300,7 @@
     <string name="preferences_calendar_delete_message">您确实要删除此日历吗？</string>
     <string name="preferences_calendar_delete_delete">删除日历</string>
     <string name="preferences_calendar_delete_cancel">取消</string>
-    <string name="preferences_menu_about">关于 Etar</string>
+    <string name="preferences_menu_about">关于 Etar-Mod</string>
     <string name="offline_account_name">离线日历</string>
     <string name="app_copyright">© 2015-<xliff:g>%1$s</xliff:g> The Etar Project. Portions © 2005-<xliff:g>%1$s</xliff:g> The Android Open Source Project.</string>
     <string name="authors">作者</string>

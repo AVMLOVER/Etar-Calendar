@@ -1,5 +1,6 @@
 package com.android.calendar;
 
+import android.view.View;
 import android.content.Context;
 import android.os.Handler;
 import android.text.TextUtils;
@@ -23,6 +24,13 @@ import ws.xsoh.etar.R;
 public class CalendarToolbarHandler {
 
     private final LayoutInflater mInflater;
+    /** The heading's second line in the app's own heading view, if it is there. */
+    /** The heading's first line in the app's own heading view, if it is there. */
+    /** The heading's two lines, kept so either can change without losing the other. */
+    private String mHeadingTitle;
+    private String mHeadingSubtitle;
+
+    /** The colour the second line is drawn in, resolved once from the theme. */
     private final StringBuilder mStringBuilder;
     private final Formatter mFormatter;
     private AppCompatActivity mContext;
@@ -30,6 +38,10 @@ public class CalendarToolbarHandler {
     private int mCurrentViewType;
     // The current selected event's time, used to calculate the date and day of the week
     // for the buttons.
+    /** The toolbar's heading view, filled by refreshHeading. */
+    private android.widget.TextView mTitleView;
+    /** Resolved once, for the second line's colour. */
+    private Integer mSubtitleColor;
     private long mMilliTime;
     private String mTimeZone;
     private long mTodayJulianDay;
@@ -83,26 +95,124 @@ public class CalendarToolbarHandler {
     private void updateTitle() {
         switch (mCurrentViewType) {
             case CalendarController.ViewType.DAY:
-                mToolbar.setSubtitle(buildDayOfWeek(mCurrentViewType));
-                mToolbar.setTitle(buildFullDate());
+                setSubtitle(buildDayOfWeek(mCurrentViewType));
+                setTitle(buildShortDate());
                 break;
             case CalendarController.ViewType.WEEK:
                 if (Utils.getShowWeekNumber(mContext)) {
-                    mToolbar.setSubtitle(buildWeekNum());
+                    setSubtitle(buildWeekNum());
                 } else {
-                    mToolbar.setSubtitle("");
+                    setSubtitle("");
                 }
-                mToolbar.setTitle(buildMonthYearDate());
+                setTitle(buildShortMonthYear());
                 break;
             case CalendarController.ViewType.MONTH:
-                mToolbar.setSubtitle("");
-                mToolbar.setTitle(buildMonthYearDate());
+                setSubtitle("");
+                setTitle(buildMonthYearDate());
                 break;
             case CalendarController.ViewType.AGENDA:
-                mToolbar.setSubtitle(buildDayOfWeek(mCurrentViewType));
-                mToolbar.setTitle(buildFullDate());
+                setSubtitle(buildDayOfWeek(mCurrentViewType));
+                setTitle(buildShortDate());
                 break;
         }
+    }
+
+    /**
+     * The heading's two lines, drawn as one text so their left edges line up.
+     *
+     * They were two TextViews stacked in the toolbar, and their left edges were aligned while their
+     * glyphs were not: a view's edge sits at the start of the line box, which is not the same as the
+     * start of the first glyph. The gap between the two is the font's left side bearing, and it
+     * differs with the size - 18sp for the date against 13sp for the weekday - so the heading looked
+     * indented against the line beneath it in every language.
+     *
+     * As one text they share an origin and cannot disagree. The second line is a span at a smaller
+     * size rather than a second view, so the size difference is kept without the offset.
+     */
+    private void refreshHeading() {
+        // Both lines in one view, the second as a smaller span.
+        //
+        // The toolbar's own title and subtitle were used for a while. They are two views, and the two
+        // did not line up: each is inset by the same amount, but the first line's glyphs begin a little
+        // further in than the second's, because a view's edge is the start of its line box and not the
+        // start of its first glyph - the difference is the font's left side bearing, which varies with
+        // the size. One view gives the lines one origin.
+        //
+        // They are separate lines rather than one line with the subtitle appended, so the subtitle can
+        // keep its smaller size: a size span and auto-sizing cannot both be in force - auto-sizing
+        // measures the whole text and chooses one size for it - and the heading needs auto-sizing to
+        // fit the Chinese date on the row it shares with the icons.
+        android.widget.TextView view = titleView();
+        if (view == null) {
+            mToolbar.setTitle(mHeadingTitle == null ? "" : mHeadingTitle);
+            if (mHeadingSubtitle != null && !mHeadingSubtitle.isEmpty()) {
+                mToolbar.setSubtitle(mHeadingSubtitle);
+            }
+            return;
+        }
+
+        String title = mHeadingTitle == null ? "" : mHeadingTitle;
+        String subtitle = mHeadingSubtitle == null ? "" : mHeadingSubtitle;
+        if (subtitle.isEmpty()) {
+            view.setText(title);
+            return;
+        }
+
+        if (mSubtitleColor == null) {
+            mSubtitleColor = com.google.android.material.color.MaterialColors.getColor(
+                    mToolbar,
+                    com.google.android.material.R.attr.colorOnSurfaceVariant,
+                    0xFF808080);
+        }
+        android.text.SpannableString text =
+                new android.text.SpannableString(title + "\n" + subtitle);
+        int start = title.length() + 1;
+        text.setSpan(new android.text.style.ForegroundColorSpan(mSubtitleColor),
+                start, text.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        // Fixed sizes per line, so the date reads as the heading and the line under it as the note it is.
+        //
+        // Auto-sizing is off: it picks one size for the whole view, which would make the two lines
+        // the same size and shrink the date to match the longer line. With the sizes fixed, fitting
+        // is the layout's job - the view is capped and the subtitle is small enough to fit inside
+        // that cap in every language this is used in.
+        view.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,
+                mToolbar.getResources().getDimension(R.dimen.m3e_toolbar_title_size));
+        text.setSpan(new android.text.style.AbsoluteSizeSpan(
+                        (int) mToolbar.getResources().getDimension(R.dimen.m3e_toolbar_subtitle_size)),
+                start, text.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        view.setText(text);
+    }
+
+    /** The toolbar's heading view, or null when the layout does not provide one. */
+    private android.widget.TextView titleView() {
+        if (mTitleView == null) {
+            mTitleView = mToolbar.findViewById(R.id.m3e_title_text);
+            if (mTitleView != null) {
+                // Auto-sizing off: the two lines are different sizes, and the view can only scale all
+                // of its text together.
+                androidx.core.widget.TextViewCompat.setAutoSizeTextTypeWithDefaults(
+                        mTitleView, androidx.core.widget.TextViewCompat.AUTO_SIZE_TEXT_TYPE_NONE);
+            }
+        }
+        return mTitleView;
+    }
+
+    /** The heading's first line. */
+    private void setTitle(String text) {
+        mHeadingTitle = text;
+        refreshHeading();
+    }
+
+    /**
+     * The heading's second line.
+     *
+     * The ActionBar has a subtitle of its own, but it is laid out across the same row as the title,
+     * so a long one takes the room the title needs. It is drawn as the heading's own second line
+     * instead, at a smaller size.
+     */
+    private void setSubtitle(String text) {
+        mHeadingSubtitle = text;
+        refreshHeading();
     }
 
 
@@ -137,19 +247,15 @@ public class CalendarToolbarHandler {
 
         if (julianDay == mTodayJulianDay) {
             dayOfWeek = mContext.getString(R.string.agenda_today,
-                    DateUtils.formatDateRange(mContext, mFormatter, mMilliTime, mMilliTime,
-                            DateUtils.FORMAT_SHOW_WEEKDAY, mTimeZone).toString());
+                    buildShortWeekday());
         } else if (julianDay == mTodayJulianDay - 1) {
             dayOfWeek = mContext.getString(R.string.agenda_yesterday,
-                    DateUtils.formatDateRange(mContext, mFormatter, mMilliTime, mMilliTime,
-                            DateUtils.FORMAT_SHOW_WEEKDAY, mTimeZone).toString());
+                    buildShortWeekday());
         } else if (julianDay == mTodayJulianDay + 1) {
             dayOfWeek = mContext.getString(R.string.agenda_tomorrow,
-                    DateUtils.formatDateRange(mContext, mFormatter, mMilliTime, mMilliTime,
-                            DateUtils.FORMAT_SHOW_WEEKDAY, mTimeZone).toString());
+                    buildShortWeekday());
         } else {
-            dayOfWeek = DateUtils.formatDateRange(mContext, mFormatter, mMilliTime, mMilliTime,
-                    DateUtils.FORMAT_SHOW_WEEKDAY, mTimeZone).toString();
+            dayOfWeek = buildShortWeekday();
         }
         // Lunar date, when it is enabled, rides along on the same line as the weekday, e.g.
         // "今天，星期一，正月初六". Time.month is 0-based, which is what LunarUtils expects.
@@ -176,11 +282,54 @@ public class CalendarToolbarHandler {
     // Month day
     // Month
     // Week:  month day-day or month day - month day
+    
+    /**
+     * The weekday, abbreviated.
+     *
+     * DateUtils offers only the full name, and the full name is most of the line by itself in German
+     * - "Mittwoch" - before the lunar date is added to it. The pattern comes from the platform, so
+     * each language abbreviates its own way: "Mi.", "Wed", "周三".
+     */
+    private String buildShortWeekday() {
+        String pattern = android.text.format.DateFormat.getBestDateTimePattern(
+                Locale.getDefault(), "EEE");
+        return new java.text.SimpleDateFormat(pattern, Locale.getDefault())
+                .format(new java.util.Date(mMilliTime));
+    }
+
     private String buildFullDate() {
         mStringBuilder.setLength(0);
         String date = DateUtils.formatDateRange(mContext, mFormatter, mMilliTime, mMilliTime,
                 DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_SHOW_YEAR, mTimeZone).toString();
         return date;
+    }
+
+    /**
+     * The month and year, with the month abbreviated: "Okt. 2026" in German, "Oct 2026" in English.
+     *
+     * The week heading carries the week number underneath it, and the full month name on the same row
+     * as the icons left no room for both.
+     */
+    private String buildShortMonthYear() {
+        String pattern = android.text.format.DateFormat.getBestDateTimePattern(
+                Locale.getDefault(), "MMMy");
+        return new java.text.SimpleDateFormat(pattern, Locale.getDefault())
+                .format(new java.util.Date(mMilliTime));
+    }
+
+    /**
+     * The day's date with an abbreviated month: "14. Okt." in German, "Oct 14" in English.
+     *
+     * The heading shares its row with the search, today and overflow icons on a phone, and the full
+     * month name did not fit: "14. Oktober 2026" was cut to "14. Oktober 2...". The abbreviation is
+     * what each language uses for a date in running text, so it reads as a date rather than as a
+     * truncation, and it leaves room for the weekday on the end.
+     */
+    private String buildShortDate() {
+        String pattern = android.text.format.DateFormat.getBestDateTimePattern(
+                Locale.getDefault(), "MMMd");
+        return new java.text.SimpleDateFormat(pattern, Locale.getDefault())
+                .format(new java.util.Date(mMilliTime));
     }
 
     private String buildMonthYearDate() {

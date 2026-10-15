@@ -35,10 +35,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
                 android:minHeight="?attr/actionBarSize"
+                android:theme="@style/ThemeOverlay.CalendarAppTheme.ActionBar"
+                app:contentInsetStart="0dp"
+                app:contentInsetStartWithNavigation="0dp"
                 app:menu="@menu/all_in_one_title_bar"
                 app:navigationIcon="@drawable/ic_menu_navigator"
                 app:subtitleTextAppearance="@style/TextAppearance.M3e.ToolbarSubtitle"
-            app:titleTextAppearance="@style/TextAppearance.M3e.ToolbarTitle" />
+                app:titleTextAppearance="@style/TextAppearance.M3e.ToolbarTitle" />
         </com.google.android.material.appbar.AppBarLayout>
 
         <androidx.compose.ui.platform.ComposeView
@@ -55,5 +58,6 @@
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:fitsSystemWindows="true"
+        app:itemBackground="@drawable/m3e_drawer_item_background"
         app:menu="@menu/calendar_view" />
 </androidx.drawerlayout.widget.DrawerLayout>

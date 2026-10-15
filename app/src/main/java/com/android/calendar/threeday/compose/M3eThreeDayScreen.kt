@@ -11,6 +11,8 @@
  */
 package com.android.calendar.threeday.compose
 
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -50,6 +52,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import ws.xsoh.etar.R
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,13 +90,43 @@ private val GUTTER_WIDTH = 44.dp
  * instead of composing it mid-gesture, which is what made paging stutter.
  */
 private const val PAGE_COUNT = 1200
+/**
+ * One physical pixel.
+ *
+ * The day and week grids are Canvas-drawn and stroke their rules with a bare 1, which is one
+ * pixel whatever the density is. A dp here is two or three pixels on a phone, which is why
+ * this grid looked heavier than the week view it sits beside.
+ */
+@androidx.compose.runtime.Composable
+private fun hairlinePx(): Float = with(androidx.compose.ui.platform.LocalDensity.current) {
+    1.dp.toPx() / density
+}
+
+/**
+ * The plus drawn on the picked slot, matching the day and week views' own.
+ *
+ * Those are Canvas views working in raw pixels: a two pixel stroke and a sixteen pixel arm. A dp
+ * is the same measure at a typical density and keeps the proportion on a denser screen.
+ */
+private val PLUS_STROKE = 2.dp
+private val PLUS_MAX_LENGTH = 16.dp
+private val PLUS_MARGIN = 8.dp
+private val PLUS_MIN_LENGTH = 6.dp
+
 private const val PAGE_MIDDLE = PAGE_COUNT / 2
-private const val BEYOND_VIEWPORT = 2
+
+/**
+ * How many blocks either side of the visible one stay composed.
+ *
+ * One rather than two. Each page is a full day grid - three columns of twenty four hour canvases -
+ * and two either side meant five of them alive at once, which is where this screen's start-up cost
+ * and its memory went. One still brings the next block in before a swipe reaches it.
+ */
+private const val BEYOND_VIEWPORT = 1
 
 /** Length of an event created by tapping an empty slot, matching the day view's default. */
 private const val DEFAULT_NEW_EVENT_MILLIS = 60L * 60L * 1000L
 
-private val RANGE_FORMAT = DateTimeFormatter.ofPattern("M月d日", Locale.getDefault())
 private val WEEKDAY_FORMAT = DateTimeFormatter.ofPattern("EEE", Locale.getDefault())
 
 /**
@@ -121,13 +156,20 @@ fun M3eThreeDayScreen(
      * command to move; this is that command.
      */
     scrollToTodayKey: Int = 0,
+    /** Epoch day chosen from the heading's date picker, or 0 when none has been chosen. */
+    pickedDayKey: Long = 0,
 ) {
     val context = LocalContext.current
     val zone = remember { ZoneId.systemDefault() }
     val today = remember { LocalDate.now(zone) }
 
     // Same switch the week and month views read, so the lunar line appears in all of them together.
-    val showLunar = remember { LunarUtils.showLunar(context) }
+    //
+    // Keyed on refreshKey, which the host bumps on every resume. Without a key this was computed once
+    // - on the first composition - and never again, so turning the lunar line on or off in the
+    // settings and coming back left this screen showing what it had read the first time. The other
+    // views read the switch as they draw and so followed the setting; only this one held on to it.
+    val showLunar = remember(refreshKey) { LunarUtils.showLunar(context) }
 
     // The block the host asked for sits at the middle of the range, so there is room to swipe either
     // way without ever reaching an end.
@@ -165,32 +207,85 @@ fun M3eThreeDayScreen(
         }
     }
 
+    // A day chosen from the heading's picker, brought on screen.
+    //
+    // A date rather than a month, because the heading is a range of days. The block the day falls in
+    // is the one to show, so the distance is measured in days and divided by three, the same
+    // arithmetic the today button uses - a day in the middle of the range lands on the block already
+    // showing it, and one outside it moves to the block that holds it.
+    LaunchedEffect(pickedDayKey) {
+        if (pickedDayKey == 0L) return@LaunchedEffect
+        val target = LocalDate.ofEpochDay(pickedDayKey)
+        val currentFirstDay = LocalDate.ofEpochDay(
+            (centrePage + pagerState.currentPage - PAGE_MIDDLE).toLong() * 3L
+        )
+        val daysAway = target.toEpochDay() - currentFirstDay.toEpochDay()
+        val targetPage = pagerState.currentPage + Math.floorDiv(daysAway, 3L).toInt()
+        if (targetPage in 0 until PAGE_COUNT) {
+            pagerState.animateScrollToPage(targetPage)
+        }
+    }
+
     M3eChromeScaffold(selected = M3eScreen.DAY, title = { Text(titleOf(firstDay)) }) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-            // Keep the neighbouring blocks composed so a swipe shows the next three days straight
-            // away instead of composing them mid-gesture.
-            beyondViewportPageCount = BEYOND_VIEWPORT,
-        ) { index ->
-            ThreeDayPage(
-                firstDay = LocalDate.ofEpochDay((centrePage + index - PAGE_MIDDLE).toLong() * 3L),
-                today = today,
-                zone = zone,
-                showLunar = showLunar,
-                onOpenEvent = onOpenEvent,
-                onCreateEvent = onCreateEvent,
-                refreshKey = refreshKey,
-            )
+        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                // Keep the neighbouring blocks composed so a swipe shows the next three days straight
+                // away instead of composing them mid-gesture.
+                beyondViewportPageCount = BEYOND_VIEWPORT,
+            ) { index ->
+                ThreeDayPage(
+                    firstDay = LocalDate.ofEpochDay((centrePage + index - PAGE_MIDDLE).toLong() * 3L),
+                    today = today,
+                    zone = zone,
+                    showLunar = showLunar,
+                    onOpenEvent = onOpenEvent,
+                    onCreateEvent = onCreateEvent,
+                    refreshKey = refreshKey,
+                )
+            }
+
+            // The add button, the same one the day, week and month views carry.
+            //
+            // What it creates depends on whether today is on screen. With today in the range it starts
+            // from the current time and runs an hour, which is what the other views do and what the
+            // common case wants - an event happening now. With today out of the range it starts from the
+            // current time on the first of the three days shown, because that day is the one the user
+            // is looking at and the current time is the part they have not chosen.
+            androidx.compose.material3.FloatingActionButton(
+                onClick = {
+                    val now = java.time.ZonedDateTime.now(zone)
+                    val start = if (!today.isBefore(firstDay) && !today.isAfter(firstDay.plusDays(2))) {
+                        now.toInstant().toEpochMilli()
+                    } else {
+                        firstDay.atTime(now.toLocalTime())
+                            .atZone(zone)
+                            .toInstant()
+                            .toEpochMilli()
+                    }
+                    onCreateEvent(start, start + DEFAULT_NEW_EVENT_MILLIS)
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ) {
+                androidx.compose.material3.Icon(
+                    // The project's own add icon, not Icons.Filled.Add: the material-icons artifact is
+                    // not a dependency here, and the screens that need an icon all use painterResource
+                    // for that reason.
+                    painter = androidx.compose.ui.res.painterResource(R.drawable.ic_add_event),
+                    contentDescription = stringResource(R.string.event_create),
+                )
+            }
         }
     }
 }
 
-/** "10月16日 – 10月18日", the same heading the host puts in the toolbar. */
-private fun titleOf(firstDay: LocalDate): String {
-    val last = firstDay.plusDays(2)
-    return firstDay.format(RANGE_FORMAT) + " – " + last.format(RANGE_FORMAT)
-}
+    /** The same three day range the toolbar shows. See ThreeDayRangeTitle. */
+    private fun titleOf(firstDay: LocalDate): String = rangeTitleOf(firstDay)
 
 /**
  * One three day block.
@@ -274,12 +369,23 @@ private fun ThreeDayBlock(
 ) {
     // The colour the hour and column rules are drawn in.
     //
-    // outlineVariant is the app's separator colour, but as a one pixel line it is too close to the
-    // background in light mode - Material's light outline variant is a very pale grey, and the grid
-    // disappeared entirely. outline is a clear step darker, which is what a grid rule needs, and it
-    // still follows the theme in both modes.
-    val ruleColor = MaterialTheme.colorScheme.outline
-    val columnRuleColor = MaterialTheme.colorScheme.outline
+    // outlineVariant, the role the day and week grids resolve to. These rules were previously drawn
+    // in outline - a clear step darker - and at a full dp. Against the Canvas-drawn week view, one
+    // physical pixel of outlineVariant, they read as heavy bars across the grid. Matching both the
+    // role and the width is what brings the two grids to the same weight.
+    val ruleColor = MaterialTheme.colorScheme.outlineVariant
+    val columnRuleColor = MaterialTheme.colorScheme.outlineVariant
+    // Read here rather than in the Canvas lambda: LocalDensity is a composition local, so it
+    // can only be read from a composable scope.
+    val hairline = hairlinePx()
+
+    // The slot the user has picked out but not yet created an event in, as (column, half hour).
+    //
+    // The week view works this way: the first tap marks the slot and shows what tapping it again
+    // would do, and only the second tap opens the editor. This grid used to create on the first tap,
+    // which meant a misplaced finger started an event and there was nothing to see before committing.
+    // Kept across a trip to the editor, because the week view keeps its selection too.
+    var selection by rememberSaveable { mutableStateOf<Pair<Int, Int>?>(null) }
 
     val scroll = rememberScrollState()
 
@@ -322,13 +428,15 @@ private fun ThreeDayBlock(
         // rules drawn inside those columns were squeezed with them. As an overlay in the Box it covers
         // the grid without taking part in its layout.
         Box(modifier = Modifier.fillMaxSize()) {
-            // Tapping an empty slot starts a new event there.
+            // Tapping an empty slot marks it, and tapping the marked slot starts an event there.
             //
-            // The tap detector is attached to the scrolling container itself rather than to an overlay
-            // on top of it. An overlay sized fillMaxSize() only ever covers the part of the grid that
-            // is currently on screen, and - worse - competing with the scroll for the same drags
-            // stopped the grid from scrolling at all. On this modifier the drag is consumed by the
-            // scroll before the tap gesture can act on it, so a swipe scrolls and a tap creates.
+            // Two taps, as the week view does it: the first shows which slot was picked and what
+            // tapping again means, the second commits. The tap detector is attached to the scrolling
+            // container itself rather than to an overlay on top of it. An overlay sized fillMaxSize()
+            // only ever covers the part of the grid that is currently on screen, and - worse -
+            // competing with the scroll for the same drags stopped the grid from scrolling at all. On
+            // this modifier the drag is consumed by the scroll before the tap gesture can act on it,
+            // so a swipe scrolls and a tap selects.
             Row(
                 modifier = Modifier
                     .fillMaxSize()
@@ -341,19 +449,30 @@ private fun ThreeDayBlock(
                                 .coerceIn(0, days.size - 1)
                             val minuteOfDay = (offset.y / HOUR_HEIGHT.toPx() * 60f).toInt()
                                 .coerceIn(0, 24 * 60 - 1)
-                            // Snap to the half hour, which is the granularity the day view uses.
-                            val snapped = (minuteOfDay / 30) * 30
-                            val dayStart = days[column]
-                                .atStartOfDay(zone)
-                                .plusMinutes(snapped.toLong())
-                                .toInstant()
-                                .toEpochMilli()
-                            onCreateEvent(dayStart, dayStart + DEFAULT_NEW_EVENT_MILLIS)
+                            // Whole hours, so the marked slot is one row of the grid. It used to snap
+                            // to the half hour, which put the mark across two half rows: the plus was
+                            // drawn in the lower half of the hour it belonged to, and the event it
+                            // created covered only that half. A row of this grid is an hour, so that
+                            // is what a tap on it should mean.
+                            val hour = minuteOfDay / 60
+                            val picked = column to hour
+
+                            if (selection == picked) {
+                                selection = null
+                                val dayStart = days[column]
+                                    .atStartOfDay(zone)
+                                    .plusHours(hour.toLong())
+                                    .toInstant()
+                                    .toEpochMilli()
+                                onCreateEvent(dayStart, dayStart + DEFAULT_NEW_EVENT_MILLIS)
+                            } else {
+                                selection = picked
+                            }
                         }
                     },
             ) {
                 HourGutter()
-                days.forEach { day ->
+                days.forEachIndexed { column, day ->
                     DayColumn(
                         day = day,
                         isToday = day == today,
@@ -362,6 +481,8 @@ private fun ThreeDayBlock(
                         events = timedByDay[day].orEmpty(),
                         onOpenEvent = onOpenEvent,
                         ruleColor = ruleColor,
+                        // The picked slot, if it is in this column: the hour it starts at.
+                        selectedSlot = selection?.takeIf { it.first == column }?.second,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -387,7 +508,7 @@ private fun ThreeDayBlock(
                         color = columnRuleColor,
                         start = Offset(x, 0f),
                         end = Offset(x, size.height),
-                        strokeWidth = 1.dp.toPx(),
+                        strokeWidth = hairline,
                     )
                 }
             }
@@ -500,8 +621,17 @@ private fun DayColumn(
     onOpenEvent: (ThreeDayEvent) -> Unit,
     /** The colour the hour rules are drawn in, so the whole grid shares one. */
     ruleColor: Color,
+    /**
+     * The hour of the slot picked out in this column, or null.
+     *
+     * It is drawn as a filled half hour with a plus, which is what the week view shows on its
+     * selected slot and what tells the user a second tap is what creates the event.
+     */
+    selectedSlot: Int? = null,
     modifier: Modifier = Modifier,
 ) {
+    // Read in the composable scope; the Canvas below cannot call LocalDensity itself.
+    val hairline = hairlinePx()
     Box(modifier = modifier.fillMaxHeight()) {
         // The grid is one box of a known height - 24 hours - and the events are positioned inside it.
         //
@@ -511,7 +641,7 @@ private fun DayColumn(
         // white, which is invisible as a one pixel line on a dark background.
         Box(modifier = Modifier.height(HOUR_HEIGHT * 24)) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val stroke = 1.dp.toPx()
+                val stroke = hairline
                 for (hour in 1 until 24) {
                     val y = HOUR_HEIGHT.toPx() * hour
                     drawLine(
@@ -525,6 +655,58 @@ private fun DayColumn(
 
             events.forEach { event ->
                 EventBlock(event = event, zone = zone, onClick = { onOpenEvent(event) })
+            }
+
+            // The picked slot, and the plus that says what picking it again will do.
+            //
+            // Drawn above the events but below the current time marker, in the same place the week
+            // view puts its own: a filled half hour block with a plus centred in it.
+            if (selectedSlot != null) {
+                val highlight = MaterialTheme.colorScheme.secondaryContainer
+                val plusColor = MaterialTheme.colorScheme.onSecondaryContainer
+                // Converted here, in the composable scope: the Canvas lambda below draws in pixels
+                // and has no Density of its own to convert with.
+                val plusStroke = with(LocalDensity.current) { PLUS_STROKE.toPx() }
+                val plusMaxLength = with(LocalDensity.current) { PLUS_MAX_LENGTH.toPx() }
+                val plusMargin = with(LocalDensity.current) { PLUS_MARGIN.toPx() }
+                val plusMinLength = with(LocalDensity.current) { PLUS_MIN_LENGTH.toPx() }
+                // One hour, which is what a row of this grid is.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset(y = HOUR_HEIGHT * selectedSlot)
+                        .height(HOUR_HEIGHT)
+                        .background(highlight),
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        // Sized and stroked like the day and week views' own plus.
+                        //
+                        // Those draw it as two lines of a fixed length - NEW_EVENT_MAX_LENGTH, 16
+                        // pixels - with a two pixel stroke, shrinking for a slot too small to hold
+                        // that. Drawn here at a fraction of the slot instead, it came out far larger
+                        // than the mark the other two views show for the same gesture, and at one
+                        // physical pixel it was too thin to match them.
+                        val length = minOf(
+                            minOf(size.height, size.width) - plusMargin,
+                            plusMaxLength,
+                        ).coerceAtLeast(plusMinLength)
+                        val half = length / 2f
+                        val midX = size.width / 2f
+                        val midY = size.height / 2f
+                        drawLine(
+                            color = plusColor,
+                            start = Offset(midX - half, midY),
+                            end = Offset(midX + half, midY),
+                            strokeWidth = plusStroke,
+                        )
+                        drawLine(
+                            color = plusColor,
+                            start = Offset(midX, midY - half),
+                            end = Offset(midX, midY + half),
+                            strokeWidth = plusStroke,
+                        )
+                    }
+                }
             }
         }
 

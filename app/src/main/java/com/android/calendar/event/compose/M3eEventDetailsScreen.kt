@@ -5,6 +5,9 @@
  */
 package com.android.calendar.event.compose
 
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.layout.heightIn
@@ -126,19 +129,33 @@ fun M3eEventDetailsScreen(
         modifier = Modifier.m3eSystemBarPadding(),
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.event_info_title)) },
+                // The viewer's own heading, with the same note the editor carries. The note appears
+                // once the event has loaded, because until then there is no date to describe.
+                title = {
+                    EventTitleWithDistance(
+                        start = details?.start,
+                        heading = stringResource(R.string.m3e_event_view_title),
+                    )
+                },
                 navigationIcon = {
                     TextButton(onClick = onBack) { Text(stringResource(R.string.m3e_back)) }
                 },
                 actions = {
                     if (details != null) {
-                        TextButton(onClick = { onEdit(eventId) }) {
-                            Text(stringResource(R.string.m3e_event_edit))
+                        // Icons rather than words. The German words for edit and delete left no room
+                        // for the heading beside them, and an icon is the same width in every
+                        // language - which is the only way the heading can be relied on to fit.
+                        IconButton(onClick = { onEdit(eventId) }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_m3e_event_edit),
+                                contentDescription = stringResource(R.string.m3e_event_edit),
+                            )
                         }
-                        TextButton(onClick = { confirmingDelete = true }) {
-                            Text(
-                                text = stringResource(R.string.m3e_event_delete),
-                                color = MaterialTheme.colorScheme.error,
+                        IconButton(onClick = { confirmingDelete = true }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_m3e_event_delete),
+                                contentDescription = stringResource(R.string.m3e_event_delete),
+                                tint = MaterialTheme.colorScheme.error,
                             )
                         }
                     }
@@ -462,7 +479,11 @@ private fun NotesCard(details: EventDetails) {
         }
         details.organizer?.takeIf { it.isNotBlank() }?.let {
             if (!first) HorizontalDivider()
-            RowItem(label = stringResource(R.string.event_info_organizer), value = it)
+            RowItem(
+                label = stringResource(R.string.event_info_organizer),
+                value = it,
+                dotColor = accent(details.calendarColor),
+            )
             first = false
         }
         details.description?.takeIf { it.isNotBlank() }?.let {
@@ -506,14 +527,31 @@ private fun SettingsSurface(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun RowItem(label: String, value: String) {
+private fun RowItem(label: String, value: String, dotColor: Color? = null) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(text = value, style = MaterialTheme.typography.bodyLarge)
+        if (dotColor == null) {
+            Text(text = value, style = MaterialTheme.typography.bodyLarge)
+        } else {
+            // A dot before the value, in the colour of the calendar the line belongs to.
+            //
+            // Asked for on the organiser line: an event can be in one calendar and organised through
+            // another account, and the row gave no sign of which calendar was being shown. It is the
+            // same colour the headline uses for the event itself, so the two read as one thing.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(color = dotColor, shape = CircleShape)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(text = value, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
     }
 }
 

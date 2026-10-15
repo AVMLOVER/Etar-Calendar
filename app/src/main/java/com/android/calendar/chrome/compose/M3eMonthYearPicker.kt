@@ -126,11 +126,11 @@ fun M3eMonthYearPicker(
  * week views; the month view only cares about the month.
  */
 @Composable
-fun M3eMonthPickerHeader(day: LocalDate?) {
+fun M3eMonthPickerHeader(day: LocalDate?, titleRes: Int? = null) {
     Column(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
         Text(
             text = androidx.compose.ui.res.stringResource(
-                if (day == null) R.string.m3e_pick_month else R.string.m3e_pick_day
+                titleRes ?: if (day == null) R.string.m3e_pick_month else R.string.m3e_pick_day
             ),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
@@ -144,3 +144,73 @@ fun M3eMonthPickerHeader(day: LocalDate?) {
         }
     }
 }
+
+/** Years the year picker can reach: the range the year view itself lays out. */
+private const val PICKER_FIRST_YEAR = 1900
+private const val PICKER_LAST_YEAR = 2100
+
+/**
+ * A row of years, for a heading that names a year rather than a month.
+ *
+ * The month picker's shape without the months: a year is a whole destination on its own, so the
+ * row stops there instead of offering the twelve months inside it.
+ *
+ * @param year the year to mark as selected and bring into view when the picker opens.
+ * @param onPick called with the chosen year.
+ */
+@Composable
+fun M3eYearPicker(
+    year: Int,
+    onPick: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val selectedYear = year.coerceIn(PICKER_FIRST_YEAR, PICKER_LAST_YEAR)
+    val years = remember { (PICKER_FIRST_YEAR..PICKER_LAST_YEAR).toList() }
+    val selectedIndex = selectedYear - PICKER_FIRST_YEAR
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = (selectedIndex - 2).coerceAtLeast(0),
+    )
+
+    LazyRow(
+        state = listState,
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        items(years, key = { it }) { y ->
+            val selected = y == selectedYear
+            Box(
+                modifier = Modifier
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(percent = 50))
+                    .background(
+                        if (selected) {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        }
+                    )
+                    .clickable { onPick(y) }
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = y.toString(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+            }
+        }
+    }
+
+    // When the picker is reopened, bring the year it was opened on back into view.
+    LaunchedEffect(year) {
+        listState.animateScrollToItem((selectedIndex - 2).coerceAtLeast(0))
+    }
+}
+

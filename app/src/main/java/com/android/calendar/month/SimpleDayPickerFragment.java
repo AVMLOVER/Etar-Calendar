@@ -16,6 +16,7 @@
 
 package com.android.calendar.month;
 
+
 import android.app.Activity;
 import android.content.Context;
 import android.database.DataSetObserver;
@@ -211,9 +212,13 @@ public class SimpleDayPickerFragment extends ListFragment implements OnScrollLis
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState != null && savedInstanceState.containsKey(KEY_CURRENT_TIME)) {
+            mRestoredFirstVisible = savedInstanceState.getInt(KEY_FIRST_VISIBLE, -1);
             goTo(savedInstanceState.getLong(KEY_CURRENT_TIME), false, true, true);
         }
     }
+
+    /** The list row that was on screen before the change, or -1. Put back in onActivityCreated. */
+    private int mRestoredFirstVisible = -1;
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -223,6 +228,16 @@ public class SimpleDayPickerFragment extends ListFragment implements OnScrollLis
         setUpHeader();
 
         mMonthName = (TextView) getView().findViewById(R.id.month_name);
+        // The row that was on screen before the change is put back, once the list exists and has been
+        // measured. The list's own restored position is not usable: rotating changes the row height,
+        // so the position it remembers lands on a different week - which is why the month view on its
+        // side came back scrolled below its own weekday header, and why going to another view and
+        // returning - which sets the position fresh - put it right again.
+        if (mRestoredFirstVisible >= 0) {
+            final int row = mRestoredFirstVisible;
+            mRestoredFirstVisible = -1;
+            mListView.post(() -> mListView.setSelectionFromTop(row, 0));
+        }
         SimpleWeekView child = (SimpleWeekView) mListView.getChildAt(0);
         if (child == null) {
             return;
@@ -283,8 +298,14 @@ public class SimpleDayPickerFragment extends ListFragment implements OnScrollLis
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
         outState.putLong(KEY_CURRENT_TIME, mSelectedDay.toMillis());
+        // The scroll position as well, because the list's own restored position is not reliable across
+        // a change that alters the row height - which is what rotating does.
+        outState.putInt(KEY_FIRST_VISIBLE, mListView == null ? -1 : mListView.getFirstVisiblePosition());
     }
+
+    private static final String KEY_FIRST_VISIBLE = "key_first_visible";
 
     /**
      * Updates the user preference fields. Override this to use a different

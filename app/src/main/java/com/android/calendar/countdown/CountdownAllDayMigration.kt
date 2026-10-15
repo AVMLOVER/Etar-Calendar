@@ -16,6 +16,7 @@
  */
 package com.android.calendar.countdown
 
+import com.android.calendar.event.compose.queryRowById
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context

@@ -95,6 +95,7 @@
     <string name="m3e_section_year_view">Year view</string>
     <string name="m3e_pick_month">Pick a month</string>
     <string name="m3e_pick_day">Pick a date</string>
+    <string name="m3e_pick_year">Pick a year</string>
     <string name="m3e_event_url">Link</string>
     <string name="m3e_repeat_none">Does not repeat</string>
     <string name="m3e_repeat_daily">Every day</string>
@@ -203,7 +204,13 @@
     <string name="m3e_battery_risk">Ignoring battery optimisation is at your own risk: notifications may stop working, widgets may stop updating, and background services may crash.</string>
     <string name="m3e_battery_do_not_ignore">Do not ignore</string>
     <string name="m3e_battery_ignore">Ignore</string>
-    <string name="m3e_about_title">About Etar</string>
+    <string name="m3e_about_title">About Etar-Mod</string>
     <string name="m3e_event_needs_calendar">No calendar yet. Add one first, then create the event.</string>
     <string name="m3e_event_add_calendar">Add a calendar</string>
+    <string name="m3e_day_today">Today</string>
+    <string name="m3e_day_in_future">in %1$d days</string>
+    <string name="m3e_day_in_past">%1$d days ago</string>
+    <string name="m3e_event_edit_title">Edit event</string>
+    <string name="m3e_event_view_title">Event</string>
+    <string name="m3e_year_title">Year %1$s</string>
 </resources>

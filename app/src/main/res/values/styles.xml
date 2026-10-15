@@ -32,6 +32,19 @@
     <style name="Widget.CalendarAppTheme.ActionBar" parent="Widget.Material3.Toolbar">
         <item name="android:theme">@style/ThemeOverlay.CalendarAppTheme.ActionBar</item>
         <item name="popupTheme">@style/ThemeOverlay.Etar.PopupMenu</item>
+        <!--
+          The heading sits closer to the drawer button.
+
+          The Material 3 toolbar insets its content by sixteen dp on top of the navigation icon's own
+          padding, which left the heading noticeably further from the button than the heading's own
+          gap either side. Dropping the inset brings the two together without touching the touch
+          target.
+        -->
+        <item name="contentInsetStart">0dp</item>
+        <item name="contentInsetStartWithNavigation">0dp</item>
+        <!-- The ripple on the action buttons and the overflow entry, which had none. -->
+        <item name="actionBarItemBackground">?attr/selectableItemBackgroundBorderless</item>
+        <item name="selectableItemBackground">?attr/selectableItemBackground</item>
     </style>
 
     <style name="ThemeOverlay.CalendarAppTheme.ActionBar" parent="ThemeOverlay.Material3.ActionBar">

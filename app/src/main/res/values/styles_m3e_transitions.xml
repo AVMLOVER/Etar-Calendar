@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The sideways slide for every screen the Material 3 Expressive chrome hosts.
+
+    Declared as the activity's window animation style rather than set in code. The transitions are
+    negotiated before the first frame is drawn, which is earlier than an activity's onCreate can
+    usefully ask for them, so a call from there was ignored and the platform's default - the screen
+    appearing over the calendar instead of moving in beside it - played instead. The theme is read
+    when the window is created, so nothing can be too late.
+
+    The pair follows the same rule as the fragment views: an "in" animation is named for where it
+    comes from and an "out" one for where it goes, so entering moves left (arrives from the right,
+    leaves to the left) and leaving moves right (arrives from the left, leaves to the right).
+
+    activityOpenEnter -> the screen being opened, arriving from the right
+    activityOpenExit  -> the calendar it covers, leaving to the left
+
+    activityCloseEnter -> the calendar coming back, returning from the left
+    activityCloseExit  -> the screen being closed, going back off to the right
+-->
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<style name="Animation.M3e.Activity" parent="@android:style/Animation.Activity">
+    <item name="android:activityOpenEnterAnimation">@anim/slide_left_in</item>
+    <item name="android:activityOpenExitAnimation">@anim/slide_left_out</item>
+    <item name="android:activityCloseEnterAnimation">@anim/slide_right_in</item>
+    <item name="android:activityCloseExitAnimation">@anim/slide_right_out</item>
+</style>
+</resources>
+

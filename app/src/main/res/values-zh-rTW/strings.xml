@@ -352,7 +352,7 @@
     <string name="preferences_list_add_offline_button">新增行事曆</string>
     <string name="preferences_list_add_offline_name">名稱</string>
     <string name="preferences_list_add_offline_cancel">取消</string>
-    <string name="preferences_menu_about">關於 Etar</string>
+    <string name="preferences_menu_about">關於 Etar-Mod</string>
     <string name="offline_account_name">離線行事曆</string>
     <string name="preferences_do_not_check_battery_optimization">請勿啟用電池最佳化</string>
     <string name="preferences_do_not_check_battery_optimization_summary">自行承擔風險！通知將不再運作、桌面小工具將不再更新，背景服務可能會當機。但系統將不再詢問您是否要啟用背景服務。</string>

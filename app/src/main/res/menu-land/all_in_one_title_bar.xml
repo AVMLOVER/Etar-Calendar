@@ -22,7 +22,7 @@
         android:alphabeticShortcut="t"
         android:icon="@drawable/today_icon"
         android:title="@string/goto_today"
-        app:showAsAction="withText|ifRoom" />
+        app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_goto"
         android:alphabeticShortcut="g"

@@ -310,7 +310,15 @@ public class Utils {
         int defaultStart = Integer.parseInt(prefs.getString(GeneralPreferences.KEY_DEFAULT_START,
                 GeneralPreferences.DEFAULT_DEFAULT_START));
         if (defaultStart == -2) {
-            // Return the last view used
+            // The view the user chose, or the app's own default when they have not chosen one.
+            //
+            // The stored value used to be written on every pause, so it held "the last view looked
+            // at" whether or not the user had ever chosen. The flag beside it says which of the two
+            // it is - and without the flag the month is the answer, so an install that has never
+            // been near the settings opens on the month instead of on whatever it showed first.
+            if (!prefs.getBoolean(GeneralPreferences.KEY_START_VIEW_CHOSEN, false)) {
+                return GeneralPreferences.DEFAULT_START_VIEW;
+            }
             return prefs.getInt(
                     GeneralPreferences.KEY_START_VIEW, GeneralPreferences.DEFAULT_START_VIEW);
         } else {
@@ -502,7 +510,12 @@ public class Utils {
     }
 
     /**
-     * Save default agenda/day/week/month view for next time
+     * Records the view the app should open on.
+     *
+     * Only the settings screen calls this, and it does so when the user picks a start view. It used
+     * to be called from the calendar's onPause as well, storing whatever view was on screen, which
+     * made the stored value meaningless - it was always the last view looked at rather than a
+     * choice, and a fresh install therefore opened on whatever it had shown first.
      *
      * @param context
      * @param viewId {@link CalendarController.ViewType}
@@ -524,8 +537,9 @@ public class Utils {
             editor.putInt(GeneralPreferences.KEY_DETAILED_VIEW, viewId);
         }
 
-        // Record the (new) start view
+        // Record the (new) start view, and that it was chosen rather than observed.
         editor.putInt(GeneralPreferences.KEY_START_VIEW, viewId);
+        editor.putBoolean(GeneralPreferences.KEY_START_VIEW_CHOSEN, true);
         editor.apply();
     }
 

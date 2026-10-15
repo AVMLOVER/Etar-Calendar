@@ -50,7 +50,7 @@ class EventDetailsRepository(private val context: Context) {
     fun delete(activity: android.app.Activity, eventId: Long): Boolean =
         EventEditorRepository(activity).deleteEvent(eventId)
 
-    fun load(eventId: Long): EventDetails? {        val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
+    fun load(eventId: Long): EventDetails? {
         val projection = arrayOf(
             CalendarContract.Events._ID,
             CalendarContract.Events.TITLE,
@@ -66,8 +66,11 @@ class EventDetailsRepository(private val context: Context) {
         )
 
         return try {
-            context.contentResolver.query(uri, projection, null, null, null)?.use { c ->
-                if (!c.moveToFirst()) return null
+            // queryRowById, not a plain row read: an event on a local calendar has no answer at its
+            // own row uri, and asking there alone reported every such event as no longer existing.
+            context.contentResolver.queryRowById(
+                CalendarContract.Events.CONTENT_URI, eventId, projection,
+            ) { c ->
                 val calendarId = c.getLong(7)
                 val start = c.getLong(4)
                 val endRaw = if (c.isNull(5)) -1L else c.getLong(5)
@@ -95,22 +98,25 @@ class EventDetailsRepository(private val context: Context) {
         }
     }
 
-    private fun calendarName(calendarId: Long): String? = try {
-        context.contentResolver.query(
-            ContentUris.withAppendedId(CalendarContract.Calendars.CONTENT_URI, calendarId),
-            arrayOf(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME),
-            null, null, null,
-        )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+    /** The calendar's own row, read the same fallback way as the event. */
+    private fun calendarColumn(calendarId: Long, column: String): String? = try {
+        context.contentResolver.queryRowById(
+            CalendarContract.Calendars.CONTENT_URI, calendarId, arrayOf(column),
+        ) { c -> c.getString(0) }
     } catch (t: Throwable) {
+        Log.w(TAG, "Could not read calendar $calendarId", t)
         null
     }
 
+    private fun calendarName(calendarId: Long): String? =
+        calendarColumn(calendarId, CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
+
     private fun calendarColor(calendarId: Long): Int = try {
-        context.contentResolver.query(
-            ContentUris.withAppendedId(CalendarContract.Calendars.CONTENT_URI, calendarId),
+        context.contentResolver.queryRowById(
+            CalendarContract.Calendars.CONTENT_URI,
+            calendarId,
             arrayOf(CalendarContract.Calendars.CALENDAR_COLOR),
-            null, null, null,
-        )?.use { c -> if (c.moveToFirst()) c.getInt(0) else 0 } ?: 0
+        ) { c -> c.getInt(0) } ?: 0
     } catch (t: Throwable) {
         0
     }

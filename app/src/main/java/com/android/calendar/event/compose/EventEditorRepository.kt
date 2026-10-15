@@ -62,15 +62,16 @@ class EventEditorRepository(private val context: Context) {
 
         var found = false
         try {
-            context.contentResolver.query(
-                uri, EditEventHelper.EVENT_PROJECTION, null, null, null,
-            )?.use { c ->
-                if (c.moveToFirst()) {
-                    EditEventHelper.setModelFromCursor(original, c, context)
-                    EditEventHelper.setModelFromCursor(model, c, context)
-                    found = true
-                }
-            }
+            // queryRowById rather than a plain row read, for the same reason the calendar read uses
+            // one: an event on a local calendar has no answer at its own row uri, and reading only
+            // there refused to open every such event.
+            found = context.contentResolver.queryRowById(
+                CalendarContract.Events.CONTENT_URI, eventId, EditEventHelper.EVENT_PROJECTION,
+            ) { c ->
+                EditEventHelper.setModelFromCursor(original, c, context)
+                EditEventHelper.setModelFromCursor(model, c, context)
+                true
+            } ?: false
         } catch (t: Throwable) {
             Log.w(TAG, "event query failed", t)
         }
@@ -188,13 +189,13 @@ class EventEditorRepository(private val context: Context) {
     private fun syncAccountOf(eventId: Long): Pair<String?, String?> {
         var calendarId = -1L
         try {
-            context.contentResolver.query(
-                ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId),
+            // queryRowById: the event's calendar has to be readable before it is saved, and an event
+            // on a local calendar does not answer at its own row uri.
+            calendarId = context.contentResolver.queryRowById(
+                CalendarContract.Events.CONTENT_URI,
+                eventId,
                 arrayOf(CalendarContract.Events.CALENDAR_ID),
-                null, null, null,
-            )?.use { c ->
-                if (c.moveToFirst()) calendarId = c.getLong(0)
-            }
+            ) { c -> c.getLong(0) } ?: -1L
         } catch (t: Throwable) {
             Log.w(TAG, "could not read the event's calendar", t)
         }

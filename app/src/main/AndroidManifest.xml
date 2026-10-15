@@ -63,10 +63,24 @@
         </intent>
     </queries>
 
-    <!-- Opt in to the predictive back gesture (Android 13+). The app-wide switch in the
-         Material 3 settings screen only gates the app's own predictive handling. -->
+    <!--
+         Predictive back is opted out of, which is what makes the app's own screen transitions work.
+
+         With android:enableOnBackInvokedCallback="true" the platform takes over the back animation
+         on Android 13 and up: the theme's windowAnimationStyle and any overrideActivityTransition
+         are both ignored, and going back plays the platform's own animation instead - which on the
+         screen is a slide the app did not ask for, or the screen simply appearing over the one
+         before it. Every attempt to set a transition was being discarded this way.
+
+         Turning it off hands the window animations back to the app, which is what the app-wide
+         windowAnimationStyle in Theme.Etar describes: a screen arrives from the right and leaves to
+         the right on the way back, so every screen returns the way it came. The gesture itself is
+         unchanged - it still swipes back and still shows the app shrinking behind it when the task
+         is genuinely leaving to the launcher, because that animation belongs to the launcher and the
+         system, not to this flag.
+    -->
     <application
-        android:enableOnBackInvokedCallback="true" android:name="com.android.calendar.CalendarApplication"
+        android:enableOnBackInvokedCallback="false" android:name="com.android.calendar.CalendarApplication"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/standalone_app_label"

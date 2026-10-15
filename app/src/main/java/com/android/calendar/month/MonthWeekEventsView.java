@@ -599,15 +599,27 @@ public class MonthWeekEventsView extends SimpleWeekView {
         int todayIndex = mTodayIndex;
         int x = 0;
         int numCount = mNumDays;
+        // The week number, when shown, goes in the top right of the first cell - on the same baseline
+        // as the day numbers, in the space between the cell's right edge and wherever that cell's own
+        // number happens to end.
+        //
+        // The cell has room for it: the day number is drawn from the cell's left edge and a two digit
+        // one reaches about a third of the way across, while the lunar name beside it is right aligned
+        // against the same right edge the week number uses - so a lunar name wide enough to reach the
+        // week number is one that would have been clipped anyway.
+        //
+        // Drawing it to the left of the whole week, at x = mSidePaddingWeekNumber, is what it used to
+        // do, and that is the first day's own left edge: the two printed over one another.
+        boolean weekNumFirstCell = false;
         if (mShowWeekNum) {
-            x = mSidePaddingWeekNumber + mPadding;
-            y = mWeekNumAscentHeight + mTopPaddingWeekNumber;
-            canvas.drawText(mDayNumbers[0], x, y, mWeekNumPaint);
+            float weekRight = computeDayLeftPosition(1) - mSidePaddingWeekNumber;
+            canvas.drawText(mDayNumbers[0], weekRight, mTopPaddingWeekNumber + mWeekNumAscentHeight,
+                    mWeekNumPaint);
             numCount++;
             i++;
             todayIndex++;
             offset++;
-
+            weekNumFirstCell = true;
         }
 
         y = mMonthNumAscentHeight + mTopPaddingMonthNumber;
@@ -643,6 +655,10 @@ public class MonthWeekEventsView extends SimpleWeekView {
             float cellLeft = computeDayLeftPosition(cell);
             float cellRight = computeDayLeftPosition(cell + 1);
 
+            // The first cell carries the week number above its day number, so that cell's number and
+            // its lunar name are drawn one line lower - together, so they stay on a common baseline.
+            float cellY = y;
+
             // The number starts at the left edge of its cell, with the align set to match.
             //
             // Set the align rather than subtracting a measured width: the framework already knows how
@@ -650,7 +666,7 @@ public class MonthWeekEventsView extends SimpleWeekView {
             mMonthNumPaint.setTextSize(mTextSizeMonthNumber);
             mMonthNumPaint.setTextAlign(Align.LEFT);
             x = (int) cellLeft;
-            canvas.drawText(mDayNumbers[i], x, y, mMonthNumPaint);
+            canvas.drawText(mDayNumbers[i], x, cellY, mMonthNumPaint);
             // Where the number ends, which is the left limit for the lunar text.
             float numberEnd = cellLeft + mMonthNumPaint.measureText(mDayNumbers[i]);
             if (isBold) {
@@ -659,7 +675,11 @@ public class MonthWeekEventsView extends SimpleWeekView {
 
             // The lunar name for this day, if any.
             ArrayList<String> lunarInfos = null;
-            if (LunarUtils.showLunar(getContext())) {
+            // Not in landscape: the cells are half the height, and the name would sit on the
+            // number rather than beside it. The day number is what the view is for.
+            if (LunarUtils.showLunar(getContext())
+                    && getResources().getConfiguration().orientation
+                    != android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
                 lunarInfos = new ArrayList<String>();
                 int year = time.getYear();
                 int month = time.getMonth();
@@ -711,6 +731,7 @@ public class MonthWeekEventsView extends SimpleWeekView {
                     // left rather than running over the next day's number.
                     mMonthNumPaint.setTextAlign(Align.RIGHT);
                     float lunarRight = cellRight - mSidePaddingMonthNumber;
+                    float lunarY = cellY;
                     float available = lunarRight - numberEnd - 2f * mScale;
                     if (available > 0f) {
                         canvas.save();
@@ -722,7 +743,7 @@ public class MonthWeekEventsView extends SimpleWeekView {
                         canvas.clipRect(
                                 numberEnd, 0f, lunarRight, (float) getHeight()
                         );
-                        canvas.drawText(info, lunarRight, y, mMonthNumPaint);
+                        canvas.drawText(info, lunarRight, lunarY, mMonthNumPaint);
                         canvas.restore();
                     }
                     break;

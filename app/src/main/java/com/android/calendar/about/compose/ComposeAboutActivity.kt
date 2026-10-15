@@ -148,18 +148,46 @@ private fun AboutContent() {
             Spacer(Modifier.height(16.dp))
 
             // The three links, as Material 3 buttons.
+            //
+            // Sized to their own labels, spread across the row, one line each at the label size.
+            //
+            // Two other arrangements were tried and both were wrong in a way the user sees. SpaceEvenly
+            // alone sizes each button to its text and then leaves uneven gaps; German needed more room
+            // than it got and wrapped, so that one button stood two lines high. An equal third each
+            // stopped the wrapping but cut the long label instead - "Fehler melden" became "Fehler
+            // meld..." - because a third of the row is not always enough for it. Left to their own
+            // widths and spread out, no label has to wrap or be cut, and the smaller label size keeps
+            // the three of them inside the row.
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                TextButton(onClick = { open(R.string.app_source_url) }) {
-                    Text(stringResource(R.string.source_code))
+                // A Material text button reserves 16dp on each side. Three of those come to 96dp of a
+                // row that is only about 330dp wide, which is what left the German label -
+                // "Anderungsübersicht" is the longest of the three - with too little room even at the
+                // smaller size, so it was cut to "Anderungsüb". Eight a side gives the text back 48dp
+                // without crowding the labels together.
+                val linkPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)
+                TextButton(
+                    onClick = { open(R.string.app_source_url) },
+                    contentPadding = linkPadding,
+                ) {
+                    Text(stringResource(R.string.source_code), maxLines = 1,
+                        style = MaterialTheme.typography.labelMedium)
                 }
-                TextButton(onClick = { open(R.string.app_changelog) }) {
-                    Text(stringResource(R.string.changelog))
+                TextButton(
+                    onClick = { open(R.string.app_changelog) },
+                    contentPadding = linkPadding,
+                ) {
+                    Text(stringResource(R.string.changelog), maxLines = 1,
+                        style = MaterialTheme.typography.labelMedium)
                 }
-                TextButton(onClick = { open(R.string.app_issues_url) }) {
-                    Text(stringResource(R.string.preferences_issues))
+                TextButton(
+                    onClick = { open(R.string.app_issues_url) },
+                    contentPadding = linkPadding,
+                ) {
+                    Text(stringResource(R.string.preferences_issues), maxLines = 1,
+                        style = MaterialTheme.typography.labelMedium)
                 }
             }
 

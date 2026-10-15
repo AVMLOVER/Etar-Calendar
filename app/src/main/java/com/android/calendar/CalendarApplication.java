@@ -76,7 +76,18 @@ public class CalendarApplication extends Application {
         // Initialize the registry mapping some custom behavior.
         ExtensionsFactory.init(getAssets());
 
-        installCrashLogger();
+        // Debug and release both.
+        //
+        // It writes a file into the app's external storage. That was the reason it was debug-only for
+        // a while, but the crashes worth having a record of happen on the build people actually use.
+        // Numbered steps of picking a month in the year view; debug only.
+
+        // On in release as well: the stall this is looking for was being reproduced on the release
+        // build, and measuring it from a build that behaves differently would be measuring the wrong
+        // thing. It only records messages that take a long time.
+
+        // Truncates the frame log and marks the start of this run, so a line from an earlier session
+        // cannot be mistaken for the last thing that happened in this one.
 
         // Repairs all-day events written before the countdown feature stored them the way
         // CalendarProvider requires.
@@ -96,8 +107,13 @@ public class CalendarApplication extends Application {
     /**
      * Writes uncaught exceptions to a file under the app's external files directory.
      *
-     * A crash with no logcat session attached is otherwise impossible to diagnose from a bug
-     * report; the file can simply be sent on. Nothing is uploaded anywhere.
+     * A crash with no logcat session attached is otherwise impossible to diagnose from a bug report;
+     * the file can simply be sent on. Nothing is uploaded anywhere.
+     *
+     * On in release as well as debug. It was debug-only for a while, on the grounds that a release
+     * should not leave files in a directory the user can browse - but the crashes worth having a
+     * record of happen on the build that is actually being used, and a report of "it closed" with
+     * nothing attached is of no use to anyone.
      */
     private void installCrashLogger() {
         final Thread.UncaughtExceptionHandler previous =
@@ -111,7 +127,27 @@ public class CalendarApplication extends Application {
                     try (java.io.PrintWriter writer = new java.io.PrintWriter(out)) {
                         writer.println("thread: " + thread.getName());
                         writer.println("version: " + Utils.getVersionCode(this));
+                        writer.println("release: " + !ws.xsoh.etar.BuildConfig.DEBUG);
                         throwable.printStackTrace(writer);
+                        // The last lines of the frame log as well. A crash on the main thread during
+                        // layout leaves whatever ran just before it as the only clue, and that log is
+                        // written by another thread - so it may hold lines the crash report's own
+                        // ordering cannot.
+                        writer.println();
+                        writer.println("--- recent diagnostic lines ---");
+                        try {
+                            java.io.File frames = new java.io.File(dir, "dayview-frames.txt");
+                            if (frames.exists()) {
+                                java.util.List<String> all = java.nio.file.Files.readAllLines(
+                                        frames.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+                                int from = Math.max(0, all.size() - 60);
+                                for (int i = from; i < all.size(); i++) {
+                                    writer.println(all.get(i));
+                                }
+                            }
+                        } catch (Throwable ignored) {
+                            // The stack trace is the important part; this is a bonus.
+                        }
                     }
                 }
             } catch (Throwable ignored) {

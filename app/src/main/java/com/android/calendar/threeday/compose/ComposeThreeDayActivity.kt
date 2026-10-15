@@ -28,6 +28,33 @@ class ComposeThreeDayActivity : M3eHostActivity() {
     override val currentScreenName: String = "THREEDAY"
 
     /**
+     * The heading is a range of days, so the picker under it chooses a day.
+     *
+     * It chose a month until now, by inheriting the host's month picker - and choosing a month
+     * left this screen for the month view, which is not what a heading showing "13-15 Okt." is
+     * offering to do. See M3eHostActivity.pickerChoosesDate.
+     */
+    override val pickerChoosesDate: Boolean = true
+
+    /** The day chosen from the heading's picker, or 0 before one has been. */
+    private var pickedDay by androidx.compose.runtime.mutableStateOf(0L)
+
+    /**
+     * First day of the three day block on screen, in epoch millis, or 0 before the screen has
+     * reported one.
+     *
+     * Read through calendarViewDateMillis() when the drawer opens the day, week or month view, so
+     * those open on the days this screen is showing instead of today.
+     */
+    private var visibleFirstDayMillis = 0L
+
+    override fun onDatePicked(date: java.time.LocalDate) {
+        // The screen moves to the block holding the day; nothing is started, because this screen
+        // is already the one on top.
+        pickedDay = date.toEpochDay()
+    }
+
+    /**
      * Bumped on every resume, which is what makes the grid re-read after returning from the editor
      * that created or deleted an event.
      */
@@ -56,12 +83,19 @@ class ComposeThreeDayActivity : M3eHostActivity() {
             M3eThreeDayScreen(
                 page = day.toEpochDay(),
                 onVisibleRangeChanged = { first ->
-                    setPickerTitle(rangeTitle(first))
+                    // Kept for the drawer: the day, week and month entries hand this day to the
+                    // calendar, so they open where the three day view is, not on today.
+                    visibleFirstDayMillis = first
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .toInstant()
+                        .toEpochMilli()
+                    setPickerTitle(rangeTitleOf(first))
                 },
                 onOpenEvent = { event -> openEvent(event.id) },
                 onCreateEvent = { start, end -> createEvent(start, end) },
                 refreshKey = refreshKey,
                 scrollToTodayKey = scrollToTodayKey,
+                pickedDayKey = pickedDay,
             )
         }
     }
@@ -74,6 +108,14 @@ class ComposeThreeDayActivity : M3eHostActivity() {
     override fun onToday() {
         scrollToTodayKey++
     }
+
+    /**
+     * The day the calendar views open on when this screen sends the user to one of them: the first
+     * day of the three day block on screen. Null until the screen has reported a block, which
+     * leaves the calendar on its own date.
+     */
+    override fun calendarViewDateMillis(): Long? =
+        if (visibleFirstDayMillis > 0) visibleFirstDayMillis else null
 
     /**
      * Tapping an empty slot in the grid opens the Material 3 editor on a new event at that time.
@@ -91,22 +133,6 @@ class ComposeThreeDayActivity : M3eHostActivity() {
                 -1L,
             )
         )
-    }
-
-    /**
-     * "10月13–15日" within one month, "10月30日 – 11月1日" across two.
-     *
-     * The month is not repeated when the range stays inside it: the title sits beside the search and
-     * today icons, and the longer form left no room for them on a narrow screen.
-     */
-    private fun rangeTitle(first: LocalDate): String {
-        val last = first.plusDays(2)
-        return if (first.monthValue == last.monthValue && first.year == last.year) {
-            first.monthValue.toString() + "月" + first.dayOfMonth + "–" + last.dayOfMonth + "日"
-        } else {
-            first.monthValue.toString() + "月" + first.dayOfMonth + "日–" +
-                last.monthValue.toString() + "月" + last.dayOfMonth + "日"
-        }
     }
 
     /** Opens the Material 3 Expressive details screen, which can hand off to the editor. */

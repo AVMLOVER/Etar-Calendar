@@ -36,6 +36,16 @@ import com.android.calendar.theme.applyTheme
 import com.google.android.material.navigation.NavigationView
 import ws.xsoh.etar.R
 
+/**
+ * Set when the calendar is being entered from the day / three day / week sequence.
+ *
+ * Those three are read as one after another, so a step between them slides the same way every time;
+ * only leaving the sequence reverses. The calendar is told which of the two this is, because it
+ * cannot work it out from the view being asked for - the three day view's step to the week view and
+ * its step to the day view look identical from there.
+ */
+const val EXTRA_FORWARD_FROM_SEQUENCE = "m3eForwardFromSequence"
+
 abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
     /** Drawer entry that represents this screen, or 0 when it is not a calendar view. */
@@ -48,6 +58,7 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
      */
     protected open val exitOnBack: Boolean = true
 
+
     /**
      * True when tapping the heading should open the month picker.
      *
@@ -56,6 +67,36 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
      * the down caret would be a promise the screen does not keep.
      */
     protected open val titleOpensPicker: Boolean = true
+
+    /**
+     * True when that picker should choose a date rather than a month.
+     *
+     * The month picker suits a screen whose heading is a month. The three day view's heading is a
+     * range of days, so a month is the wrong thing to be asked for: choosing one left the screen - it
+     * went to the month view - and choosing a day is what the heading is actually showing. The screen
+     * that wants a date overrides [onDatePicked] and opens its own picker.
+     */
+    protected open val pickerChoosesDate: Boolean = false
+
+    /** Called with the day chosen by a date picker. Only reached when [pickerChoosesDate] is true. */
+    protected open fun onDatePicked(date: java.time.LocalDate) {
+    }
+
+    /**
+     * True when the picker behind the heading should choose a whole year rather than a month.
+     *
+     * The year view's heading is a year, so a row of that year's twelve months is not what tapping
+     * it is asking to do, and a month is not a destination the year view has. Screens that want a
+     * year override [pickerYear] and [onYearPicked] instead.
+     */
+    protected open val pickerChoosesYear: Boolean = false
+
+    /** The year the picker should be centred on. Only reached when [pickerChoosesYear] is true. */
+    protected open fun pickerYear(): Int = java.time.LocalDate.now().year
+
+    /** Called with the year chosen by the picker. Only reached when [pickerChoosesYear] is true. */
+    protected open fun onYearPicked(year: Int) {
+    }
 
     /**
      * True to offer the Today action.
@@ -97,8 +138,21 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     /** The heading view; created once in [installTitlePicker] and reused for every title change. */
     private var titleText: android.widget.TextView? = null
 
+    /** The heading's second line, when a screen gives it one. */
+    private var subtitleText: android.widget.TextView? = null
+
     /** Open month picker, kept so picking a month can close it. */
     private var pickerPopup: android.app.Dialog? = null
+
+    override fun onResume() {
+        super.onResume()
+        // The slide this screen plays when it is covered, and the reverse when it is revealed.
+        // Declared here rather than in onCreate because overrideActivityTransition is only accepted
+        // while the activity is resumed; from onCreate it is discarded and the platform default -
+        // the next screen simply laid over this one - plays instead.
+        declareForwardSlide()
+        declareReturnSlide()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -123,9 +177,12 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         }
 
         // Screens replace this the moment they know what period they are showing. It is set here so
-        // the control exists even if a screen never calls setPickerTitle.
+        // the control exists even if a screen never calls setPickerTitle. A year is what the screens
+        // that do not set it are showing, and it carries its unit like the year view's own heading.
         installTitlePicker(toolbar)
-        setPickerTitle(java.time.LocalDate.now().year.toString())
+        setPickerTitle(
+            getString(R.string.m3e_year_title, java.time.LocalDate.now().year.toString())
+        )
 
         drawerLayout = findViewById(R.id.drawer_layout)
         navigationView = findViewById(R.id.navigation_view)
@@ -207,6 +264,24 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
      * natural way to jump somewhere else. Screens call this instead of setting the ActionBar title
      * directly.
      */
+    /**
+     * Sets the heading's second line, or clears it when [text] is empty.
+     *
+     * This is the ActionBar subtitle's job on the screens that use one; it lives in the custom
+     * view here so that it does not steal width from the heading beside it.
+     */
+    protected fun setPickerSubtitle(text: String) {
+        // Kept as the heading's own second line, under the first.
+        //
+        // Joining it to the heading on one line was tried and put back: the heading sits in a weighted
+        // row with the caret after it, so a longer line pushes the caret out to the edge of the bar
+        // instead of leaving it against the text. Two lines, as the layout was built for.
+        subtitleText?.apply {
+            this.text = text
+            visibility = if (text.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
+        }
+    }
+
     protected fun setPickerTitle(text: String) {
         pickerTitle = text
         // The ActionBar's own title is switched off in installTitlePicker. Passing null here again
@@ -225,6 +300,7 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     private fun installTitlePicker(toolbar: Toolbar) {
         val view = layoutInflater.inflate(R.layout.m3e_toolbar_title, toolbar, false)
         titleText = view.findViewById(R.id.m3e_title_text)
+        subtitleText = view.findViewById(R.id.m3e_title_subtitle)
         // The caret marks the heading as something that opens; without a picker it is only a heading.
         view.findViewById<android.widget.ImageView>(R.id.m3e_title_caret)?.visibility =
             if (titleOpensPicker) android.view.View.VISIBLE else android.view.View.GONE
@@ -235,6 +311,23 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             view.isFocusable = false
             view.background = null
         }
+        // Auto-sizing set in code rather than trusted to the style.
+        //
+        // The theme's TextAppearance carries the same settings, but whether AppCompat applies them
+        // to a view given this way is not something worth relying on blind - and a heading that is
+        // clipped mid-word, which is what a long German date did, is a defect the user sees on
+        // every screen. Called directly, it is certain: the text shrinks between these sizes
+        // instead of being cut off.
+        titleText?.let { text: android.widget.TextView ->
+            androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                text, 9, 18, 1, android.util.TypedValue.COMPLEX_UNIT_SP,
+            )
+        }
+        subtitleText?.let { text: android.widget.TextView ->
+            androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                text, 8, 13, 1, android.util.TypedValue.COMPLEX_UNIT_SP,
+            )
+        }
         titleText?.text = pickerTitle
 
         supportActionBar?.apply {
@@ -243,8 +336,15 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             setDisplayShowTitleEnabled(false)
             setCustomView(
                 view,
+                // MATCH_PARENT, not WRAP_CONTENT.
+                //
+                // The toolbar measures a custom view before it lays the action icons out, so a
+                // wrapping one is measured against the whole bar and is then cut off by the icons
+                // drawn over that space - which is how a German date came out as "9. Oktober 2...".
+                // Filling the bar makes the heading measure against the width that is really left,
+                // and its own auto-sizing then shrinks the text to fit instead of clipping it.
                 androidx.appcompat.app.ActionBar.LayoutParams(
-                    androidx.appcompat.app.ActionBar.LayoutParams.WRAP_CONTENT,
+                    androidx.appcompat.app.ActionBar.LayoutParams.MATCH_PARENT,
                     androidx.appcompat.app.ActionBar.LayoutParams.MATCH_PARENT,
                 ),
             )
@@ -260,11 +360,60 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
      */
     private fun showMonthPicker() {
         pickerPopup?.dismiss()
+        if (pickerChoosesDate) {
+            showDatePicker()
+            return
+        }
+        if (pickerChoosesYear) {
+            showYearPicker()
+            return
+        }
         pickerPopup = M3eMonthPickerDialog.show(
             this,
             findViewById(R.id.toolbar),
             java.util.function.BiConsumer { year, month -> jumpToMonth(year, month) },
         )
+    }
+
+    /**
+     * A picker for the screens whose heading is a whole year.
+     *
+     * Same dialog and placement as the month picker; only its contents differ. Choosing a year is
+     * handed to the screen through onYearPicked rather than turned into an intent: the year view is
+     * already the screen on top, and the pick has to move its own list rather than leave it.
+     */
+    private fun showYearPicker() {
+        pickerPopup = M3eMonthPickerDialog.showYear(
+            this,
+            findViewById(R.id.toolbar),
+            pickerYear(),
+        ) { year -> onYearPicked(year) }
+    }
+
+    /**
+     * A day picker for the screens whose heading is a range of days.
+     *
+     * Material's own picker rather than the app's month chips: the chips choose a month, which is the
+     * thing that has to be avoided here, and a picker that hands back a day is what the screen needs.
+     * The day is handed to the screen through onDatePicked rather than turned into an intent - the
+     * three day view is already the screen on top, and starting the calendar underneath it to come
+     * back would put the month view on screen instead of moving the range.
+     */
+    private fun showDatePicker() {
+        val zone = java.time.ZoneId.systemDefault()
+        val today = java.time.LocalDate.now(zone)
+        val picker = com.google.android.material.datepicker.MaterialDatePicker.Builder.datePicker()
+            .setSelection(today.atStartOfDay(zone).toInstant().toEpochMilli())
+            .setTitleText(R.string.goto_date)
+            .build()
+        picker.addOnPositiveButtonClickListener { selection ->
+            if (selection != null) {
+                onDatePicked(
+                    java.time.Instant.ofEpochMilli(selection).atZone(zone).toLocalDate()
+                )
+            }
+        }
+        picker.show(supportFragmentManager, "M3eDatePicker")
     }
 
     /** Opens the calendar on the given month. */
@@ -278,6 +427,9 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
                 action = Intent.ACTION_VIEW
                 putExtra(Utils.INTENT_KEY_VIEW_TYPE, Utils.INTENT_VALUE_VIEW_TYPE_MONTH)
                 putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, millis)
+                // Marks this as a destination the user named, like the year view's month choice:
+                // without it the month view treats the request as a tapped grid tail and stays put.
+                putExtra(AllInOneActivity.EXTRA_GOTO_EXPLICIT, true)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
         )
@@ -416,6 +568,10 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
 
     private fun openScreen(screen: ComposeScreen): Boolean {
         // Selecting the screen we are already on just closes the drawer.
+        //
+        // A host in the middle of the sequence - the three day view, in practice - is covered by the
+        // calendar underneath it, so this early return never fires there and the launch below is what
+        // has to keep the copy count at one. See the flags on the intent.
         if (screen.name == currentScreenName) {
             return true
         }
@@ -436,12 +592,28 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             ComposeScreen.ABOUT ->
                 com.android.calendar.about.compose.ComposeAboutActivity::class.java
         }
+        val agendaDate = if (screen == ComposeScreen.AGENDA) agendaDateMillis() else null
         startActivity(Intent(this, target).apply {
+            // The agenda opens around the day this screen is on, when it has one, so coming from
+            // the three day view lands on the days the user was looking at instead of on today.
+            if (agendaDate != null) {
+                putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, agendaDate)
+            }
             // A destination in its own right becomes its own task root, so the platform's default
             // back (which is what carries the predictive animation) lands on the launcher. The
             // screens you come back from are left in the current task.
             if (screen == ComposeScreen.YEAR || screen == ComposeScreen.AGENDA) {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            } else {
+                // Reused rather than started afresh, for the screens that stay in this task.
+                //
+                // Without these, picking a screen that is already running started a second copy of
+                // it: the three day view came up on today, because a new copy always starts there,
+                // and the copy underneath - with the three days the user had paged to - was left
+                // behind. The drawer reports the entry as already checked and so closes without
+                // asking for anything, which is why the second copy arrived from a tap that looked
+                // like it had done nothing.
+                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             }
         })
         if (screen == ComposeScreen.YEAR || screen == ComposeScreen.AGENDA ||
@@ -456,23 +628,84 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     protected open val currentScreenName: String = ""
 
     /**
+     * The date the calendar views should open on when this screen sends the user to one of them,
+     * or null to leave the calendar on its own date.
+     *
+     * The three day view overrides this with the first day of the block on screen, so opening the
+     * day view from there lands on the days the user was looking at instead of on today. Screens
+     * that have no day of their own leave it at null. See openCalendarView().
+     */
+    protected open fun calendarViewDateMillis(): Long? = null
+
+    /**
+     * The date the agenda should open around when this screen sends the user to it, or null to
+     * leave it centred on today.
+     *
+     * Defaults to the date calendarViewDateMillis() reports: the screens that know which day they
+     * are on are also the ones whose agenda entry should open around that day.
+     */
+    protected open fun agendaDateMillis(): Long? = calendarViewDateMillis()
+
+    /**
      * Opens the calendar on the given view, reusing the running calendar activity instead of
      * stacking another copy of it.
+     *
+     * The return slide is chosen by where this screen sits in the order of views rather than by the
+     * view being asked for. Day, three day and week are read as one after another, so travelling
+     * between them always moves the same way - leftwards - and only coming back out to the month
+     * reverses. Asking for the month was the wrong question: it sent the three day view's step to
+     * the week view the opposite way from its step to the day view.
      */
     private fun openCalendarView(viewTypeValue: String): Boolean {
+        val leavesTheSequence = isFirstOfSequence(viewTypeValue)
+        val dateMillis = calendarViewDateMillis()
         startActivity(
             Intent(this, AllInOneActivity::class.java).apply {
                 // AllInOneActivity.onNewIntent only honours the date for ACTION_VIEW intents (or
                 // for an explicit view request), so the action has to be set.
                 action = Intent.ACTION_VIEW
                 putExtra(Utils.INTENT_KEY_VIEW_TYPE, viewTypeValue)
-                putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, System.currentTimeMillis())
+                // A screen that knows which day it is on - the three day view - hands that day
+                // over, so the calendar opens on it rather than on today. The fallback keeps the
+                // old behaviour on the screens that have no date of their own.
+                putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME,
+                    dateMillis ?: System.currentTimeMillis())
+                if (dateMillis != null) {
+                    // A day handed over by a screen is a destination the user chose, the same as a
+                    // month named in the year view. The month view otherwise holds still for a date
+                    // that lands in another month - the rule that stops a tap on a grid tail from
+                    // moving the page - so without this a hop from three day to month could be
+                    // refused when the two were showing different months.
+                    putExtra(AllInOneActivity.EXTRA_GOTO_EXPLICIT, true)
+                }
+                // Tells the calendar to come in from the right, as a step along the sequence,
+                // rather than from the left as a return to it.
+                putExtra(EXTRA_FORWARD_FROM_SEQUENCE, !leavesTheSequence)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
         )
-                finish()
+        if (leavesTheSequence) {
+            // Back out to the month, from somewhere inside the sequence: the reverse of the way in.
+            // Declared here because this screen is the one finishing, and a finishing screen that
+            // declares nothing gets the reverse of the animation it was entered with.
+            declareReturnSlide()
+        } else {
+            // A step along the sequence. The calendar reads the extra above and comes in from the
+            // right, and this screen leaves to the left, so the movement keeps going the same way
+            // instead of reversing halfway. leaveForward, not declareForwardSlide: this activity
+            // is finishing, so it is its close transition that decides the pair - declaring only
+            // the open one left the platform to reverse the way in, which sent every step out of
+            // this screen back to the right.
+            leaveForward()
+        }
+        finish()
         return true
     }
+
+    /** True for a view that is not part of the day / three day / week sequence. */
+    private fun isFirstOfSequence(viewTypeValue: String): Boolean =
+        viewTypeValue == Utils.INTENT_VALUE_VIEW_TYPE_MONTH ||
+            viewTypeValue == Utils.INTENT_VALUE_VIEW_TYPE_AGENDA
 
     /**
      * What the title bar's today button does.

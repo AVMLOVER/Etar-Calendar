@@ -88,4 +88,14 @@
     <!-- Size of event info dialog box -->
     <dimen name="event_info_dialog_width">500dip</dimen>
     <dimen name="event_info_dialog_height">600dip</dimen>
+
+    <!--
+      The heading's two line sizes.
+
+      Held here rather than only in the text appearance, because the heading is one text of
+      two sizes and they have to be applied per line in code. The styles read these too, so
+      there is a single place each size is written down.
+    -->
+    <dimen name="m3e_toolbar_title_size">18sp</dimen>
+    <dimen name="m3e_toolbar_subtitle_size">12sp</dimen>
 </resources>

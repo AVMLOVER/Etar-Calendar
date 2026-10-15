@@ -70,6 +70,16 @@ public class CalendarController {
     public static final long EXTRA_GOTO_TIME = 2;
     public static final long EXTRA_GOTO_BACK_TO_PREVIOUS = 4;
     public static final long EXTRA_GOTO_TODAY = 8;
+    /**
+     * Set when the destination was named outright - a month chosen in the year view - rather than
+     * arrived at by tapping.
+     *
+     * The month view holds still when a tapped day belongs to the month before or after the one on
+     * screen, so that tapping the tail of its grid does not move the whole page. A month chosen from
+     * the year view is not a tap on a grid tail; it is the user naming where to go, and it has to
+     * move. Without this the request was treated as a tap and the view stayed where it was.
+     */
+    public static final long EXTRA_GOTO_EXPLICIT = 16;
     private static final boolean DEBUG = false;
     private static final String TAG = "CalendarController";
     private static WeakHashMap<Context, WeakReference<CalendarController>> instances =

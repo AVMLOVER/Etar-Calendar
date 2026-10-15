@@ -122,6 +122,28 @@ public class MonthByWeekAdapter extends SimpleWeeksAdapter {
         mTotalClickDelay = mOnDownDelay + mOnTapDelay;
     }
 
+    /**
+     * Keeps the small-month flag in step with the fragment that owns this adapter.
+     *
+     * The base class updates every other parameter it knows about and knows nothing about this one,
+     * and this adapter did not override it - so the flag was only ever read once, in the constructor,
+     * and every later update left it as it was.
+     *
+     * That is why the month view came back as a grid of bare numbers, with no day backgrounds and no
+     * events, after anything that rebuilt its view: the flag was still set from the first build. The
+     * field defaults to true, and getView returns the plain week view straight away when it is set -
+     * the whole MonthWeekEventsView, which is what draws the backgrounds, the lunar line and the
+     * events, is never created. Going to the day or week view put it right only because rebuilding
+     * the fragment built a new adapter by the constructor, where the flag is read.
+     */
+    @Override
+    public void updateParams(HashMap<String, Integer> params) {
+        super.updateParams(params);
+        if (params != null && params.containsKey(WEEK_PARAMS_IS_MINI)) {
+            mIsMiniMonth = params.get(WEEK_PARAMS_IS_MINI) != 0;
+        }
+    }
+
     public void animateToday() {
         mAnimateToday = true;
         mAnimateTime = System.currentTimeMillis();

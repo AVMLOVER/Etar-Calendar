@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The background for the overflow menu's entries.
+
+  They had android:itemBackground set to a flat colour, which replaces the ripple rather than sitting
+  under it - so an entry in the three dot menu could be tapped with nothing to show for it. This
+  keeps the colour as the content and adds the ripple over it, which is the two together rather than
+  one instead of the other.
+
+  ?attr/colorControlHighlight is the theme's own ripple colour, so it follows the palette including
+  the monet one taken from the wallpaper.
+-->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?android:attr/colorControlHighlight">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/colorSurfaceContainer" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+</ripple>

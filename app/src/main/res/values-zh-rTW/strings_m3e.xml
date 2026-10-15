@@ -95,6 +95,7 @@
     <string name="m3e_section_year_view">年檢視</string>
     <string name="m3e_pick_month">選擇月份</string>
     <string name="m3e_pick_day">選擇日期</string>
+    <string name="m3e_pick_year">選擇年份</string>
     <string name="m3e_event_url">連結</string>
     <string name="m3e_repeat_none">不重複</string>
     <string name="m3e_repeat_daily">每天</string>
@@ -203,7 +204,13 @@
     <string name="m3e_battery_risk">忽略電池最佳化會導致通知不再運作，小工具將不再更新，背景服務將崩潰，請注意，風險自負。</string>
     <string name="m3e_battery_do_not_ignore">不忽略</string>
     <string name="m3e_battery_ignore">忽略</string>
-    <string name="m3e_about_title">關於 Etar</string>
+    <string name="m3e_about_title">關於 Etar-Mod</string>
     <string name="m3e_event_needs_calendar">還沒有行事曆，先新增一個行事曆才能建立行程</string>
     <string name="m3e_event_add_calendar">新增行事曆</string>
+    <string name="m3e_day_today">今天</string>
+    <string name="m3e_day_in_future">%1$d天後</string>
+    <string name="m3e_day_in_past">%1$d天前</string>
+    <string name="m3e_event_edit_title">行程編輯</string>
+    <string name="m3e_event_view_title">行程檢視</string>
+    <string name="m3e_year_title">%1$s年</string>
 </resources>

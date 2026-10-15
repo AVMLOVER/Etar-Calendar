@@ -83,6 +83,7 @@
     <string name="m3e_section_year_view">Jahresansicht</string>
     <string name="m3e_pick_month">Monat auswählen</string>
     <string name="m3e_pick_day">Datum auswählen</string>
+    <string name="m3e_pick_year">Jahr auswählen</string>
     <string name="m3e_event_url">Link</string>
     <string name="m3e_repeat_none">Einmaliger Termin</string>
     <string name="m3e_repeat_daily">Täglich</string>
@@ -191,7 +192,13 @@
     <string name="m3e_battery_risk">Das Ignorieren der Akku-Optimierung erfolgt auf eigene Gefahr: Benachrichtigungen funktionieren eventuell nicht mehr, Widgets werden nicht mehr aktualisiert und Hintergrunddienste stürzen ab.</string>
     <string name="m3e_battery_do_not_ignore">Nicht ignorieren</string>
     <string name="m3e_battery_ignore">Ignorieren</string>
-    <string name="m3e_about_title">Über Etar</string>
+    <string name="m3e_about_title">Über Etar-Mod</string>
     <string name="m3e_event_needs_calendar">Noch kein Kalender vorhanden. Zuerst einen Kalender hinzufügen, dann lässt sich der Termin erstellen.</string>
     <string name="m3e_event_add_calendar">Kalender hinzufügen</string>
+    <string name="m3e_day_today">Heute</string>
+    <string name="m3e_day_in_future">in %1$d Tagen</string>
+    <string name="m3e_day_in_past">vor %1$d Tagen</string>
+    <string name="m3e_event_edit_title">Termin bearbeiten</string>
+    <string name="m3e_event_view_title">Termin</string>
+    <string name="m3e_year_title">Jahr %1$s</string>
 </resources>

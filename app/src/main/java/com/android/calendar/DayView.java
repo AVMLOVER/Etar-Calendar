@@ -31,6 +31,7 @@ import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Paint.Align;
@@ -318,9 +319,26 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
     private long mLastReloadMillis;
 
     private ArrayList<Event> mEvents = new ArrayList<Event>();
-    private ArrayList<Integer> mVisibleEventIndices = new ArrayList<Integer>();
+
+    /**
+     * The events to draw for each of the visible days, and the rectangles for them.
+     *
+     * Refilled once per draw by [bucketEventsByDay]. Kept as fields so a redraw does not allocate
+     * seven lists every frame, which on a drawing path that already runs long is worth avoiding.
+     */
+    private final ArrayList<Event>[] mEventsForDay = new ArrayList[7];
+
+    /**
+     * The laid-out text for each event, keyed by the event itself.
+     *
+     * It used to be an array indexed by the event's position in the event list, which meant every
+     * caller had to carry that index around - and once the drawing stopped walking the whole list per
+     * day, the index it needed was no longer the one it had. Keyed by event, it cannot get out of
+     * step with the list.
+     */
+    private final java.util.IdentityHashMap<Event, StaticLayout> mEventLayouts =
+            new java.util.IdentityHashMap<Event, StaticLayout>();
     private ArrayList<Event> mAllDayEvents = new ArrayList<Event>();
-    private StaticLayout[] mLayouts = null;
     private StaticLayout[] mAllDayLayouts = null;
     private int mSelectionDay;        // Julian day
     private int mSelectionHour;
@@ -355,6 +373,11 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
     private int mFirstDayOfWeek; // First day of the week
 
     private PopupWindow mPopup;
+
+    /**
+     * True while onDraw is running. resizing the popup from there deadlocks; see remeasure.
+     */
+    private boolean isDrawing;
     private View mPopupView;
 
     // The number of milliseconds to show the popup window
@@ -456,7 +479,6 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
     // sizing for "box +n" in allDay events
     private static int EVENT_SQUARE_WIDTH = 10;
     private static int EVENT_LINE_PADDING = 4;
-    private static int NEW_EVENT_HINT_FONT_SIZE = 12;
 
     private static int mPressedColor;
     private static int mClickedColor;
@@ -669,7 +691,6 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
     private boolean mIsAccessibilityEnabled = false;
     private boolean mTouchExplorationEnabled = false;
     private final String mCreateNewEventString;
-    private final String mNewEventHintString;
 
     public DayView(Context context, CalendarController controller,
             ViewSwitcher viewSwitcher, EventLoader eventLoader, int numDays) {
@@ -679,8 +700,12 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
 
         mResources = context.getResources();
         mCreateNewEventString = mResources.getString(R.string.event_create);
-        mNewEventHintString = mResources.getString(R.string.day_view_new_event_hint);
-        mNumDays = numDays;
+        // Never zero or negative. The count decides the cell width, and it is divided by in more than
+        // one place - onSizeChanged, computeDayLeftPosition, the drag cell width - so a bad value is a
+        // crash on the main thread during layout rather than a wrong-looking grid. A fragment rebuilt
+        // after a configuration change used to pass zero here; it restores the count properly now and
+        // this makes any other source of a bad value a one day view instead.
+        mNumDays = numDays > 0 ? numDays : 1;
 
         DATE_HEADER_FONT_SIZE = (int) mResources.getDimension(R.dimen.date_header_text_size);
         DAY_HEADER_FONT_SIZE = (int) mResources.getDimension(R.dimen.day_label_text_size);
@@ -700,7 +725,6 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
             eventTextSizeId = R.dimen.week_view_event_text_size;
         }
         EVENT_TEXT_FONT_SIZE = (int) mResources.getDimension(eventTextSizeId);
-        NEW_EVENT_HINT_FONT_SIZE = (int) mResources.getDimension(R.dimen.new_event_hint_text_size);
         EVENT_TEXT_TOP_MARGIN = (int) mResources.getDimension(R.dimen.event_text_vertical_margin);
         EVENT_TEXT_BOTTOM_MARGIN = EVENT_TEXT_TOP_MARGIN;
         EVENT_ALL_DAY_TEXT_TOP_MARGIN = EVENT_TEXT_TOP_MARGIN;
@@ -1256,7 +1280,12 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         mEdgeEffectTop.setSize(mViewWidth, mViewHeight);
         mEdgeEffectBottom.setSize(mViewWidth, mViewHeight);
         int gridAreaWidth = width - mHoursWidth;
-        mCellWidth = (gridAreaWidth - (mNumDays * DAY_GAP)) / mNumDays;
+        // Guarded: the count comes from the hosting fragment, and a fragment rebuilt after a
+        // configuration change used to hand over a zero - which threw here, on the main thread, during
+        // layout, taking the app down. The fragment restores it properly now, and this makes a wrong
+        // value a one day view rather than a crash.
+        int days = mNumDays > 0 ? mNumDays : 1;
+        mCellWidth = (gridAreaWidth - (days * DAY_GAP)) / days;
 
         // This would be about 1 day worth in a 7 day view
         mHorizontalSnapBackThreshold = width / 7;
@@ -1281,6 +1310,7 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
      * loading new events.  This can change if there are all-day events.
      */
     private void remeasure(int width, int height) {
+        long rmT0 = android.os.SystemClock.elapsedRealtime();
         // Shrink to fit available space but make sure we can display at least two events
         MAX_UNEXPANDED_ALLDAY_HEIGHT = (int) (MIN_UNEXPANDED_ALLDAY_EVENT_HEIGHT * 4);
         MAX_UNEXPANDED_ALLDAY_HEIGHT = Math.min(MAX_UNEXPANDED_ALLDAY_HEIGHT, height / 6);
@@ -1358,6 +1388,7 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
 
         final long minimumDurationMillis = (long)
                 (MIN_EVENT_HEIGHT * DateUtils.MINUTE_IN_MILLIS / (mCellHeight / 60.0f));
+        long cpT0 = android.os.SystemClock.elapsedRealtime();
         SharedPreferences prefs = GeneralPreferences.Companion.getSharedPreferences(mContext);
         mDrawStaggered = prefs.getBoolean(GeneralPreferences.KEY_STAGGERED_DISPLAY, false);
         Event.computePositions(mEvents, minimumDurationMillis, mDrawStaggered);
@@ -1398,8 +1429,22 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         if (mSelectedEvent != null && mLastPopupEventID != mSelectedEvent.id) {
             mPopup.dismiss();
         }
-        mPopup.setWidth(eventAreaWidth - 20);
-        mPopup.setHeight(WindowManager.LayoutParams.WRAP_CONTENT);
+        // Sized only when this is not running from a draw.
+        //
+        // remeasure is called from two places: onSizeChanged, which is layout, and onDraw, through
+        // mRemeasure. PopupWindow.setWidth and setHeight ask the window manager to re-measure the
+        // popup, and doing that from inside onDraw means the window is being resized while the view
+        // tree is mid-draw - a draw the view root is waiting on - which is a wait that cannot end.
+        // The week view hit it and the day view did not, which is why only one of them locked the
+        // screen; the stack was left inside DayView.onDraw, and no crash was ever recorded because a
+        // deadlock does not throw.
+        //
+        // The popup is not on screen while drawing, so its size only has to be right before it is
+        // shown: updateEventDetails sets it again there.
+        if (!isDrawing && mPopup != null) {
+            mPopup.setWidth(eventAreaWidth - 20);
+            mPopup.setHeight(WindowManager.LayoutParams.WRAP_CONTENT);
+        }
     }
 
     /**
@@ -2084,11 +2129,7 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
                 }
 
                 // New events, new layouts
-                if (mLayouts == null || mLayouts.length < events.size()) {
-                    mLayouts = new StaticLayout[events.size()];
-                } else {
-                    Arrays.fill(mLayouts, null);
-                }
+                mEventLayouts.clear();
 
                 if (mAllDayLayouts == null || mAllDayLayouts.length < mAllDayEvents.size()) {
                     mAllDayLayouts = new StaticLayout[events.size()];
@@ -2203,7 +2244,12 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
     @Override
     protected void onDraw(Canvas canvas) {
         if (mRemeasure) {
-            remeasure(getWidth(), getHeight());
+            isDrawing = true;
+            try {
+                remeasure(getWidth(), getHeight());
+            } finally {
+                isDrawing = false;
+            }
             mRemeasure = false;
         }
         canvas.save();
@@ -2281,6 +2327,7 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         canvas.restore();
         drawHours(mRect, canvas, mPaint);
         canvas.restore();
+
     }
 
     private void drawAfterScroll(Canvas canvas) {
@@ -2387,6 +2434,20 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
     }
 
     private void drawDayHeaderLoop(Rect r, Canvas canvas, Paint p) {
+        // Drawn directly, every frame.
+        //
+        // This row used to be drawn once into a bitmap and blitted after that, as an optimisation. It
+        // is removed: the row is drawn in view coordinates while the bitmap had its own origin at the
+        // top of the view, so the two only lined up by accident, and the extra canvas put this path on
+        // the software bitmap canvas instead of the display list the rest of the view uses. That
+        // difference showed up in a stack trace where the main thread hung inside drawText on a
+        // BaseCanvas. Drawing the row directly is what the original does and costs a fraction of a
+        // frame.
+        drawDayHeaderRow(r, canvas, p);
+    }
+
+    /** Draws the row of date, weekday and lunar text. */
+    private void drawDayHeaderRow(Rect r, Canvas canvas, Paint p) {
         // Draw the horizontal day background banner
         // p.setColor(mCalendarDateBannerBackground);
         // r.top = 0;
@@ -2470,9 +2531,17 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         p.setAntiAlias(false);
         int alpha = p.getAlpha();
         p.setAlpha(mEventsAlpha);
+        // One pass over the events for the whole view, not one pass per day.
+        //
+        // drawEvents used to walk the entire event list once for each of the seven days - seven scans
+        // of every event, computing a rectangle for each one only to discard the six days it does not
+        // belong to. When both the event list and the view are at their largest that is the most
+        // expensive thing this view does, and it lands on the main thread inside onDraw.
+        //
+        // The events are split by day once here and the days are then drawn from those lists, so the
+        // work is a single scan plus the events that are actually drawn.
+        bucketEventsByDay();
         for (int day = 0; day < mNumDays; day++, cell++) {
-            // TODO Wow, this needs cleanup. drawEvents loop through all the
-            // events on every call.
             drawEvents(cell, day, HOUR_GAP, canvas, p);
             // If this is today
             if (cell == mTodayJulianDay) {
@@ -2509,30 +2578,26 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
             p.setAntiAlias(false);
             canvas.drawRect(r, p);
 
-            // Draw a "new event hint" on top of the highlight
-            // For the week view, show a "+", for day view, show "+ New event"
+            // Draw a "new event hint" on top of the highlight.
+            //
+            // One mark for both views: a plus centred in the slot. The day view used to write
+            // "+ New event" into the top left corner instead - the same affordance in a second
+            // style, which read as a label rather than as the thing to tap. The plus says the same
+            // in both places and needs no room for text, which a narrow slot does not always have.
             p.setColor(mNewEventHintColor);
-            if (mNumDays > 1) {
-                p.setStrokeWidth(NEW_EVENT_WIDTH);
-                int width = r.right - r.left;
-                int midX = r.left + width / 2;
-                int midY = r.top + mCellHeight / 2;
-                int length = Math.min(mCellHeight, width) - NEW_EVENT_MARGIN * 2;
-                length = Math.min(length, NEW_EVENT_MAX_LENGTH);
-                int verticalPadding = (mCellHeight - length) / 2;
-                int horizontalPadding = (width - length) / 2;
-                canvas.drawLine(r.left + horizontalPadding, midY, r.right - horizontalPadding,
-                        midY, p);
-                canvas.drawLine(midX, r.top + verticalPadding, midX, r.bottom - verticalPadding, p);
-            } else {
-                p.setStyle(Paint.Style.FILL);
-                p.setTextSize(NEW_EVENT_HINT_FONT_SIZE);
-                p.setTextAlign(Paint.Align.LEFT);
-                p.setAntiAlias(true);
-                p.setTypeface(Typeface.defaultFromStyle(Typeface.BOLD));
-                canvas.drawText(mNewEventHintString, r.left + EVENT_TEXT_LEFT_MARGIN,
-                        r.top + Math.abs(p.getFontMetrics().ascent) + EVENT_TEXT_TOP_MARGIN , p);
-            }
+            p.setStrokeWidth(NEW_EVENT_WIDTH);
+            p.setAntiAlias(true);
+            p.setStyle(Paint.Style.STROKE);
+            int width = r.right - r.left;
+            int midX = r.left + width / 2;
+            int midY = r.top + mCellHeight / 2;
+            int length = Math.min(mCellHeight, width) - NEW_EVENT_MARGIN * 2;
+            length = Math.min(length, NEW_EVENT_MAX_LENGTH);
+            int verticalPadding = (mCellHeight - length) / 2;
+            int horizontalPadding = (width - length) / 2;
+            canvas.drawLine(r.left + horizontalPadding, midY, r.right - horizontalPadding,
+                    midY, p);
+            canvas.drawLine(midX, r.top + verticalPadding, midX, r.bottom - verticalPadding, p);
         }
     }
 
@@ -2549,6 +2614,13 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         }
         int deltaY = hourStep * totCellHeight;
         int y = i * totCellHeight + mHoursTextHeight / 2 - HOUR_GAP;
+
+        // No clip here.
+        //
+        // One was added to stop the top label showing half behind the header when the view is
+        // scrolled, and it is removed again: it was clipping in the wrong space and hid every label
+        // below the tenth hour, which is a far worse defect than the one it was there to fix. The
+        // half-hidden top label is what the original does, and it is left as it was.
         for (; i < 24; i += hourStep) {
             String time = mHourStrs[i];
             canvas.drawText(time, HOURS_LEFT_MARGIN, y, p);
@@ -2579,8 +2651,19 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         if (mNumDays > 1) {
             final boolean showLunar = LunarUtils.showLunar(mContext);
 
-            x = computeDayLeftPosition(day) + DAY_HEADER_RIGHT_MARGIN;
-            p.setTextAlign(Align.LEFT);
+            // Centred in the day's column.
+            //
+            // The three lines - the date, the weekday and the lunar date - were left-aligned against
+            // the column's left edge, which reads as three separate things pinned to one side. Centred,
+            // they read as one heading for the column, which is what they are. The x is the middle of
+            // the column and the paint is asked to centre on it, so all three share one centre however
+            // wide each of them is - centring them by measuring each string would give three slightly
+            // different centres and the lines would look ragged.
+            //
+            // The middle comes from the two column edges rather than from mCellWidth, which is narrower
+            // by the day gap and would put the centre slightly left of the column.
+            x = (computeDayLeftPosition(day) + computeDayLeftPosition(day + 1)) / 2;
+            p.setTextAlign(Align.CENTER);
 
             // With the lunar line enabled the three lines are laid out top-down starting at
             // DAY_HEADER_TOP_MARGIN, so their baselines cannot collide. Without it the original
@@ -2891,6 +2974,34 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
     }
 
     /**
+     * The laid-out text for a timed event, built on first use and kept on the event itself.
+     *
+     * The array this replaced was indexed by the event's position in the event list, so the drawing
+     * code had to carry that position around - and once a day's events are drawn from their own list
+     * rather than by walking the whole list, the position is not the same number any more. Keyed by
+     * the event, there is nothing to keep in step.
+     */
+    private StaticLayout getTimedEventLayout(Event event, Paint paint, Rect r) {
+        // Built and returned, not kept.
+        //
+        // This used to cache each layout in a map keyed by the event. The key is the event object
+        // itself - an identity, not a value - so a reload that produced new Event objects for the same
+        // events left every earlier layout in the map with nothing able to reach its key again. A
+        // StaticLayout holds its laid-out text, which is native memory the collector cannot reclaim
+        // while the map holds it, and the map was only ever cleared from setEvents.
+        //
+        // A stack trace from the freeze showed 1.75GB of anonymous memory in a process that had been
+        // running for ten seconds, which is a rate of allocation that keeps the collector running and
+        // the main thread suspended - and the main thread was found suspended inside drawText. Laying
+        // the text out again each frame costs little and keeps nothing alive between frames.
+        StaticLayout layout = buildEventLayout(event, paint, r);
+        if (layout != null) {
+            layout.getPaint().setAlpha(Utils.getAdaptiveTextAlpha(mContext, mEventsAlpha, event.color));
+        }
+        return layout;
+    }
+
+    /**
      * Return the layout for a numbered event. Create it if not already existing
      */
     private StaticLayout getEventLayout(StaticLayout[] layouts, int i, Event event, Paint paint,
@@ -2904,48 +3015,57 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         // the width hasn't changed (due to vertical resizing which causes
         // re-layout of events at min height)
         if (layout == null || r.width() != layout.getWidth()) {
-            SpannableStringBuilder bob = new SpannableStringBuilder();
-            if (event.title != null) {
-                // MAX - 1 since we add a space
-                bob.append(drawTextSanitizer(event.title.toString(), MAX_EVENT_TEXT_LEN - 1));
-                bob.setSpan(new StyleSpan(android.graphics.Typeface.BOLD), 0,
-                            bob.length(), 0);
-                bob.append(' ');
-            }
-            if (event.location != null) {
-                bob.append(drawTextSanitizer(event.location.toString(),
-                        MAX_EVENT_TEXT_LEN - bob.length()));
-            }
-
-            switch (event.selfAttendeeStatus) {
-                case Attendees.ATTENDEE_STATUS_INVITED:
-                    paint.setColor(event.color);
-                    break;
-                case Attendees.ATTENDEE_STATUS_DECLINED:
-                    paint.setAlpha(Utils.DECLINED_EVENT_TEXT_ALPHA);
-                case Attendees.ATTENDEE_STATUS_NONE: // Your own events
-                case Attendees.ATTENDEE_STATUS_ACCEPTED:
-                case Attendees.ATTENDEE_STATUS_TENTATIVE:
-                default:
-                    paint.setColor(Utils.getAdaptiveTextColor(mContext, mEventTextColor, event.color));
-                    break;
-            }
-
-            if (event.status == Events.STATUS_CANCELED) {
-                // Strike event title if its status is `canceled`
-                paint.setStrikeThruText(true);
-            } else {
-                paint.setStrikeThruText(false);
-            }
-
-            // Leave a one pixel boundary on the left and right of the rectangle for the event
-            layout = new StaticLayout(bob, 0, bob.length(), new TextPaint(paint), r.width(),
-                    Alignment.ALIGN_NORMAL, 1.0f, 0.0f, true, null, r.width());
-
+            layout = buildEventLayout(event, paint, r);
             layouts[i] = layout;
         }
         layout.getPaint().setAlpha(Utils.getAdaptiveTextAlpha(mContext, mEventsAlpha, event.color));
         return layout;
+    }
+
+    /**
+     * Builds the styled text for an event at the width of the rectangle it will be drawn into.
+     *
+     * Shared by the two caches - the array the all-day events use and the map the timed ones use -
+     * so that only the caching differs between them.
+     */
+    private StaticLayout buildEventLayout(Event event, Paint paint, Rect r) {
+        SpannableStringBuilder bob = new SpannableStringBuilder();
+        if (event.title != null) {
+            // MAX - 1 since we add a space
+            bob.append(drawTextSanitizer(event.title.toString(), MAX_EVENT_TEXT_LEN - 1));
+            bob.setSpan(new StyleSpan(android.graphics.Typeface.BOLD), 0,
+                        bob.length(), 0);
+            bob.append(' ');
+        }
+        if (event.location != null) {
+            bob.append(drawTextSanitizer(event.location.toString(),
+                    MAX_EVENT_TEXT_LEN - bob.length()));
+        }
+
+        switch (event.selfAttendeeStatus) {
+            case Attendees.ATTENDEE_STATUS_INVITED:
+                paint.setColor(event.color);
+                break;
+            case Attendees.ATTENDEE_STATUS_DECLINED:
+                paint.setAlpha(Utils.DECLINED_EVENT_TEXT_ALPHA);
+            case Attendees.ATTENDEE_STATUS_NONE: // Your own events
+            case Attendees.ATTENDEE_STATUS_ACCEPTED:
+            case Attendees.ATTENDEE_STATUS_TENTATIVE:
+            default:
+                paint.setColor(Utils.getAdaptiveTextColor(mContext, mEventTextColor, event.color));
+                break;
+        }
+
+        if (event.status == Events.STATUS_CANCELED) {
+            // Strike event title if its status is `canceled`
+            paint.setStrikeThruText(true);
+        } else {
+            paint.setStrikeThruText(false);
+        }
+
+        // Leave a one pixel boundary on the left and right of the rectangle for the event
+        return new StaticLayout(bob, 0, bob.length(), new TextPaint(paint), r.width(),
+                Alignment.ALIGN_NORMAL, 1.0f, 0.0f, true, null, r.width());
     }
 
     private void drawAllDayEvents(int firstDay, int numDays, Canvas canvas, Paint p) {
@@ -3197,6 +3317,74 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         }
     }
 
+    /**
+     * Sorts the events onto the days of this view, once, ready for the days to be drawn from them.
+     *
+     * Each event lands on every day it spans, so an event crossing three days is drawn on all three -
+     * but each of those days is decided from the event's own start and end day, not by trying it
+     * against all seven and discarding six. The rectangle for the day is worked out as the event is
+     * filed, which is where the geometry used to be computed as well.
+     *
+     * The sort for staggered display happens here rather than inside the per-day loop, so it is done
+     * once per day's list per draw rather than once per day per event list.
+     */
+    private void bucketEventsByDay() {
+        for (int day = 0; day < mNumDays; day++) {
+            if (mEventsForDay[day] == null) {
+                mEventsForDay[day] = new ArrayList<Event>();
+            } else {
+                mEventsForDay[day].clear();
+            }
+        }
+
+        final int viewEndY = mViewStartY + mViewHeight - DAY_HEADER_HEIGHT - mAlldayHeight;
+        final ArrayList<Event> events = mEvents;
+        final EventGeometry geometry = mEventGeometry;
+        final int numEvents = events.size();
+
+        for (int i = 0; i < numEvents; i++) {
+            Event event = events.get(i);
+            if (event.drawAsAllday()) {
+                continue;
+            }
+
+            // The days of this view the event covers, clamped to the view.
+            int from = Math.max(event.startDay, mFirstJulianDay) - mFirstJulianDay;
+            int to = Math.min(event.endDay, mFirstJulianDay + mNumDays - 1) - mFirstJulianDay;
+            if (from > to) {
+                continue;
+            }
+            if (from < 0) {
+                from = 0;
+            }
+            if (to >= mNumDays) {
+                to = mNumDays - 1;
+            }
+
+            for (int day = from; day <= to; day++) {
+                int left = computeDayLeftPosition(day) + 1;
+                int cellWidth = computeDayLeftPosition(day + 1) - left + 1;
+                if (!geometry.computeEventRect(
+                        mFirstJulianDay + day, left, HOUR_GAP, cellWidth, event)) {
+                    continue;
+                }
+                // Not visible in the scrolled window, so not drawn.
+                if (event.bottom < mViewStartY || event.top > viewEndY) {
+                    continue;
+                }
+                mEventsForDay[day].add(event);
+            }
+        }
+
+        if (mDrawStaggered) {
+            // Sort by column, so staggered events are drawn in the right order. A stable sort keeps
+            // events of the same column in the order they were filed.
+            for (int day = 0; day < mNumDays; day++) {
+                mEventsForDay[day].sort(Comparator.comparingInt(Event::getColumn));
+            }
+        }
+    }
+
     private void drawEvents(int date, int dayIndex, int top, Canvas canvas, Paint p) {
         Paint eventTextPaint = mEventTextPaint;
         int left = computeDayLeftPosition(dayIndex) + 1;
@@ -3220,32 +3408,16 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         int alpha = eventTextPaint.getAlpha();
         eventTextPaint.setAlpha(mEventsAlpha);
 
-        // Pre-compute rects and filter for the day
-        final ArrayList<Integer> visibleEventIndices = mVisibleEventIndices;
-        visibleEventIndices.clear();
-        for (int i = 0; i < numEvents; i++) {
-            Event event = events.get(i);
-            if (!geometry.computeEventRect(date, left, top, cellWidth, event)) {
-                continue;
-            }
+        // The events for this day, and their rectangles, worked out in one pass over the whole list
+        // by bucketEventsByDay rather than by scanning every event here for every day.
+        //
+        // Geometry.computeEventRect is called there, for the days each event actually spans, which is
+        // the same set of calls this used to make - minus the repeated ones that were only ever
+        // discarded because the event belonged to another day.
+        final ArrayList<Event> visibleEvents = mEventsForDay[dayIndex];
 
-            // Don't draw it if it is not visible
-            if (event.bottom < mViewStartY || event.top > viewEndY) {
-                continue;
-            }
-
-            visibleEventIndices.add(i);
-        }
-
-        if (mDrawStaggered) {
-            // Sort by column
-            // This makes sure that staggered events are drawn in the right order
-            visibleEventIndices.sort(Comparator.comparingInt((Integer i) -> events.get(i).getColumn()));
-        }
-
-        for (int k = 0; k < visibleEventIndices.size(); k++) {
-            int i = visibleEventIndices.get(k);
-            Event event = events.get(i);
+        for (int k = 0; k < visibleEvents.size(); k++) {
+            Event event = visibleEvents.get(k);
 
             if (date == mSelectionDay && !mSelectionAllday && mComputeSelectedEvents
                     && geometry.eventIntersectsSelection(event, selectionArea)) {
@@ -3263,7 +3435,7 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
             if (r.top > viewEndY || r.bottom < mViewStartY) {
                 continue;
             }
-            StaticLayout layout = getEventLayout(mLayouts, i, event, eventTextPaint, r);
+            StaticLayout layout = getTimedEventLayout(event, eventTextPaint, r);
             // TODO: not sure why we are 4 pixels off
             drawEventText(layout, r, canvas, mViewStartY + 4, mViewStartY + mViewHeight
                     - DAY_HEADER_HEIGHT - mAlldayHeight, false);
@@ -3875,6 +4047,11 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         whereView.setVisibility(empty ? View.GONE : View.VISIBLE);
         if (!empty) whereView.setText(event.location);
 
+        // Sized here, where the popup is about to be shown, rather than in remeasure - that runs
+        // from onDraw as well, and resizing a window from inside a draw is a deadlock. The same
+        // width the old code gave it.
+        mPopup.setWidth(mNumDays * (mCellWidth + DAY_GAP) - 20);
+        mPopup.setHeight(WindowManager.LayoutParams.WRAP_CONTENT);
         mPopup.showAtLocation(this, Gravity.BOTTOM | Gravity.LEFT, mHoursWidth, 5);
         mHandler.postDelayed(mDismissPopup, POPUP_DISMISS_DELAY);
     }

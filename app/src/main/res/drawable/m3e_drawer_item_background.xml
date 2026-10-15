@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The background for the drawer's entries.
+
+  The drawer's items had their background set to transparent, which removes the highlight Material
+  gives them - so choosing an entry in the side panel gave no feedback at all, while every other
+  control in the app ripples. This is that ripple back, with the corner radius the app's cards use so
+  the drawer does not look like a different product.
+
+  ?attr/colorControlHighlight is the theme's own ripple colour, so it follows the palette, including
+  the monet one taken from the wallpaper.
+-->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?android:attr/colorControlHighlight">
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFFFF" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+</ripple>

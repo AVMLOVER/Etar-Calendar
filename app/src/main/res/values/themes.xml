@@ -26,7 +26,8 @@
              title bar uses; without it the popup still renders with the AppCompat look. -->
         <item name="actionBarPopupTheme">@style/ThemeOverlay.Etar.PopupMenu</item>
         <item name="popupMenuStyle">@style/Widget.Etar.PopupMenu</item>
-        <item name="android:itemBackground">?attr/colorSurfaceContainer</item>
+        <!-- Ripple over the surface colour, so the overflow entries respond to a tap. -->
+        <item name="android:itemBackground">@drawable/m3e_popup_item_background</item>
 
         <!-- Material 3 Expressive shapes: noticeably rounder than the M3 defaults. -->
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Etar.SmallComponent</item>
@@ -96,6 +97,22 @@
     <!-- Inherit base theme to allow overriding Light Theme as per API levels -->
     <style name="Theme.Etar" parent="BaseTheme">
         <item name="android:windowLightStatusBar">true</item>
+        <!--
+          The sideways slide between screens, declared on the theme rather than in code.
+
+          The window transitions are negotiated before the first frame is drawn, which is earlier
+          than an activity's onCreate can usefully ask for them through overrideActivityTransition:
+          a call from there was ignored and the platform's default - the new screen appearing over
+          the old one rather than moving in beside it - played instead. The theme is read when the
+          window is created, so nothing can be too late, and it covers every screen at once instead
+          of one call per pair.
+
+          Entering moves left and leaving moves right, which is the reverse, so a screen hands the
+          calendar back the way it took it.
+
+          Theme.Etar.Transparent sets this to @null, so the dialog-only screens are unaffected.
+        -->
+        <item name="android:windowAnimationStyle">@style/Animation.M3e.Activity</item>
     </style>
 
     <!--
@@ -116,24 +133,61 @@
       The toolbar title doubles as the control that opens the date / month picker, so it is sized
       and spaced like a control rather than like a plain heading. It is also no longer all-caps and
       no longer clipped, because it carries text such as "10月16日 – 10月18日".
+
+      It shrinks to fit rather than truncating. A date spelled out in German - "9. Oktober 2026" -
+      is half again as wide as the same date in Chinese, and at a fixed size the heading ran out of
+      room beside the search, today and overflow icons and was cut off mid-word. The heading is the
+      one thing in the bar that has to stay readable, so it now scales down between the two sizes
+      below and only gives up at the smaller of them.
     -->
     <style name="TextAppearance.M3e.ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
-        <item name="android:textSize">20sp</item>
+        <item name="android:textSize">@dimen/m3e_toolbar_title_size</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:singleLine">true</item>
         <item name="android:ellipsize">end</item>
+        <item name="autoSizeTextType">uniform</item>
+        <item name="autoSizeMinTextSize">11sp</item>
+        <item name="autoSizeMaxTextSize">18sp</item>
+        <item name="autoSizeStepGranularity">1sp</item>
     </style>
 
     <!--
     The heading's second line, used by the day view and the week view for the weekday and the week
     number. Smaller than the Material 3 default, which is nearly the size of the title and left the
     two competing for the width of the bar.
+
+    "Freitag, 八月廿九" needs every bit of the width it can get, so this shrinks too rather than
+    being cut off.
     -->
+    <!--
+      The heading with the subtitle under it, both lines in one view.
+
+      The two Toolbar styles above are single line, which is right for a heading on its own and wrong
+      here: this view holds a newline, and singleLine collapses that into one line and then ellipsises
+      it, so the subtitle was cut to "今天，周四，九月...". This one keeps the two lines and shrinks
+      the whole heading to fit the width it is given.
+
+      The subtitle carries no size of its own here. A size span and auto-sizing cannot both apply -
+      auto-sizing measures the whole text and chooses one size for all of it - and something has to
+      shrink this to fit, because the subtitle is long in every language that names the weekday and the
+      lunar date together.
+    -->
+    <style name="TextAppearance.M3e.ToolbarHeading" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">@dimen/m3e_toolbar_title_size</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:maxLines">2</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
     <style name="TextAppearance.M3e.ToolbarSubtitle" parent="TextAppearance.Material3.TitleSmall">
         <item name="android:textSize">14sp</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:singleLine">true</item>
         <item name="android:ellipsize">end</item>
+        <item name="autoSizeTextType">uniform</item>
+        <item name="autoSizeMinTextSize">11sp</item>
+        <item name="autoSizeMaxTextSize">14sp</item>
+        <item name="autoSizeStepGranularity">1sp</item>
     </style>
 
     <!--

@@ -18,6 +18,35 @@
 <menu
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
+    <!--
+      One tap to another view, shown only when "View buttons in the toolbar" is on.
+
+      From upstream master (Etar-Group/Etar-Calendar), kept as it is there: hidden by default and
+      switched on by updateViewSwitchButtons() in AllInOneActivity, which also forces the today icon
+      to stay in the bar - Android keeps only two "if room" icons next to the overflow, and without
+      that the today icon is the one pushed out.
+    -->
+    <item
+        android:id="@+id/action_view_month"
+        android:icon="@drawable/ic_toolbar_view_month"
+        android:orderInCategory="1"
+        android:title="@string/month_view"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_view_week"
+        android:icon="@drawable/ic_toolbar_view_week"
+        android:orderInCategory="1"
+        android:title="@string/week_view"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_view_day"
+        android:icon="@drawable/ic_toolbar_view_day"
+        android:orderInCategory="1"
+        android:title="@string/day_view"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_search"
         android:alphabeticShortcut="f"

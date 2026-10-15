@@ -41,6 +41,17 @@ import ws.xsoh.etar.R;
  */
 public class DayFragment extends Fragment implements CalendarController.EventHandler, ViewFactory {
     protected static final String BUNDLE_KEY_RESTORE_TIME = "key_restore_time";
+
+    /**
+     * How many days this fragment shows: one for the day view, seven for the week.
+     *
+     * Kept in the saved state because a fragment rebuilt after a configuration change does not run
+     * the constructor that was used to make it - the framework builds it with the no-argument one.
+     * It was not saved, so after a rotation it came back as zero, and DayView divides by it when it is
+     * laid out: dividing by zero threw, the screen went down, and the app closed. Only the time was
+     * being saved, which is why the day and week views could survive some changes and not others.
+     */
+    private static final String BUNDLE_KEY_NUM_DAYS = "key_num_days";
     /**
      * The view id used for all the views we create. It's OK to have all child
      * views have the same ID. This ID is used to pick which view receives
@@ -90,6 +101,18 @@ public class DayFragment extends Fragment implements CalendarController.EventHan
 
         Context context = getActivity();
 
+        // The number of days, recovered from the saved state.
+        //
+        // A fragment rebuilt after a configuration change never sees the constructor that set it, so
+        // without this it came back as zero - and DayView divides by that count when it is laid out.
+        if (icicle != null && icicle.containsKey(BUNDLE_KEY_NUM_DAYS)) {
+            mNumDays = icicle.getInt(BUNDLE_KEY_NUM_DAYS, mNumDays);
+        }
+        if (mNumDays <= 0) {
+            // Never zero. Nothing has said how many days to show, which is the day view's one.
+            mNumDays = 1;
+        }
+
         mInAnimationForward = AnimationUtils.loadAnimation(context, R.anim.slide_left_in);
         mOutAnimationForward = AnimationUtils.loadAnimation(context, R.anim.slide_left_out);
         mInAnimationBackward = AnimationUtils.loadAnimation(context, R.anim.slide_right_in);
@@ -101,20 +124,32 @@ public class DayFragment extends Fragment implements CalendarController.EventHan
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+        long t0 = android.os.SystemClock.elapsedRealtime();
         View v = inflater.inflate(R.layout.day_activity, null);
-
+        long t1 = android.os.SystemClock.elapsedRealtime();
         mViewSwitcher = (ViewSwitcher) v.findViewById(R.id.switcher);
         mViewSwitcher.setFactory(this);
+        long t2 = android.os.SystemClock.elapsedRealtime();
         mViewSwitcher.getCurrentView().requestFocus();
         ((DayView) mViewSwitcher.getCurrentView()).updateTitle();
+
+        v.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                return true;
+            }
+        });
 
         return v;
     }
 
     public View makeView() {
+        long t0 = android.os.SystemClock.elapsedRealtime();
         mTZUpdater.run();
+        long t1 = android.os.SystemClock.elapsedRealtime();
         DayView view = new DayView(getActivity(), CalendarController
                 .getInstance(getActivity()), mViewSwitcher, mEventLoader, mNumDays);
+        long t2 = android.os.SystemClock.elapsedRealtime();
         view.setId(VIEW_ID);
         view.setLayoutParams(new ViewSwitcher.LayoutParams(
                 LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
@@ -132,9 +167,32 @@ public class DayFragment extends Fragment implements CalendarController.EventHan
         view.handleOnResume();
         view.restartCurrentTimeUpdates();
 
-        view = (DayView) mViewSwitcher.getNextView();
-        view.handleOnResume();
-        view.restartCurrentTimeUpdates();
+        // The next view is only resumed if it already exists.
+        //
+        // Asking the switcher for it builds it - a whole second grid, seven days by twenty four hours
+        // on the week view - and it is not needed until a swipe, which may never come. Building it
+        // here meant every switch to the day or week view paid for two grids before showing anything,
+        // on top of whatever the outgoing view was still holding. That cost lands on the main thread
+        // during startup, which is where the input timeout was being hit.
+        //
+        // getNextView creates it on demand, so skipping this does not cost anything later: the swipe
+        // builds it exactly as it would have.
+        View next = nextViewIfPresent();
+        if (next != null) {
+            DayView nextDayView = (DayView) next;
+            nextDayView.handleOnResume();
+            nextDayView.restartCurrentTimeUpdates();
+        }
+    }
+
+    /** The switcher's other view, or null when it has not been built yet. */
+    private View nextViewIfPresent() {
+        // ViewSwitcher has no "peek" that does not create: getNextView builds one when there is none,
+        // so the count is what says whether one exists.
+        if (mViewSwitcher == null || mViewSwitcher.getChildCount() < 2) {
+            return null;
+        }
+        return mViewSwitcher.getNextView();
     }
 
     @Override
@@ -145,6 +203,14 @@ public class DayFragment extends Fragment implements CalendarController.EventHan
         if (time != -1) {
             outState.putLong(BUNDLE_KEY_RESTORE_TIME, time);
         }
+        // Only the saved state, never setArguments.
+        //
+        // setArguments was tried here as well and is not allowed: by the time a fragment is asked to
+        // save its state it has been added and the manager has already taken its copy, so the call
+        // throws "Fragment already added and state has been saved" - on the main thread, during a
+        // relaunch, which is a crash. The saved state is the right place for this anyway; onCreate
+        // reads it back.
+        outState.putInt(BUNDLE_KEY_NUM_DAYS, mNumDays);
     }
 
     @Override
@@ -152,13 +218,18 @@ public class DayFragment extends Fragment implements CalendarController.EventHan
         super.onPause();
         DayView view = (DayView) mViewSwitcher.getCurrentView();
         view.cleanup();
-        view = (DayView) mViewSwitcher.getNextView();
-        view.cleanup();
+
+        // Only what exists. See nextViewIfPresent: asking for the next view builds it, and leaving the
+        // screen is the last moment to be building a second grid.
+        View next = nextViewIfPresent();
+        if (next != null) {
+            ((DayView) next).cleanup();
+            ((DayView) next).stopEventsAnimation();
+        }
         mEventLoader.stopBackgroundThread();
 
         // Stop events cross-fade animation
         view.stopEventsAnimation();
-        ((DayView) mViewSwitcher.getNextView()).stopEventsAnimation();
     }
 
     void startProgressSpinner() {
@@ -236,8 +307,11 @@ public class DayFragment extends Fragment implements CalendarController.EventHan
         view.clearCachedEvents();
         view.reloadEvents();
 
-        view = (DayView) mViewSwitcher.getNextView();
-        view.clearCachedEvents();
+        // Only what exists; see nextViewIfPresent.
+        View next = nextViewIfPresent();
+        if (next != null) {
+            ((DayView) next).clearCachedEvents();
+        }
     }
 
     Event getSelectedEvent() {
@@ -262,6 +336,7 @@ public class DayFragment extends Fragment implements CalendarController.EventHan
     public long getSupportedEventTypes() {
         return EventType.GO_TO | EventType.EVENTS_CHANGED;
     }
+
 
     public void handleEvent(EventInfo msg) {
         if (msg.eventType == EventType.GO_TO) {

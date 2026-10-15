@@ -10,6 +10,9 @@
  */
 package com.android.calendar.event.compose
 
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import com.android.calendar.chrome.compose.M3eDatePickerDialog
 import android.provider.CalendarContract
 import android.text.format.DateFormat
@@ -67,7 +70,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.android.calendar.chrome.compose.ColorPaletteGrid
@@ -223,22 +225,30 @@ fun M3eEventEditorScreen(
         modifier = Modifier.m3eSystemBarPadding(),
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.m3e_event_edit)) },
+                // The heading says what the screen is for, and how far off the day being edited is.
+                //
+                // Read from the start being edited rather than from the event as it was opened, so
+                // moving the date updates the note with it. The note itself is recomputed as the date
+                // rolls over, so a screen left open overnight does not keep yesterday's answer.
+                title = { EventTitleWithDistance(start) },
                 navigationIcon = {
                     TextButton(onClick = onBack) { Text(stringResource(R.string.m3e_back)) }
                 },
                 actions = {
+                    // Icons rather than words, for the same reason as the viewer: the German words
+                    // left the heading no room, and an icon is the same width in every language.
                     // Only for an event that already exists: a new one is discarded by leaving.
                     if (canDelete) {
-                        TextButton(onClick = { confirmingDelete = true }) {
-                            Text(
-                                text = stringResource(R.string.m3e_event_delete),
-                                color = MaterialTheme.colorScheme.error,
+                        IconButton(onClick = { confirmingDelete = true }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_m3e_event_delete),
+                                contentDescription = stringResource(R.string.m3e_event_delete),
+                                tint = MaterialTheme.colorScheme.error,
                             )
                         }
                     }
                     if (!readOnly) {
-                    TextButton(onClick = {
+                    IconButton(onClick = {
                         onSave(
                             EditedEvent(
                                 title = title.trim(),
@@ -265,9 +275,9 @@ fun M3eEventEditorScreen(
                             )
                         )
                     }) {
-                        Text(
-                            text = stringResource(R.string.create_event_dialog_save),
-                            fontWeight = FontWeight.SemiBold,
+                        Icon(
+                            painter = painterResource(R.drawable.outline_save_event),
+                            contentDescription = stringResource(R.string.create_event_dialog_save),
                         )
                     }
                     }
@@ -621,6 +631,21 @@ fun M3eEventEditorScreen(
                                 style = MaterialTheme.typography.bodyLarge,
                                 modifier = Modifier.weight(1f),
                             )
+                            // The calendar's colour beside its name. Which calendar an event belongs
+                            // to is the thing its colour follows, so a name on its own leaves the
+                            // one clue the grid will show unstated.
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .background(
+                                        color = Color(
+                                            calendars.firstOrNull { it.id == calendarId }?.color
+                                                ?: 0
+                                        ),
+                                        shape = CircleShape,
+                                    ),
+                            )
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 text = calendarName.ifEmpty {
                                     stringResource(R.string.m3e_event_calendar_unknown)
@@ -636,6 +661,16 @@ fun M3eEventEditorScreen(
                             calendars.forEach { option ->
                                 DropdownMenuItem(
                                     text = { Text(option.name) },
+                                    leadingIcon = {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .background(
+                                                    color = Color(option.color),
+                                                    shape = CircleShape,
+                                                ),
+                                        )
+                                    },
                                     onClick = {
                                         calendarId = option.id
                                         calendarName = option.name

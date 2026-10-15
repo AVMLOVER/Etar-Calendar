@@ -24,6 +24,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.Composable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.platform.ComposeView
@@ -36,6 +37,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.android.calendar.settings.compose.EtarM3ETheme
 import com.android.calendar.settings.compose.SettingsRepository
+import ws.xsoh.etar.R
 import java.time.LocalDate
 
 object M3eMonthPickerDialog {
@@ -52,6 +54,56 @@ object M3eMonthPickerDialog {
         context: Context,
         anchor: View,
         onPick: java.util.function.BiConsumer<Int, Int>,
+    ): Dialog = showPicker(context, anchor) { dismiss ->
+        val today = LocalDate.now()
+        M3eMonthPickerHeader(day = null)
+        M3eMonthYearPicker(
+            year = today.year,
+            month = today.monthValue,
+            onPick = { year, month ->
+                dismiss()
+                onPick.accept(year, month)
+            },
+        )
+    }
+
+    /**
+     * Shows the picker in its year form: a row of years, no months.
+     *
+     * The year view's heading names a year, so its picker has to hand a whole year back. A month
+     * would be a destination that screen does not have.
+     *
+     * @param year the year the row is scrolled to when it opens.
+     * @param onPick called with the chosen year; the dialog closes itself first.
+     * @return the dialog, so the caller can dismiss it if it needs to.
+     */
+    fun showYear(
+        context: Context,
+        anchor: View,
+        year: Int,
+        onPick: (Int) -> Unit,
+    ): Dialog = showPicker(context, anchor) { dismiss ->
+        M3eMonthPickerHeader(day = null, titleRes = R.string.m3e_pick_year)
+        M3eYearPicker(
+            year = year,
+            onPick = { picked ->
+                dismiss()
+                onPick(picked)
+            },
+        )
+    }
+
+    /**
+     * The dialog the two pickers share: same window, same placement under the toolbar, same
+     * lifecycle-owner handling. Only the picker itself is supplied by the caller.
+     *
+     * @param content composed inside the dialog's column, given the callback that closes the
+     *   dialog; it should call that before passing the choice on.
+     */
+    private fun showPicker(
+        context: Context,
+        anchor: View,
+        content: @Composable (dismiss: () -> Unit) -> Unit,
     ): Dialog {
         val repo = SettingsRepository(context)
         val themeMode = repo.string(KEY_THEME, "system")
@@ -62,9 +114,6 @@ object M3eMonthPickerDialog {
                     android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
                     android.content.res.Configuration.UI_MODE_NIGHT_YES
         }
-        
-
-        val today = LocalDate.now()
 
         val dialog = Dialog(context)
         // No title bar; the Compose header names what the picker does.
@@ -73,29 +122,22 @@ object M3eMonthPickerDialog {
         // The reference has to exist before the content can close it; a one element holder keeps
         // that legal without a nullable cast.
         val holder = arrayOfNulls<Dialog>(1)
+        val dismiss: () -> Unit = { holder[0]?.dismiss() }
 
-        val content = ComposeView(context).apply {
+        val contentView = ComposeView(context).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
             setContent {
                 EtarM3ETheme(darkTheme = dark) {
                     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
                         Column {
-                            M3eMonthPickerHeader(day = null)
-                            M3eMonthYearPicker(
-                                year = today.year,
-                                month = today.monthValue,
-                                onPick = { year, month ->
-                                    holder[0]?.dismiss()
-                                    onPick.accept(year, month)
-                                },
-                            )
+                            content(dismiss)
                         }
                     }
                 }
             }
         }
 
-        dialog.setContentView(content)
+        dialog.setContentView(contentView)
         holder[0] = dialog
 
         // Install the owners on the dialog's whole view tree before it is shown, and therefore before

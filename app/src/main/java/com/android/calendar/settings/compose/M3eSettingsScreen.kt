@@ -112,8 +112,6 @@ private const val KEY_BATTERY = "pref_do_not_check_battery_optimization"
 private const val KEY_HOME_TZ_VALUE = "preferences_home_tz"
 private const val KEY_CLEAR_HISTORY = "preferences_clear_search_history"
 
-/** Gates the app's own predictive-back handling (the manifest still opts in). */
-private const val KEY_PREDICTIVE_BACK = "pref_predictive_back"
 
 /**
  * Year view scrolling. Not a key any classic preference screen had, so it is read straight from
@@ -214,7 +212,6 @@ fun M3eSettingsScreen(
     var homeTz by remember { mutableStateOf(repo.bool(KEY_HOME_TZ, false)) }
     var battery by remember { mutableStateOf(repo.bool(KEY_BATTERY, false)) }
     var homeTzValue by remember { mutableStateOf(repo.string(KEY_HOME_TZ_VALUE, "")) }
-    var predictiveBack by remember { mutableStateOf(repo.bool(KEY_PREDICTIVE_BACK, true)) }
 
     // Countdown display options. Each default is off, so a fresh install shows whole units, does not
     // count the current day, and does not tick every second.
@@ -619,16 +616,6 @@ fun M3eSettingsScreen(
                         title = stringResource(R.string.preferences_use_home_tz_title),
                         checked = homeTz,
                         onCheckedChange = { homeTz = it; repo.setBool(KEY_HOME_TZ, it) },
-                    )
-                    HorizontalDivider()
-                    SwitchRow(
-                        title = stringResource(R.string.m3e_predictive_back),
-                        summary = stringResource(R.string.m3e_predictive_back_summary),
-                        checked = predictiveBack,
-                        onCheckedChange = {
-                            predictiveBack = it
-                            repo.setBool(KEY_PREDICTIVE_BACK, it)
-                        },
                     )
                     HorizontalDivider()
                     SwitchRow(

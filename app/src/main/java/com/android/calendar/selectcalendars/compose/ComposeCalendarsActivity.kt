@@ -5,6 +5,8 @@
  */
 package com.android.calendar.selectcalendars.compose
 
+import com.android.calendar.chrome.declareReturnSlide
+import com.android.calendar.chrome.declareForwardSlide
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -22,6 +24,20 @@ import com.android.calendar.settings.compose.SettingsRepository
  * from the settings screen.
  */
 class ComposeCalendarsActivity : ComponentActivity() {
+
+    /**
+     * Declares the slide this screen plays when it is covered, and the reverse when it is revealed.
+     *
+     * Like the settings screen, this one is a plain ComponentActivity rather than an
+     * M3eHostActivity - it brings its own Compose TopAppBar - so it does not inherit the
+     * declarations the host makes, and without them it was the only screen still arriving over the
+     * calendar and going back with the platform's animation.
+     */
+    override fun onResume() {
+        super.onResume()
+        declareForwardSlide()
+        declareReturnSlide()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

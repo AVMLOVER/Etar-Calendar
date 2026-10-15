@@ -74,6 +74,8 @@ class GeneralPreferences private constructor() {
         // Preference keys
         const val KEY_THEME_PREF = "pref_theme"
         const val KEY_REAL_EVENT_COLORS = "pref_real_event_colors"
+        /** Show buttons to switch between the day, week and month views in the toolbar */
+        const val KEY_VIEW_SWITCH_BUTTONS = "pref_view_switch_buttons"
         const val KEY_DO_NOT_CHECK_BATTERY_OPTIMIZATION = "pref_do_not_check_battery_optimization"
         const val KEY_DEFAULT_START = "preferences_default_start"
         const val KEY_HIDE_DECLINED = "preferences_hide_declined"
@@ -123,7 +125,26 @@ class GeneralPreferences private constructor() {
         const val WEEK_START_SATURDAY = "7"
         // Default preference values
         const val DEFAULT_DEFAULT_START = "-2"
-        const val DEFAULT_START_VIEW = CalendarController.ViewType.WEEK
+
+        /**
+         * The view the app opens on, before the user has chosen one.
+         *
+         * The month, which is the view everything else is reached from - and the one the back
+         * gesture treats as home, so a fresh install steps out of the app from where it started
+         * rather than from the day grid.
+         */
+        const val DEFAULT_START_VIEW = CalendarController.ViewType.MONTH
+
+        /**
+         * Set once the user has chosen a start view in the settings.
+         *
+         * Until then the app must not write one: it used to store whatever view was on screen every
+         * time it was paused, so "the default" was really "the last view looked at" - which is how a
+         * fresh install ended up opening on the day view. With this flag the stored value only
+         * changes when the user asks for it to.
+         */
+        const val KEY_START_VIEW_CHOSEN = "preferred_startView_chosen"
+
         const val DEFAULT_DETAILED_VIEW = CalendarController.ViewType.DAY
         const val DEFAULT_SHOW_WEEK_NUM = false
         // This should match the XML file.
