@@ -188,6 +188,11 @@ internal fun rangeTitleOf(first: LocalDate): String {
                 glue = ch + glue
                 k--
             }
+            // A full stop picked up there is the month's own abbreviation stop - German writes
+            // "Okt." and the range's month already carries it; keeping it doubled the dot.
+            if (glue.startsWith(".") && month(first).endsWith(".")) {
+                glue = glue.substring(1)
+            }
             range + glue + yearDigits
         } else {
             "$range $yearDigits"

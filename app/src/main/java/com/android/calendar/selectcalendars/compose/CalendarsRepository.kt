@@ -19,10 +19,15 @@ data class CalendarEntry(
     val ownerAccount: String?,
     val color: Int,
     val visible: Boolean,
+    val accountType: String? = null,
 ) {
     /** True when this is the account's own calendar rather than a shared/subscribed one. */
     val isPrimary: Boolean
         get() = accountName != null && accountName == ownerAccount
+
+    /** True when this app created the calendar itself and may delete it. */
+    val isOffline: Boolean
+        get() = accountType == CalendarContract.ACCOUNT_TYPE_LOCAL
 }
 
 /**
@@ -42,6 +47,7 @@ class CalendarsRepository(private val context: Context) {
             CalendarContract.Calendars.OWNER_ACCOUNT,
             CalendarContract.Calendars.CALENDAR_COLOR,
             CalendarContract.Calendars.VISIBLE,
+            CalendarContract.Calendars.ACCOUNT_TYPE,
         )
 
         val result = ArrayList<CalendarEntry>()
@@ -62,6 +68,7 @@ class CalendarsRepository(private val context: Context) {
                             ownerAccount = c.getString(3),
                             color = c.getInt(4),
                             visible = c.getInt(5) != 0,
+                            accountType = c.getString(6),
                         )
                     )
                 }

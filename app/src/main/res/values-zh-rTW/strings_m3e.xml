@@ -34,6 +34,9 @@
     <string name="m3e_calendars_menu_title">行事曆新增與顯示設定</string>
     <string name="m3e_calendars_hint">開啟開關即可顯示該行事曆的活動。點彩色圓點可變更顏色。</string>
     <string name="m3e_calendars_color_title">行事曆顏色</string>
+    <string name="m3e_calendar_delete_title">刪除行事曆</string>
+    <string name="m3e_calendar_delete_message">刪除「%1$s」？其中的所有行程也會被刪除。</string>
+    <string name="m3e_calendar_delete_failed">無法刪除行事曆</string>
 
     <string name="m3e_event_edit">編輯</string>
     <string name="m3e_event_missing">該活動已不存在</string>

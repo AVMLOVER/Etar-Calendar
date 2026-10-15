@@ -41,11 +41,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -85,11 +88,14 @@ private val COLOR_PALETTE = listOf(
 fun M3eCalendarsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val repo = remember { CalendarsRepository(context.applicationContext) }
+    val scope = rememberCoroutineScope()
 
     var loading by remember { mutableStateOf(true) }
     var calendars by remember { mutableStateOf<List<CalendarEntry>>(emptyList()) }
     var colorTarget by remember { mutableStateOf<CalendarEntry?>(null) }
     var showOfflineDialog by remember { mutableStateOf(false) }
+    // The offline calendar the delete confirmation is open for.
+    var deleteTarget by remember { mutableStateOf<CalendarEntry?>(null) }
     // Bumped after a calendar is created so the list picks it up.
     var reloadKey by remember { mutableStateOf(0) }
 
@@ -181,6 +187,13 @@ fun M3eCalendarsScreen(onBack: () -> Unit) {
                         repo.setVisible(entry.id, checked)
                     },
                     onPickColor = { colorTarget = entry },
+                    // Only calendars this app created can be deleted; every other calendar is
+                    // owned by its account and stays.
+                    onDelete = if (entry.isOffline) {
+                        { deleteTarget = entry }
+                    } else {
+                        null
+                    },
                 )
             }
 
@@ -216,6 +229,47 @@ fun M3eCalendarsScreen(onBack: () -> Unit) {
                 }
                 repo.setColor(target.id, color)
                 colorTarget = null
+            },
+        )
+    }
+
+    // The confirmation for a swiped offline calendar. Deleting the row removes the calendar and,
+    // with it, its events - which the message says plainly.
+    deleteTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            shape = MaterialTheme.shapes.extraLarge,
+            title = { Text(stringResource(R.string.m3e_calendar_delete_title)) },
+            text = {
+                Text(stringResource(R.string.m3e_calendar_delete_message, target.displayName))
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val app = context.applicationContext as Application
+                    val calendarId = target.id
+                    val account = target.accountName.orEmpty()
+                    deleteTarget = null
+                    scope.launch {
+                        val deleted = withContext(Dispatchers.IO) {
+                            runCatching {
+                                CalendarRepository(app).deleteLocalCalendar(account, calendarId)
+                            }.getOrDefault(false)
+                        }
+                        if (deleted) {
+                            calendars = calendars.filterNot { it.id == calendarId }
+                        } else {
+                            Toast.makeText(
+                                context, R.string.m3e_calendar_delete_failed, Toast.LENGTH_SHORT
+                            ).show()
+                            reloadKey++
+                        }
+                    }
+                }) { Text(stringResource(R.string.m3e_event_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) {
+                    Text(stringResource(R.string.m3e_cancel))
+                }
             },
         )
     }
@@ -402,55 +456,135 @@ private fun openStore(context: Context, packageName: String) {
     runCatching { context.startActivity(target) }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CalendarRow(
     entry: CalendarEntry,
     onToggle: (Boolean) -> Unit,
     onPickColor: () -> Unit,
+    /** Swiping left asks for the calendar's deletion; null when it is not this app's own. */
+    onDelete: (() -> Unit)? = null,
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    val content: @Composable () -> Unit = {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
-            // Tapping the swatch opens the colour picker.
-            Box(
-                modifier = Modifier
-                    .size(20.dp)
-                    .background(color = swatchColor(entry.color), shape = CircleShape)
-                    .border(
-                        width = 1.5.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        shape = CircleShape,
-                    )
-                    .clickable(onClick = onPickColor),
-            )
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = entry.displayName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (entry.isPrimary) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Tapping the swatch opens the colour picker.
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .background(color = swatchColor(entry.color), shape = CircleShape)
+                        .border(
+                            width = 1.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            shape = CircleShape,
+                        )
+                        .clickable(onClick = onPickColor),
                 )
-                entry.accountName?.let { account ->
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = account,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = entry.displayName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (entry.isPrimary) FontWeight.SemiBold else FontWeight.Normal,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    entry.accountName?.let { account ->
+                        Text(
+                            text = account,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Switch(checked = entry.visible, onCheckedChange = onToggle)
+            }
+        }
+    }
+
+    if (onDelete == null) {
+        content()
+        return
+    }
+
+    // The same swipe the agenda uses: the row slides over a red panel, a short tick confirms the
+    // gesture, and the confirmation dialog - not the swipe itself - is what deletes.
+    val context = LocalContext.current
+    val haptics = remember { HapticFeedbackCompat(context) }
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                haptics.vibrate()
+                onDelete()
+            }
+            false
+        },
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = MaterialTheme.shapes.large,
+                    )
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_delete),
+                    contentDescription = stringResource(R.string.m3e_event_delete),
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+        },
+    ) {
+        content()
+    }
+}
+
+/**
+ * Fires the platform's short haptic tick, the same one the agenda's swipe plays.
+ */
+private class HapticFeedbackCompat(private val context: android.content.Context) {
+    fun vibrate() {
+        try {
+            val vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                val manager = context.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE)
+                        as? android.os.VibratorManager
+                manager?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(android.content.Context.VIBRATOR_SERVICE)
+                        as? android.os.Vibrator
+            }
+            vibrator?.let {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    it.vibrate(android.os.VibrationEffect.createPredefined(
+                        android.os.VibrationEffect.EFFECT_TICK))
+                } else {
+                    @Suppress("DEPRECATION")
+                    it.vibrate(30L)
                 }
             }
-            Spacer(Modifier.width(12.dp))
-            Switch(checked = entry.visible, onCheckedChange = onToggle)
+        } catch (t: Throwable) {
+            // A device without a vibrator must not break the swipe.
         }
     }
 }

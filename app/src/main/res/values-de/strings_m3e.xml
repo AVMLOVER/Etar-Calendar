@@ -26,6 +26,9 @@
     <string name="m3e_calendars_menu_title">Kalender: hinzufügen und anzeigen</string>
     <string name="m3e_calendars_hint">Schalte einen Kalender ein, um seine Termine anzuzeigen. Tippe auf den Farbpunkt, um die Farbe zu ändern.</string>
     <string name="m3e_calendars_color_title">Kalenderfarbe</string>
+    <string name="m3e_calendar_delete_title">Kalender löschen</string>
+    <string name="m3e_calendar_delete_message">„%1$s“ löschen? Auch alle Termine darin werden entfernt.</string>
+    <string name="m3e_calendar_delete_failed">Der Kalender konnte nicht gelöscht werden</string>
     <string name="m3e_event_edit">Bearbeiten</string>
     <string name="m3e_event_missing">Dieser Termin existiert nicht mehr</string>
     <string name="m3e_event_repeats">Wiederholung</string>

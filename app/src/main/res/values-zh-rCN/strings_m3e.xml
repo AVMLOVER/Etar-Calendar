@@ -34,6 +34,9 @@
     <string name="m3e_calendars_menu_title">日历添加&amp;显示设置</string>
     <string name="m3e_calendars_hint">打开开关即可显示该日历中的事件。点击彩色圆点可更改颜色。</string>
     <string name="m3e_calendars_color_title">日历颜色</string>
+    <string name="m3e_calendar_delete_title">删除日历</string>
+    <string name="m3e_calendar_delete_message">删除“%1$s”？其中的所有日程也会被删除。</string>
+    <string name="m3e_calendar_delete_failed">无法删除日历</string>
 
     <string name="m3e_event_edit">编辑</string>
     <string name="m3e_event_missing">该日程已不存在</string>
