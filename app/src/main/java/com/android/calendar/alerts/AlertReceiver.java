@@ -50,7 +50,6 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import com.android.calendar.theme.DynamicThemeKt;
-import com.android.calendar.EventInfoActivity;
 import com.android.calendar.Utils;
 import com.android.calendar.alerts.AlertService.NotificationWrapper;
 
@@ -121,8 +120,10 @@ public class AlertReceiver extends BroadcastReceiver {
         int notificationId, long startMillis, long endMillis) {
         Intent intent = AlertUtils.buildEventViewIntent(context, eventId, startMillis, endMillis);
         intent.putExtra(AlertUtils.NOTIFICATION_ID_KEY, notificationId);
+        // Parent stack of the target: ComposeEventDetailsActivity declares AllInOneActivity as its
+        // parent, so back from the details screen lands on the calendar rather than on the launcher.
         return TaskStackBuilder.create(context)
-            .addParentStack(EventInfoActivity.class)
+            .addParentStack(com.android.calendar.event.compose.ComposeEventDetailsActivity.class)
             .addNextIntent(intent)
             .getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
@@ -806,7 +807,30 @@ public class AlertReceiver extends BroadcastReceiver {
                 context.startActivity(i);
             }
         } else {
-            AlertUtils.scheduleAlertWorker(context, action);
+            // The alert work runs here, directly, rather than through the WorkManager foreground
+            // worker it used to be handed to.
+            //
+            // The worker had to promote itself to a foreground service before it could do anything,
+            // and a foreground service started from the background is refused on some OEM ROMs - the
+            // whole run then failed before touching a single alert. Every reminder flows through
+            // this receiver, so the app posted no notification at all and the only one left in the
+            // shade was another calendar app's. A broadcast receiver may do the work itself:
+            // goAsync() keeps the process alive for the duration, and the work runs on the
+            // receiver's own background thread - which is how the stock calendar handles its
+            // reminders.
+            final BroadcastReceiver.PendingResult pendingResult = goAsync();
+            sAsyncHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        AlertService.handleAction(context, action);
+                    } catch (Throwable t) {
+                        Log.w(TAG, "alert processing failed for " + action, t);
+                    } finally {
+                        pendingResult.finish();
+                    }
+                }
+            });
         }
     }
 

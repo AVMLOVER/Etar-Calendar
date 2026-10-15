@@ -14,25 +14,38 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +55,12 @@ import ws.xsoh.etar.R
 
 /** The file the download lands in, in the one directory the app's FileProvider exposes. */
 private const val ICS_FILE_NAME = "imported.ics"
+
+/** Intent extra naming the calendar the import writes into, or -1 for the first writable one. */
+const val EXTRA_ICS_CALENDAR_ID = "m3eIcsCalendarId"
+
+/** One calendar the import may write to: id, name and display colour. */
+private data class ImportCalendar(val id: Long, val name: String, val color: Int)
 
 /** File picker restricted to calendar files. */
 private fun icsPickerIntent(): Intent =
@@ -54,11 +73,51 @@ private fun icsPickerIntent(): Intent =
         )
     }
 
-/** Hands a calendar file to ImportActivity, which writes its events into a calendar. */
-fun startIcsImport(context: Context, uri: Uri) {
+/**
+ * The calendars this app may write to, with their display colours.
+ *
+ * Asked off the main thread - the import dialog composes before the user does anything, and the
+ * query belongs on the IO dispatcher like the other calendar reads.
+ */
+private fun queryImportCalendars(context: Context): List<ImportCalendar> = try {
+    val out = ArrayList<ImportCalendar>()
+    context.contentResolver.query(
+        android.provider.CalendarContract.Calendars.CONTENT_URI,
+        arrayOf(
+            android.provider.CalendarContract.Calendars._ID,
+            android.provider.CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+            android.provider.CalendarContract.Calendars.CALENDAR_COLOR,
+            android.provider.CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL,
+        ),
+        null,
+        null,
+        android.provider.CalendarContract.Calendars.ACCOUNT_NAME + " ASC",
+    )?.use { c ->
+        while (c.moveToNext()) {
+            if (c.getInt(3) < android.provider.CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR) {
+                continue
+            }
+            out.add(
+                ImportCalendar(
+                    id = c.getLong(0),
+                    name = c.getString(1).orEmpty(),
+                    color = com.android.calendar.Utils.getDisplayColorFromColor(context, c.getInt(2)),
+                )
+            )
+        }
+    }
+    out
+} catch (t: Throwable) {
+    emptyList()
+}
+
+/** Hands a calendar file to ImportActivity, which writes its events into the chosen calendar. */
+fun startIcsImport(context: Context, uri: Uri, calendarId: Long = -1L) {
     runCatching {
         context.startActivity(
-            Intent(context, com.android.calendar.ImportActivity::class.java).setData(uri)
+            Intent(context, com.android.calendar.ImportActivity::class.java)
+                .setData(uri)
+                .putExtra(EXTRA_ICS_CALENDAR_ID, calendarId)
         )
     }.onFailure {
         Toast.makeText(context, R.string.m3e_import_failed, Toast.LENGTH_SHORT).show()
@@ -79,13 +138,26 @@ fun IcsImportDialog(onDismiss: () -> Unit) {
     var url by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
 
+    // The calendar the imported events are written into. Loaded once, off the main thread; the
+    // first writable calendar is the initial choice, which is what the import used to pick silently.
+    var calendars by remember { mutableStateOf<List<ImportCalendar>>(emptyList()) }
+    var targetCalendarId by remember { mutableStateOf(-1L) }
+    var calendarMenuOpen by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val loaded = withContext(Dispatchers.IO) { queryImportCalendars(context) }
+        calendars = loaded
+        if (targetCalendarId == -1L) {
+            targetCalendarId = loaded.firstOrNull()?.id ?: -1L
+        }
+    }
+
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         val uri = result.data?.data
         if (uri != null) {
             onDismiss()
-            startIcsImport(context, uri)
+            startIcsImport(context, uri, targetCalendarId)
         }
     }
 
@@ -101,6 +173,67 @@ fun IcsImportDialog(onDismiss: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(12.dp))
+
+                // Where the events land. Every entry carries its calendar's own colour, so the
+                // list reads like the calendar manager does.
+                val selected = calendars.firstOrNull { it.id == targetCalendarId }
+                Box {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !busy) { calendarMenuOpen = true }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.m3e_import_calendar_label),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .background(
+                                    color = Color(selected?.color ?: 0),
+                                    shape = CircleShape,
+                                ),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = selected?.name.orEmpty(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = calendarMenuOpen,
+                        onDismissRequest = { calendarMenuOpen = false },
+                    ) {
+                        calendars.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option.name) },
+                                leadingIcon = {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(12.dp)
+                                            .background(
+                                                color = Color(option.color),
+                                                shape = CircleShape,
+                                            ),
+                                    )
+                                },
+                                onClick = {
+                                    calendarMenuOpen = false
+                                    targetCalendarId = option.id
+                                },
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = url,
                     onValueChange = { url = it },
@@ -121,7 +254,7 @@ fun IcsImportDialog(onDismiss: () -> Unit) {
                         busy = false
                         if (uri != null) {
                             onDismiss()
-                            startIcsImport(context, uri)
+                            startIcsImport(context, uri, targetCalendarId)
                         } else {
                             Toast.makeText(
                                 context, R.string.m3e_import_failed, Toast.LENGTH_SHORT

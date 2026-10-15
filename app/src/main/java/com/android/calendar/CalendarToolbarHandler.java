@@ -137,11 +137,6 @@ public class CalendarToolbarHandler {
         // further in than the second's, because a view's edge is the start of its line box and not the
         // start of its first glyph - the difference is the font's left side bearing, which varies with
         // the size. One view gives the lines one origin.
-        //
-        // They are separate lines rather than one line with the subtitle appended, so the subtitle can
-        // keep its smaller size: a size span and auto-sizing cannot both be in force - auto-sizing
-        // measures the whole text and chooses one size for it - and the heading needs auto-sizing to
-        // fit the Chinese date on the row it shares with the icons.
         android.widget.TextView view = titleView();
         if (view == null) {
             mToolbar.setTitle(mHeadingTitle == null ? "" : mHeadingTitle);
@@ -169,14 +164,11 @@ public class CalendarToolbarHandler {
         int start = title.length() + 1;
         text.setSpan(new android.text.style.ForegroundColorSpan(mSubtitleColor),
                 start, text.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        // Fixed sizes per line, so the date reads as the heading and the line under it as the note it is.
-        //
-        // Auto-sizing is off: it picks one size for the whole view, which would make the two lines
-        // the same size and shrink the date to match the longer line. With the sizes fixed, fitting
-        // is the layout's job - the view is capped and the subtitle is small enough to fit inside
-        // that cap in every language this is used in.
-        view.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,
-                mToolbar.getResources().getDimension(R.dimen.m3e_toolbar_title_size));
+        // The subtitle keeps its fixed smaller size through the span; the date line is auto-sized
+        // by the view (9-18sp, set in titleView()), so it shrinks instead of wrapping when a date
+        // with its year outgrows the space between the icons. The span's own size is part of what
+        // auto-sizing measures, so only the unsized first line moves - which is exactly the part
+        // that needs to fit on one line.
         text.setSpan(new android.text.style.AbsoluteSizeSpan(
                         (int) mToolbar.getResources().getDimension(R.dimen.m3e_toolbar_subtitle_size)),
                 start, text.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -188,10 +180,11 @@ public class CalendarToolbarHandler {
         if (mTitleView == null) {
             mTitleView = mToolbar.findViewById(R.id.m3e_title_text);
             if (mTitleView != null) {
-                // Auto-sizing off: the two lines are different sizes, and the view can only scale all
-                // of its text together.
-                androidx.core.widget.TextViewCompat.setAutoSizeTextTypeWithDefaults(
-                        mTitleView, androidx.core.widget.TextViewCompat.AUTO_SIZE_TEXT_TYPE_NONE);
+                // Auto-sizing on, the same range the standalone screens' heading uses: the date
+                // line shrinks between 9 and 18sp to the width the toolbar leaves it instead of
+                // wrapping onto the subtitle's line and hiding it behind the ellipsis.
+                androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                        mTitleView, 9, 18, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
             }
         }
         return mTitleView;
@@ -318,16 +311,18 @@ public class CalendarToolbarHandler {
     }
 
     /**
-     * The day's date with an abbreviated month: "14. Okt." in German, "Oct 14" in English.
+     * The day's date with an abbreviated month and the year: "2026年10月15日" in Chinese,
+     * "15. Okt. 2026" in German, "Oct 15, 2026" in English.
      *
-     * The heading shares its row with the search, today and overflow icons on a phone, and the full
-     * month name did not fit: "14. Oktober 2026" was cut to "14. Oktober 2...". The abbreviation is
-     * what each language uses for a date in running text, so it reads as a date rather than as a
-     * truncation, and it leaves room for the weekday on the end.
+     * The year was added back because the heading named a day without saying which year it was in,
+     * and a date picked out of context is ambiguous. The "yMMMd" skeleton places the year where the
+     * language does - Chinese in front, German and English behind - so no language has to be
+     * special-cased. The month stays abbreviated: the full name left no room on the row the heading
+     * shares with the icons.
      */
     private String buildShortDate() {
         String pattern = android.text.format.DateFormat.getBestDateTimePattern(
-                Locale.getDefault(), "MMMd");
+                Locale.getDefault(), "yMMMd");
         return new java.text.SimpleDateFormat(pattern, Locale.getDefault())
                 .format(new java.util.Date(mMilliTime));
     }

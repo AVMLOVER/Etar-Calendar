@@ -248,18 +248,19 @@ fun M3eThreeDayScreen(
 
             // The add button, the same one the day, week and month views carry.
             //
-            // What it creates depends on whether today is on screen. With today in the range it starts
-            // from the current time and runs an hour, which is what the other views do and what the
-            // common case wants - an event happening now. With today out of the range it starts from the
-            // current time on the first of the three days shown, because that day is the one the user
-            // is looking at and the current time is the part they have not chosen.
+            // The new event starts today at the shared "next slot" time when today is inside the
+            // range - the next half hour, at least 30 and at most 60 minutes away, like every other
+            // view's add button. With today outside the range the event goes on the first of the
+            // three days shown, at nine in the morning - the same 9:00-10:00 slot the month view
+            // gives a day the user tapped in another month. It used to take the current clock time
+            // onto that day, which is not a time the user chose.
             androidx.compose.material3.FloatingActionButton(
                 onClick = {
                     val now = java.time.ZonedDateTime.now(zone)
                     val start = if (!today.isBefore(firstDay) && !today.isAfter(firstDay.plusDays(2))) {
-                        now.toInstant().toEpochMilli()
+                        com.android.calendar.Utils.getNextCreateEventStart(now.toInstant().toEpochMilli())
                     } else {
-                        firstDay.atTime(now.toLocalTime())
+                        firstDay.atTime(java.time.LocalTime.of(9, 0))
                             .atZone(zone)
                             .toInstant()
                             .toEpochMilli()

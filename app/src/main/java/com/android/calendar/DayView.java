@@ -2605,25 +2605,32 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
         setupHourTextPaint(p);
         int totCellHeight =  mCellHeight + HOUR_GAP;
         int hourStep = (mHoursTextHeight + totCellHeight - 1)/ totCellHeight;
+        // The first label drawn is the first hour on screen, 00:00 at the top. The day view used
+        // to skip the first hour when it sat right under the header - a holdover that made the day
+        // view's top label 01:00 while the week and three day views both showed 00:00.
         int i = Math.max(mFirstHour, 0);
-        if (   (mFirstHourOffset < mHoursTextHeight / 2)
-            && (mAlldayHeight == 0)
-            && (mNumDays == 1))
-        {
-            i += hourStep;
-        }
         int deltaY = hourStep * totCellHeight;
         int y = i * totCellHeight + mHoursTextHeight / 2 - HOUR_GAP;
+
+        // The topmost label is nudged down until its digits clear the top edge.
+        //
+        // With the label on its own hour line the first one sat across the boundary of the grid -
+        // "00:00" showed as its lower half only. Only that one label moves: every label below it
+        // stays on its own hour line, so the grid's spacing is untouched. mHoursTextHeight is the
+        // ascent, which is exactly the room the digits need above the baseline.
+        int firstLabelMinY = mHoursTextHeight + HOUR_GAP;
+        boolean firstLabel = true;
 
         // No clip here.
         //
         // One was added to stop the top label showing half behind the header when the view is
         // scrolled, and it is removed again: it was clipping in the wrong space and hid every label
-        // below the tenth hour, which is a far worse defect than the one it was there to fix. The
-        // half-hidden top label is what the original does, and it is left as it was.
+        // below the tenth hour, which is a far worse defect than the one it was there to fix.
         for (; i < 24; i += hourStep) {
             String time = mHourStrs[i];
-            canvas.drawText(time, HOURS_LEFT_MARGIN, y, p);
+            int drawY = firstLabel ? Math.max(y, firstLabelMinY) : y;
+            firstLabel = false;
+            canvas.drawText(time, HOURS_LEFT_MARGIN, drawY, p);
             y += deltaY;
         }
     }

@@ -777,8 +777,18 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
 
     /** Month picker for the month view: the app's own chip row, in a drop down under the heading. */
     private void showMonthPicker() {
+        // Opens on the month the view is showing rather than always on today's month, so a view
+        // paged to another month gets a picker that starts where the view is.
+        Integer pickerYear = null;
+        Integer pickerMonth = null;
+        if (mMonthViewDisplayedMillis > 0) {
+            java.time.LocalDate displayed = java.time.Instant.ofEpochMilli(mMonthViewDisplayedMillis)
+                    .atZone(getZoneId()).toLocalDate();
+            pickerYear = displayed.getYear();
+            pickerMonth = displayed.getMonthValue();
+        }
         mTitlePopup = com.android.calendar.chrome.compose.M3eMonthPickerDialog.INSTANCE.show(
-                this, mToolbar, (year, month) -> {
+                this, mToolbar, pickerYear, pickerMonth, (year, month) -> {
                     Time selected = new Time(mTimeZone);
                     selected.set(System.currentTimeMillis());
                     selected.setYear(year);
@@ -823,11 +833,17 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
     }
 
     /**
-     * Where the add button puts a new event.     *
+     * Where the add button puts a new event.
+     *
      * In the month view the answer follows the month being looked at rather than the clock: adding
      * from a month you have browsed to used to land on today, which in another month is an arbitrary
      * day somewhere in the grid. A month other than this one gets its first day; the current month
      * gets today, an hour or two ahead on the half hour, which is what "add now" should mean.
+     *
+     * The day and week views follow the same rule: today while it is part of the view - the day
+     * view's one day, or the week the week view is on - and the first day of the view otherwise,
+     * because "add" from a day or week you paged to used to land on today, which is not a day of
+     * that view at all.
      */
     private Time buildCreateEventTime() {
         Time now = new Time(mTimeZone);
@@ -853,18 +869,37 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             }
         }
 
-        // Round up to the next half hour, then an hour on: a slot beginning shortly rather than one
-        // that has already started.
-        Time t = new Time(mTimeZone);
-        t.set(now);
-        if (t.getMinute() >= 30) {
-            t.setHour(t.getHour() + 1);
-            t.setMinute(0);
-        } else if (t.getMinute() > 0) {
-            t.setMinute(30);
+        if (mController != null
+                && (mController.getViewType() == ViewType.DAY
+                    || mController.getViewType() == ViewType.WEEK)
+                && mDayWeekViewDisplayedMillis > 0) {
+            // The first day of the view: the day the day view is on, or the first day of the week
+            // the week view is on. When today is part of the view the event starts today, at the
+            // rounded-up time below - the common case wants an event happening now. When the view
+            // is paged somewhere else, the event starts on the first day of the view instead of on
+            // a today that is not part of it at all.
+            Time first = new Time(mTimeZone);
+            first.set(mDayWeekViewDisplayedMillis);
+            long viewStartJulian = Time.getJulianDay(first.toMillis(), first.getGmtOffset());
+            long todayJulian = Time.getJulianDay(now.toMillis(), now.getGmtOffset());
+            long viewDays = mController.getViewType() == ViewType.WEEK ? 6 : 0;
+            boolean containsToday = todayJulian >= viewStartJulian
+                    && todayJulian <= viewStartJulian + viewDays;
+            if (!containsToday) {
+                first.setHour(9);
+                first.setMinute(0);
+                first.setSecond(0);
+                first.normalize();
+                return first;
+            }
         }
-        t.setHour(t.getHour() + 1);
-        t.normalize();
+
+        // Today, at the next half hour - pushed on by one more half hour when that is under half
+        // an hour away - so the event starts at least 30 and at most 60 minutes from now, on a
+        // whole or a half hour. The old rule rounded up and then added a whole hour, which could
+        // leave the event well over an hour away.
+        Time t = new Time(mTimeZone);
+        t.set(Utils.getNextCreateEventStart(now.toMillis()));
         return t;
     }
 
@@ -2080,8 +2115,27 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
                 .setFirstDayOfWeek(Utils.getFirstDayOfWeekAsCalendar(this))
                 .build();
 
+        // Opens on the day the view is showing - the day view's own day, or the first day of the
+        // week the week view is on - rather than always on today. A picker opened from a view that
+        // is paged somewhere else has to start where the view is, or choosing "today" becomes the
+        // only way to relate it to the heading it was tapped from.
+        //
+        // MaterialDatePicker reads its selection as a UTC day, so the value handed over is the
+        // chosen local day expressed as UTC midnight; anything else lands one day off for a zone
+        // ahead of UTC.
+        long pickerSelection;
+        if (mDayWeekViewDisplayedMillis > 0) {
+            java.time.LocalDate displayed = java.time.Instant.ofEpochMilli(mDayWeekViewDisplayedMillis)
+                    .atZone(getZoneId()).toLocalDate();
+            pickerSelection = displayed.atStartOfDay(java.time.ZoneOffset.UTC)
+                    .toInstant().toEpochMilli();
+        } else {
+            pickerSelection = java.time.LocalDate.now(getZoneId())
+                    .atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli();
+        }
+
         MaterialDatePicker<Long> datePickerDialog = MaterialDatePicker.Builder.datePicker()
-                .setSelection(Calendar.getInstance().getTimeInMillis())
+                .setSelection(pickerSelection)
                 .setCalendarConstraints(calendarConstraints)
                 .setTitleText(R.string.goto_date)
                 .build();

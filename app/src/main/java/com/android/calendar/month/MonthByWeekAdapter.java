@@ -350,8 +350,20 @@ public class MonthByWeekAdapter extends SimpleWeeksAdapter {
             // Else, check if the day we tapped has any events scheduled to it.
             int viewJulianDay = Time.getJulianDay(day.normalize(), day.getGmtOffset());
             int dayIndex = viewJulianDay - mFirstJulianDay;
-            boolean dayHasEvents = mEventDayList.subList(dayIndex, dayIndex + 1)
-                     .stream().anyMatch(l -> !l.isEmpty());
+
+            // Bounds-checked before the day list is touched at all.
+            //
+            // The list only holds the days the loader last delivered. Right after the app is
+            // installed - or right after a calendar is added, which reloads the grid - the first
+            // load may not have finished yet, and the list is still empty. It can also cover an
+            // older range than the one on screen when the user scrolled while a load was in
+            // flight. In both cases subList() threw IndexOutOfBoundsException and the app crashed,
+            // which is the tap-to-create on a fresh install doing nothing at all. Treated as an
+            // empty day, the tap opens the create dialog instead, which is the same answer a tap
+            // gets when the day is known to have no events.
+            boolean dayHasEvents = dayIndex >= 0
+                    && dayIndex < mEventDayList.size()
+                    && !mEventDayList.get(dayIndex).isEmpty();
 
             if (dayHasEvents) {
                 // If there are events on that day, switch to the detailed view for that day
@@ -360,11 +372,36 @@ public class MonthByWeekAdapter extends SimpleWeeksAdapter {
                         CalendarController.EXTRA_GOTO_DATE
                                 | CalendarController.EXTRA_GOTO_BACK_TO_PREVIOUS, null, null);
             } else {
-                // If there are *no* events on that day, let the user create one
+                // If there are *no* events on that day, let the user create one: today gets the
+                // shared next-slot time, any other day gets nine in the morning.
                 mController.sendEventRelatedEventWithExtra(this, EventType.CREATE_EVENT, -1,
-                        day.normalize(), 0, 0, 0,0, -1);
+                        createEventStartFor(day), 0, 0, 0, 0, -1);
             }
         }
+    }
+
+    /**
+     * The start time for an event created by tapping an empty day.
+     *
+     * Today gets the shared next-slot rule - the next half hour, at least 30 and at most 60
+     * minutes out. Any other day gets nine in the morning, which with the editor's one hour
+     * default duration is the 9:00-10:00 slot. The tapped cell's time-of-day is deliberately
+     * ignored: it was the current clock time copied onto the tapped day, not a time the user chose.
+     */
+    private long createEventStartFor(Time day) {
+        Time now = new Time(mHomeTimeZone);
+        now.set(System.currentTimeMillis());
+        if (day.getYear() == now.getYear() && day.getMonth() == now.getMonth()
+                && day.getDay() == now.getDay()) {
+            return Utils.getNextCreateEventStart(now.toMillis());
+        }
+        Time start = new Time(mHomeTimeZone);
+        start.set(day);
+        start.setHour(9);
+        start.setMinute(0);
+        start.setSecond(0);
+        start.normalize();
+        return start.toMillis();
     }
 
     private void setDayParameters(Time day) {

@@ -58,9 +58,20 @@ public class DismissAlarmsService extends IntentService {
         }
 
         long eventId = intent.getLongExtra(AlertUtils.EVENT_ID_KEY, -1);
+        long eventStart = intent.getLongExtra(AlertUtils.EVENT_START_KEY, -1);
         long[] eventIds = intent.getLongArrayExtra(AlertUtils.EVENT_IDS_KEY);
         long[] eventStarts = intent.getLongArrayExtra(AlertUtils.EVENT_STARTS_KEY);
         int notificationId = intent.getIntExtra(AlertUtils.NOTIFICATION_ID_KEY, -1);
+
+        // Recorded as dismissed, so a later notification refresh does not put back the reminder
+        // the user just swiped away.
+        if (eventId != -1 && eventStart != -1) {
+            AlertUtils.setAlertDismissedInSharedPrefs(this, eventId, eventStart);
+        } else if (eventIds != null && eventStarts != null && eventIds.length == eventStarts.length) {
+            for (int i = 0; i < eventIds.length; i++) {
+                AlertUtils.setAlertDismissedInSharedPrefs(this, eventIds[i], eventStarts[i]);
+            }
+        }
 
         Uri uri = CalendarAlerts.CONTENT_URI;
         String selection;

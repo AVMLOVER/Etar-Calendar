@@ -543,76 +543,17 @@ fun M3eEventEditorScreen(
                 }
             }
 
-            // Notifications: a list, because the classic editor allows more than one reminder per
-            // event and kept the add/remove buttons. Reducing this to a single value dropped them.
+            // Notifications: one row whose menu is a list of checkboxes, shared with the details
+            // screen so reminders are chosen the same way in both places. Several can be ticked in
+            // one visit; the summary on the row shows what is set, and the save carries the whole
+            // set.
             item {
                 Card {
-                    Text(
-                        text = stringResource(R.string.m3e_event_reminders),
-                        style = MaterialTheme.typography.bodyLarge,
+                    M3eReminderMenuRow(
+                        reminders = reminders,
+                        onRemindersChanged = { reminders = it },
+                        label = stringResource(R.string.m3e_event_reminders),
                     )
-                    Spacer(Modifier.height(4.dp))
-                    if (reminders.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.m3e_no_reminders),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    reminders.forEachIndexed { index, minutes ->
-                        var menuOpen by remember(index, minutes) { mutableStateOf(false) }
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { menuOpen = true }
-                                        .padding(vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        text = reminderLabel(minutes),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    Text(
-                                        text = "▾",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                                DropdownMenu(
-                                    expanded = menuOpen,
-                                    onDismissRequest = { menuOpen = false },
-                                ) {
-                                    REMINDER_MINUTE_VALUES.forEach { option ->
-                                        DropdownMenuItem(
-                                            text = { Text(reminderLabel(option)) },
-                                            onClick = {
-                                                menuOpen = false
-                                                // Replace in place so the row keeps its position.
-                                                reminders = reminders.toMutableList().also {
-                                                    it[index] = option
-                                                }
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                            TextButton(onClick = {
-                                reminders = reminders.filterIndexed { i, _ -> i != index }
-                            }) {
-                                Text(stringResource(R.string.m3e_reminder_remove))
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    TextButton(onClick = { reminders = reminders + DEFAULT_REMINDER_MINUTES }) {
-                        Text(stringResource(R.string.m3e_reminder_add))
-                    }
                 }
             }
 
@@ -927,16 +868,6 @@ private val ACCESS_VALUES: List<Int> = listOf(
 /** "0" is the sentinel for "follow the calendar's colour"; -1 is the calendar's own colour. */
 private val EVENT_COLOR_VALUES: List<Int> =
     listOf(0, -1, -2, -3, -4, -5, -6, -7, -8)
-
-private const val DEFAULT_REMINDER_MINUTES = 10
-
-/**
- * Reminder lead times offered per notification, matching the array the classic editor uses
- * (R.array.reminder_minutes_values) so the two screens propose the same choices.
- */
-private val REMINDER_MINUTE_VALUES = listOf(
-    0, 5, 10, 15, 30, 60, 120, 240, 480, 720, 1440, 2880, 10080,
-)
 
 private const val ATTENDEE_YES = CalendarContract.Attendees.ATTENDEE_STATUS_ACCEPTED
 private const val ATTENDEE_MAYBE = CalendarContract.Attendees.ATTENDEE_STATUS_TENTATIVE
@@ -1361,14 +1292,6 @@ private val PALETTE = intArrayOf(
     0xFF7986CB.toInt(), 0xFF64B5F6.toInt(), 0xFF4FC3F7.toInt(), 0xFF4DD0E1.toInt(),
     0xFF4DB6AC.toInt(), 0xFF81C784.toInt(),
 )
-
-@Composable
-private fun reminderLabel(minutes: Int): String = when {
-    minutes <= 0 -> stringResource(R.string.m3e_reminder_at_time)
-    minutes % (24 * 60) == 0 -> stringResource(R.string.m3e_reminder_days, minutes / (24 * 60))
-    minutes % 60 == 0 -> stringResource(R.string.m3e_reminder_hours, minutes / 60)
-    else -> stringResource(R.string.m3e_reminder_minutes, minutes)
-}
 
 @Composable
 private fun Card(content: @Composable () -> Unit) {

@@ -128,27 +128,51 @@ fun M3eYearScreen(
     onVisibleYearChanged: (Int) -> Unit,
     onOpenMonth: (year: Int, month: Int) -> Unit,
     screenKey: Int = 0,
+    onCreateEvent: () -> Unit = {},
 ) {
-    // Keyed on the mode as well as the resume count, so switching between sideways and up-and-down
-    // builds the other one from scratch. Without the key the two share a composition slot and the
-    // pager's remembered state survives the switch, which leaves the new mode looking half applied
-    // until the view is left and opened again.
-    key(horizontal, screenKey) {
-        if (horizontal) {
-            HorizontalYearPager(
-                initialYear = initialYear,
-                firstDayOfWeek = firstDayOfWeek,
-                showLunar = showLunar,
-                onVisibleYearChanged = onVisibleYearChanged,
-                onOpenMonth = onOpenMonth,
-            )
-        } else {
-            VerticalYearList(
-                initialYear = initialYear,
-                firstDayOfWeek = firstDayOfWeek,
-                showLunar = showLunar,
-                onVisibleYearChanged = onVisibleYearChanged,
-                onOpenMonth = onOpenMonth,
+    // The add button floats over both modes, so it sits outside whichever one is composed.
+    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+        // Keyed on the mode as well as the resume count, so switching between sideways and up-and-down
+        // builds the other one from scratch. Without the key the two share a composition slot and the
+        // pager's remembered state survives the switch, which leaves the new mode looking half applied
+        // until the view is left and opened again.
+        key(horizontal, screenKey) {
+            if (horizontal) {
+                HorizontalYearPager(
+                    initialYear = initialYear,
+                    firstDayOfWeek = firstDayOfWeek,
+                    showLunar = showLunar,
+                    onVisibleYearChanged = onVisibleYearChanged,
+                    onOpenMonth = onOpenMonth,
+                )
+            } else {
+                VerticalYearList(
+                    initialYear = initialYear,
+                    firstDayOfWeek = firstDayOfWeek,
+                    showLunar = showLunar,
+                    onVisibleYearChanged = onVisibleYearChanged,
+                    onOpenMonth = onOpenMonth,
+                )
+            }
+        }
+
+        // The same add button the other views carry. A year is a long way from a day, so there is
+        // no "first day of the view" to put the event on: it always lands on today, at the same
+        // next-slot time the other views use.
+        androidx.compose.material3.FloatingActionButton(
+            onClick = onCreateEvent,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ) {
+            androidx.compose.material3.Icon(
+                // The project's own add icon, not Icons.Filled.Add: the material-icons artifact is
+                // not a dependency here, and the screens that need an icon all use painterResource
+                // for that reason.
+                painter = painterResource(R.drawable.ic_add_event),
+                contentDescription = stringResource(R.string.event_create),
             )
         }
     }

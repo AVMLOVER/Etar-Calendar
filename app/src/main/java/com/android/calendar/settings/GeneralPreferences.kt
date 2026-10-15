@@ -146,7 +146,9 @@ class GeneralPreferences private constructor() {
         const val KEY_START_VIEW_CHOSEN = "preferred_startView_chosen"
 
         const val DEFAULT_DETAILED_VIEW = CalendarController.ViewType.DAY
-        const val DEFAULT_SHOW_WEEK_NUM = false
+        // The week number column is on for a fresh install; the user asked for it to be the
+        // default, so a new user sees the week numbers without having to find the switch first.
+        const val DEFAULT_SHOW_WEEK_NUM = true
         // This should match the XML file.
         const val DEFAULT_RINGTONE = "content://settings/system/notification_sound"
         // The name of the shared preferences file. This name must be maintained for historical

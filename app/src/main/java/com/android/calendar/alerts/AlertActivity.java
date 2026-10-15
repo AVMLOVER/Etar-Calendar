@@ -38,7 +38,6 @@ import android.widget.Button;
 import android.widget.ListView;
 
 import com.android.calendar.AsyncQueryService;
-import com.android.calendar.EventInfoActivity;
 import com.android.calendar.Utils;
 
 import ws.xsoh.etar.R;
@@ -100,14 +99,17 @@ public class AlertActivity extends Activity implements OnClickListener {
 
             // Mark this alarm as DISMISSED
             dismissAlarm(alarmId);
+            // And record it, so a later notification refresh does not resurrect the reminder.
+            AlertUtils.setAlertDismissedInSharedPrefs(alertActivity, eventId, startMillis);
 
-            // build an intent and task stack to start EventInfoActivity with AllInOneActivity
+            // build an intent and task stack to start the details screen with AllInOneActivity
             // as the parent activity rooted to home.
             long endMillis = cursor.getLong(AlertActivity.INDEX_END);
             Intent eventIntent = AlertUtils.buildEventViewIntent(AlertActivity.this, eventId,
                     startMillis, endMillis);
 
-            TaskStackBuilder.create(AlertActivity.this).addParentStack(EventInfoActivity.class)
+            TaskStackBuilder.create(AlertActivity.this)
+                    .addParentStack(com.android.calendar.event.compose.ComposeEventDetailsActivity.class)
                     .addNextIntent(eventIntent).startActivities();
 
             alertActivity.finish();

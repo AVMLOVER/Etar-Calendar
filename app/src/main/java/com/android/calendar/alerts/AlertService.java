@@ -93,12 +93,21 @@ public class AlertService {
     private static final int ALERT_INDEX_END = 10;
     private static final int ALERT_INDEX_DESCRIPTION = 11;
     private static final int ALERT_INDEX_CALENDAR_ID = 12;
-    private static final String ACTIVE_ALERTS_SELECTION = "(" + CalendarAlerts.STATE + "=? OR "
-            + CalendarAlerts.STATE + "=?) AND " + CalendarAlerts.ALARM_TIME + "<=";
-    private static final String[] ACTIVE_ALERTS_SELECTION_ARGS = new String[] {
-            Integer.toString(CalendarAlerts.STATE_FIRED),
-            Integer.toString(CalendarAlerts.STATE_SCHEDULED)
-    };
+    /**
+     * The alerts to notify about: everything that has come due within the last day, whatever its
+     * state column says.
+     *
+     * The state was part of the selection ("FIRED or SCHEDULED"), which made the app depend on no
+     * other calendar app touching the shared table: an app that marks a row DISMISSED after showing
+     * its own notification - a known OEM behaviour - removed the row from this app's view, and the
+     * app then never posted anything for that reminder. State is still read per row below; a row
+     * whose alarm time is in the recent past is treated as notifyable even when something else
+     * dismissed it, and the app's own fired-alert bookkeeping keeps that from ringing twice.
+     */
+    private static final String ACTIVE_ALERTS_SELECTION = CalendarAlerts.ALARM_TIME + "<=? AND "
+            + CalendarAlerts.ALARM_TIME + ">=?";
+    /** How far back a due alert is still kept in the notification list. */
+    private static final long ACTIVE_ALERTS_WINDOW_MS = DateUtils.WEEK_IN_MILLIS;
     private static final String ACTIVE_ALERTS_SORT = "begin DESC, end DESC";
     private static final String DISMISS_OLD_SELECTION = CalendarAlerts.END + "<? AND "
             + CalendarAlerts.STATE + "=?";
@@ -175,8 +184,19 @@ public class AlertService {
             return true;
         }
 
+        // Channels exist per calendar, and a post on a channel that does not exist is dropped
+        // without a word. The alert path used to run through the foreground worker, which created
+        // them before doing anything; now that the receiver does the work directly, it must make
+        // sure they are there itself - otherwise the first reminder after a calendar is added
+        // posts onto a channel that was never created.
+        createChannels(context);
+
         Cursor alertCursor = cr.query(CalendarAlerts.CONTENT_URI, ALERT_PROJECTION,
-                (ACTIVE_ALERTS_SELECTION + currentTime), ACTIVE_ALERTS_SELECTION_ARGS,
+                ACTIVE_ALERTS_SELECTION,
+                new String[] {
+                        Long.toString(currentTime),
+                        Long.toString(currentTime - ACTIVE_ALERTS_WINDOW_MS),
+                },
                 ACTIVE_ALERTS_SORT);
 
         if (alertCursor == null || alertCursor.getCount() == 0) {
@@ -196,6 +216,45 @@ public class AlertService {
     public static boolean generateAlerts(Context context, NotificationMgr nm,
             AlarmManagerInterface alarmMgr, SharedPreferences prefs, Cursor alertCursor,
             final long currentTime, final int maxNotifications) {
+        return generateAlerts(context, nm, alarmMgr, prefs, alertCursor, currentTime,
+                maxNotifications, localCalendarIds(context));
+    }
+
+    /**
+     * The ids of the calendars this app created itself - the local, offline ones.
+     *
+     * Reminders for these calendars are claimed by this app alone, so the system calendar does not
+     * also notify for them; rows belonging to other accounts are left to their own app.
+     */
+    private static java.util.Set<Long> localCalendarIds(Context context) {
+        java.util.HashSet<Long> ids = new java.util.HashSet<>();
+        try {
+            Cursor c = context.getContentResolver().query(
+                    CalendarContract.Calendars.CONTENT_URI,
+                    new String[] { CalendarContract.Calendars._ID },
+                    CalendarContract.Calendars.ACCOUNT_TYPE + "=?",
+                    new String[] { CalendarContract.ACCOUNT_TYPE_LOCAL },
+                    null);
+            if (c != null) {
+                try {
+                    while (c.moveToNext()) {
+                        ids.add(c.getLong(0));
+                    }
+                } finally {
+                    c.close();
+                }
+            }
+        } catch (Throwable t) {
+            // An unreadable calendar table means no rows are claimed; the other app then handles
+            // every reminder, which is the same behaviour as a pass that never ran.
+        }
+        return ids;
+    }
+
+    public static boolean generateAlerts(Context context, NotificationMgr nm,
+            AlarmManagerInterface alarmMgr, SharedPreferences prefs, Cursor alertCursor,
+            final long currentTime, final int maxNotifications,
+            java.util.Set<Long> localCalendarIds) {
         if (DEBUG) {
             Log.d(TAG, "alertCursor count:" + alertCursor.getCount());
         }
@@ -205,7 +264,7 @@ public class AlertService {
         ArrayList<NotificationInfo> mediumPriorityEvents = new ArrayList<NotificationInfo>();
         ArrayList<NotificationInfo> lowPriorityEvents = new ArrayList<NotificationInfo>();
         int numFired = processQuery(alertCursor, context, currentTime, highPriorityEvents,
-                mediumPriorityEvents, lowPriorityEvents);
+                mediumPriorityEvents, lowPriorityEvents, localCalendarIds);
 
         if (highPriorityEvents.size() + mediumPriorityEvents.size()
                 + lowPriorityEvents.size() == 0) {
@@ -439,7 +498,8 @@ public class AlertService {
     static int processQuery(final Cursor alertCursor, final Context context,
             final long currentTime, ArrayList<NotificationInfo> highPriorityEvents,
             ArrayList<NotificationInfo> mediumPriorityEvents,
-            ArrayList<NotificationInfo> lowPriorityEvents) {
+            ArrayList<NotificationInfo> lowPriorityEvents,
+            java.util.Set<Long> localCalendarIds) {
         // Experimental reminder setting to only remind for events that have
         // been responded to with "yes" or "maybe".
         String skipRemindersPref = Utils.getSharedPreference(context,
@@ -477,20 +537,22 @@ public class AlertService {
                 int state = alertCursor.getInt(ALERT_INDEX_STATE);
                 final boolean allDay = alertCursor.getInt(ALERT_INDEX_ALL_DAY) != 0;
 
+                // Whether this app owns reminders for this row: only the calendars it created -
+                // the local ones - are claimed here. A row in another account's calendar is left
+                // to the app that owns that account, so the two never both notify for the same
+                // event.
+                final boolean ours = localCalendarIds.contains(calendarId);
+
                 // Use app local storage to keep track of fired alerts to fix problem of multiple
                 // installed calendar apps potentially causing missed alarms.
-                boolean newAlertOverride = false;
-                if (AlertUtils.BYPASS_DB && ((currentTime - alarmTime) / MINUTE_MS < 1)) {
-                    // To avoid re-firing alerts, only fire if alarmTime is very recent.  Otherwise
-                    // we can get refires for non-dismissed alerts after app installation, or if the
-                    // SharedPrefs was cleared too early.  This means alerts that were timed while
-                    // the phone was off may show up silently in the notification bar.
-                    boolean alreadyFired = AlertUtils.hasAlertFiredInSharedPrefs(context, eventId,
-                            beginTime, alarmTime);
-                    if (!alreadyFired) {
-                        newAlertOverride = true;
-                    }
-                }
+                boolean alreadyFired = AlertUtils.BYPASS_DB
+                        && AlertUtils.hasAlertFiredInSharedPrefs(context, eventId, beginTime,
+                                alarmTime);
+                // Whether the user dismissed this event's notification from this app. Kept apart
+                // from "fired": a fired-and-then-dismissed row must not be resurrected by a later
+                // refresh, while a claimed row stays visible until it is.
+                boolean dismissedByUs = AlertUtils.hasAlertDismissedInSharedPrefs(context, eventId,
+                        beginTime);
 
                 if (DEBUG) {
                     StringBuilder msgBuilder = new StringBuilder();
@@ -508,7 +570,8 @@ public class AlertService {
                             .append(" alarmTime:").append(alarmTime)
                             .append(" forceQuiet:").append(forceQuiet);
                     if (AlertUtils.BYPASS_DB) {
-                        msgBuilder.append(" newAlertOverride: " + newAlertOverride);
+                        msgBuilder.append(" firedByUs: " + alreadyFired)
+                                .append(" dismissedByUs: " + dismissedByUs);
                     }
                     Log.d(TAG, msgBuilder.toString());
                 }
@@ -516,6 +579,7 @@ public class AlertService {
                 ContentValues values = new ContentValues();
                 int newState = -1;
                 boolean newAlert = false;
+                boolean claimNow = false;
 
                 // Uncomment for the behavior of clearing out alerts after the
                 // events ended. b/1880369
@@ -532,36 +596,29 @@ public class AlertService {
                     // the alert if you've responded to the event.
                     sendAlert = sendAlert && responded;
                 }
-                if (sendAlert) {
-                    if (state == CalendarAlerts.STATE_SCHEDULED || newAlertOverride) {
-                        newState = CalendarAlerts.STATE_FIRED;
-
-                        // When using local storage to track alert state (BYPASS_DB),
-                        // check if this alert was already fired previously.  The
-                        // calendar provider may re-insert SCHEDULED alert entries
-                        // when events are re-synced (e.g. contact birthday events
-                        // during a contact sync), which would otherwise cause
-                        // duplicate notifications with sound/vibrate.
-                        boolean alreadyFired = AlertUtils.BYPASS_DB
-                                && AlertUtils.hasAlertFiredInSharedPrefs(
-                                        context, eventId, beginTime, alarmTime);
-
-                        if (!alreadyFired) {
-                            numFired++;
-                            // If quiet hours are forcing the alarm to be silent,
-                            // keep newAlert as false so it will not make noise.
-                            if (!forceQuiet) {
-                                newAlert = true;
-                            }
-                        }
-
-                        // Record the received time in the CalendarAlerts table.
-                        // This is useful for finding bugs that cause alarms to be
-                        // missed or delayed.
-                        values.put(CalendarAlerts.RECEIVED_TIME, currentTime);
-                    }
-                } else {
+                if (!ours) {
+                    // Not this app's calendar: skipped entirely, so the owning calendar app is the
+                    // only one that notifies for it.
+                } else if (!sendAlert) {
                     newState = CalendarAlerts.STATE_DISMISSED;
+                } else if (state == CalendarAlerts.STATE_SCHEDULED) {
+                    // Claim the row: it is dismissed in the shared table, which is what keeps every
+                    // other calendar app from also notifying for it - the providers skip dismissed
+                    // rows. This app posts the notification itself in this same pass, so the
+                    // reminder still has exactly one sender: this app. The claim only needs to win
+                    // the race against the other app, and this app reads the table within a second
+                    // of the broadcast, which is faster.
+                    newState = CalendarAlerts.STATE_DISMISSED;
+                    claimNow = true;
+                    if (!alreadyFired) {
+                        numFired++;
+                        // If quiet hours are forcing the alarm to be silent,
+                        // keep newAlert as false so it will not make noise.
+                        if (!forceQuiet) {
+                            newAlert = true;
+                        }
+                    }
+                    values.put(CalendarAlerts.RECEIVED_TIME, currentTime);
                 }
 
                 // Update row if state changed
@@ -569,7 +626,7 @@ public class AlertService {
                     values.put(CalendarAlerts.STATE, newState);
                     state = newState;
 
-                    if (AlertUtils.BYPASS_DB) {
+                    if (AlertUtils.BYPASS_DB && ours) {
                         AlertUtils.setAlertFiredInSharedPrefs(context, eventId, beginTime,
                                 alarmTime);
                     }
@@ -584,7 +641,13 @@ public class AlertService {
                 // Write row to if anything changed
                 if (values.size() > 0) cr.update(alertUri, values, null, null);
 
-                if (state != CalendarAlerts.STATE_FIRED) {
+                // Notifiable when this app owns the reminder: the row just claimed above (posted
+                // loud), or one claimed in an earlier pass (kept visible quietly). A row the user
+                // dismissed from this app's notification stays dismissed; a row owned by another
+                // app never appears here at all.
+                boolean notifyable = ours && sendAlert
+                        && (claimNow || (alreadyFired && !dismissedByUs));
+                if (!notifyable) {
                     continue;
                 }
 
@@ -852,13 +915,32 @@ public class AlertService {
                 Log.d(TAG, "Setting key " + PROVIDER_REMINDER_PREF_KEY + " to: true");
                 Utils.setSharedPreference(context, PROVIDER_REMINDER_PREF_KEY, true);
             }
+
+            // The app's own catch-up refresh, one second after the provider's broadcast.
+            //
+            // Some providers do not put the alert row into the CalendarAlerts table until the
+            // alert's own time, so reading the table the instant the broadcast arrives finds
+            // nothing: this app then posted no notification for that reminder at all, and the only
+            // one left in the shade was another calendar app's - tapping it opened that app. A
+            // second later the row is there, so the app asks itself to refresh again. The alarm is
+            // the app's own action, which is honoured below whatever the provider does, and the
+            // fired-alert bookkeeping keeps it from ringing a second time.
+            AlertUtils.scheduleCatchUpAlarm(context);
         }
 
         if (providerReminder ||
                 action.equals(Intent.ACTION_PROVIDER_CHANGED) ||
                 action.equals(android.provider.CalendarContract.ACTION_EVENT_REMINDER) ||
-                (action.equals(AlertReceiver.EVENT_REMINDER_APP_ACTION) &&
-                !Boolean.TRUE.equals(sReceivedProviderReminderBroadcast)) ||
+                // The app's own alarms are always honoured, whether or not the provider broadcast
+                // was ever seen. They used to be ignored once the provider broadcast had been
+                // received, on the theory that the provider would always re-schedule the alert
+                // itself - but a snoozed reminder is re-scheduled through this very broadcast, and
+                // on a device whose provider skips the re-schedule the final reminder (the one at
+                // the event's start) then never posted a notification from this app. Only another
+                // calendar app's notification remained, and tapping it opened that app. The
+                // BYPASS_DB fired-alert bookkeeping below keeps a second run of this from ringing
+                // twice, so honouring the broadcast is safe.
+                action.equals(AlertReceiver.EVENT_REMINDER_APP_ACTION) ||
                 action.equals(Intent.ACTION_LOCALE_CHANGED)) {
 
             // b/7652098: Add a delay after the provider-changed event before refreshing
@@ -881,12 +963,19 @@ public class AlertService {
             Log.w(TAG, "Invalid action: " + action);
         }
 
-        // Scheduling next alarm
-        if (sReceivedProviderReminderBroadcast == null || !sReceivedProviderReminderBroadcast) {
-            Log.d(TAG, "Scheduling next alarm with AlarmScheduler. "
-                    + "sEventReminderReceived: " + sReceivedProviderReminderBroadcast);
-            AlarmScheduler.scheduleNextAlarm(context);
-        }
+        // The next reminder's alarm is scheduled on every run, whether or not the provider
+        // broadcast has ever been seen.
+        //
+        // It used to be scheduled only while the provider's broadcast had never arrived, on the
+        // theory that the provider would take over from then on. It does not: the app's own alarm
+        // is what asks the app to look at the alert table one second after the reminder's time,
+        // which is the moment the row is reliably there on a provider that only writes it at
+        // alarm time. Turning it off is what left the at-start reminder with no notification from
+        // this app and only another calendar app's one to tap. Scheduling is idempotent - the
+        // alarm for a given time replaces itself - so running it every time is safe.
+        Log.d(TAG, "Scheduling next alarm with AlarmScheduler. "
+                + "sEventReminderReceived: " + sReceivedProviderReminderBroadcast);
+        AlarmScheduler.scheduleNextAlarm(context);
     }
 
     private static void rescheduleAndDisplayTimeChanged(Context context) {

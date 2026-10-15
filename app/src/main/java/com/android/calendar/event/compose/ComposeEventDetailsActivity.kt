@@ -52,6 +52,17 @@ class ComposeEventDetailsActivity : ComponentActivity() {
         eventId = intent.getLongExtra(EXTRA_EVENT_ID, -1L)
         val repo = SettingsRepository(this)
 
+        // Opened from a reminder notification: the notification is dismissed and the fired alert
+        // marked as such, which is what the classic EventInfoActivity used to do for this case.
+        val notificationId = intent.getIntExtra(
+            com.android.calendar.alerts.AlertUtils.NOTIFICATION_ID_KEY, -1
+        )
+        if (notificationId != -1 && eventId > 0L) {
+            com.android.calendar.alerts.AlertUtils.dismissNotificationAndFiredAlarm(
+                this, eventId, notificationId
+            )
+        }
+
         setContent {
             val themeMode = remember { repo.string(KEY_THEME, "system") }
             val dark = when (themeMode) {

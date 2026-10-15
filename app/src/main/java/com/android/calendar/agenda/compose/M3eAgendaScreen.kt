@@ -23,12 +23,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -63,6 +62,8 @@ import androidx.compose.ui.unit.dp
 import com.google.android.material.color.MaterialColors
 import com.android.calendar.chrome.compose.M3eChromeScaffold
 import com.android.calendar.chrome.compose.M3eScreen
+import com.android.calendar.event.compose.M3eReminderCheckboxMenu
+import com.android.calendar.event.compose.m3eReminderSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ws.xsoh.etar.R
@@ -101,11 +102,12 @@ fun M3eAgendaScreen(
     /** Called as the search field is edited; null closes the search. */
     onSearchQueryChange: ((String?) -> Unit)? = null,
     /**
-     * The day the window is centred on: AGENDA_DAYS either side of it are loaded.
+     * The day the list starts at: that day plus AGENDA_DAYS after it are loaded.
      *
-     * The view the agenda was opened from hands its day over, so the list shows what is around
-     * that day rather than what is around today. Null - an entry point with no day of its own -
-     * centres on today, which is where the screen used to start.
+     * The view the agenda was opened from hands its day over, so the list shows from that day -
+     * today, when the month view is on the current month - rather than from a date three months
+     * before it. Null - an entry point with no day of its own - starts at today, which is where
+     * the screen used to start.
      */
     initialDate: LocalDate? = null,
 ) {
@@ -139,11 +141,15 @@ fun M3eAgendaScreen(
             zone = zone,
         )
 
-    // The day the loaded window is centred on, and the first day of that window. The window holds
-    // AGENDA_DAYS either side of the centre; the two buttons below move the centre.
+    // The day the loaded window starts at. The window holds the centre day itself plus AGENDA_DAYS
+    // after it; the two buttons below move the start back or forward. Starting the list at the
+    // centre - not 90 days before it - is what "the agenda is based on today" means: opening it
+    // from the month view on the current month shows today's row first. It used to start at
+    // centre - 90, so the first thing the screen showed was a date three months back, and reaching
+    // today took a long scroll.
     val centreDate = remember(initialDate) { initialDate ?: LocalDate.now(zone) }
     var windowStart by remember(centreDate) {
-        mutableStateOf(centreDate.minusDays(AGENDA_DAYS.toLong()))
+        mutableStateOf(centreDate)
     }
 
     LaunchedEffect(windowStart, refreshKey, searchQuery) {
@@ -154,9 +160,9 @@ fun M3eAgendaScreen(
             if (term.isNullOrEmpty()) {
                 repository.load(
                     windowStart.atStartOfDay(zone).toInstant().toEpochMilli(),
-                    // The last day of the window is the centre plus AGENDA_DAYS, and the range is
+                    // The last day of the window is the start plus AGENDA_DAYS, and the range is
                     // exclusive of its end, so the query ends on the day after it.
-                    windowStart.plusDays(AGENDA_DAYS * 2L + 1L)
+                    windowStart.plusDays(AGENDA_DAYS + 1L)
                         .atStartOfDay(zone).toInstant().toEpochMilli(),
                 )
             } else {
@@ -199,9 +205,9 @@ fun M3eAgendaScreen(
                 )
             } else {
                 // Two explicit controls instead of an endless list: each moves the day the window
-                // is centred on back or forward by the 90 days the button names, so the window keeps
-                // its 90 days either side. The date of the window's first day goes on its own line
-                // underneath them.
+                // starts at back or forward by the 90 days the button names, so the window keeps its
+                // 91 days (the start day plus 90 after it). The date of the window's first day goes
+                // on its own line underneath them.
                 //
                 // It sat beside the buttons, and there was never room for it there: pinned right it
                 // wrapped to one character per line, and moved next to them it was cut off entirely.
@@ -517,33 +523,32 @@ private fun AgendaRow(
                     }
                 }
 
-                // The notification lead time, changeable right here - the classic agenda let the
+                // The notification lead times, changeable right here - the classic agenda let the
                 // user do this without opening the editor, and going through the editor for it is
-                // more steps than the task deserves.
+                // more steps than the task deserves. The menu is the same checkbox list the editor
+                // and the details screen share, so several reminders can be ticked in one visit and
+                // the row shows the whole set.
                 Column(horizontalAlignment = Alignment.End) {
                     Box {
                         Text(
-                            text = reminderLabel(event.remindersMinutes),
+                            text = m3eReminderSummary(event.remindersMinutes),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
+                                .widthIn(max = 140.dp)
                                 .clickable { reminderMenuOpen = true }
                                 .padding(horizontal = 8.dp, vertical = 6.dp),
                         )
-                        DropdownMenu(
+                        M3eReminderCheckboxMenu(
                             expanded = reminderMenuOpen,
                             onDismissRequest = { reminderMenuOpen = false },
-                        ) {
-                            REMINDER_CHOICES.forEach { choice ->
-                                DropdownMenuItem(
-                                    text = { Text(reminderLabel(choice)) },
-                                    onClick = {
-                                        reminderMenuOpen = false
-                                        onReminderChanged(choice)
-                                    },
-                                )
-                            }
-                        }
+                            reminders = event.remindersMinutes,
+                            onRemindersChanged = { minutes ->
+                                onReminderChanged(minutes)
+                            },
+                        )
                     }
                 }
             }
@@ -551,35 +556,7 @@ private fun AgendaRow(
     }
 }
 
-/** Lead times offered on an agenda row, matching the editor's list. */
-private val REMINDER_CHOICES: List<List<Int>> = listOf(
-    emptyList(),
-    listOf(0),
-    listOf(5),
-    listOf(10),
-    listOf(15),
-    listOf(30),
-    listOf(60),
-    listOf(120),
-    listOf(1440),
-)
-
-/** "通知 10 分钟前" style label, or that there is none. */
-@Composable
-private fun reminderLabel(minutes: List<Int>): String {
-    if (minutes.isEmpty()) {
-        return stringResource(R.string.m3e_no_reminders)
-    }
-    // The list only ever writes a single lead time, so showing the first is enough; an event with
-    // several keeps them until it is edited here, which collapses them by design.
-    val value = minutes.min()
-    return when {
-        value <= 0 -> stringResource(R.string.m3e_reminder_at_time)
-        value % (24 * 60) == 0 -> stringResource(R.string.m3e_reminder_days, value / (24 * 60))
-        value % 60 == 0 -> stringResource(R.string.m3e_reminder_hours, value / 60)
-        else -> stringResource(R.string.m3e_reminder_minutes, value)
-    }
-}
+/** Lead times offered on an agenda row come from the shared checkbox menu. */
 
 @Composable
 private fun timeLabel(event: AgendaEvent): String {

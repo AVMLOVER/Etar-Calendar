@@ -76,6 +76,7 @@
     <string name="m3e_import_downloading">Wird heruntergeladen…</string>
     <string name="m3e_import_pick_file">Datei auswählen</string>
     <string name="m3e_import_failed">Import fehlgeschlagen. Prüfe die URL oder die Datei.</string>
+    <string name="m3e_import_calendar_label">Importieren in</string>
     <string name="m3e_add_calendar">Kalender hinzufügen</string>
     <string name="m3e_no_browser">Kein Browser zum Öffnen der Store-Seite verfügbar</string>
     <string name="m3e_predictive_back">Vorausschauende Zurück-Geste</string>

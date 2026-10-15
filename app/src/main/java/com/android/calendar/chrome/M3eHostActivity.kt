@@ -371,6 +371,8 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         pickerPopup = M3eMonthPickerDialog.show(
             this,
             findViewById(R.id.toolbar),
+            null,
+            null,
             java.util.function.BiConsumer { year, month -> jumpToMonth(year, month) },
         )
     }
@@ -401,9 +403,18 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
      */
     private fun showDatePicker() {
         val zone = java.time.ZoneId.systemDefault()
-        val today = java.time.LocalDate.now(zone)
+        // Opens on the day the view is showing - the first of the three days for the three day
+        // view - rather than always on today: a picker that opens somewhere else than the heading
+        // it was tapped from reads as though it forgot what the view was on. The picker reads its
+        // selection as a UTC day, so the local day is handed over as UTC midnight; anything else
+        // lands one day off for a zone ahead of UTC.
+        val initial = calendarViewDateMillis()
+            ?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate() }
+            ?.atStartOfDay(java.time.ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+            ?: java.time.LocalDate.now(zone)
+                .atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
         val picker = com.google.android.material.datepicker.MaterialDatePicker.Builder.datePicker()
-            .setSelection(today.atStartOfDay(zone).toInstant().toEpochMilli())
+            .setSelection(initial)
             .setTitleText(R.string.goto_date)
             .build()
         picker.addOnPositiveButtonClickListener { selection ->
@@ -599,26 +610,28 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             if (agendaDate != null) {
                 putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, agendaDate)
             }
-            // A destination in its own right becomes its own task root, so the platform's default
-            // back (which is what carries the predictive animation) lands on the launcher. The
-            // screens you come back from are left in the current task.
-            if (screen == ComposeScreen.YEAR || screen == ComposeScreen.AGENDA) {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            } else {
-                // Reused rather than started afresh, for the screens that stay in this task.
-                //
-                // Without these, picking a screen that is already running started a second copy of
-                // it: the three day view came up on today, because a new copy always starts there,
-                // and the copy underneath - with the three days the user had paged to - was left
-                // behind. The drawer reports the entry as already checked and so closes without
-                // asking for anything, which is why the second copy arrived from a tap that looked
-                // like it had done nothing.
-                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-            }
+            // Every screen switch stays in the task this one is in, including the year view and
+            // the agenda.
+            //
+            // Those two used to be launched into a task of their own (NEW_TASK|CLEAR_TASK) so that
+            // back from them landed on the launcher. A screen started into a new task is animated by
+            // the platform's task transition - a cross-fade, which reads as the old screen being
+            // covered by the new one - and per-activity transitions are ignored for it. That is why
+            // going between the year view and the agenda looked like an overlap while every other
+            // switch slid sideways. Back is handled by this screen's own back callback rather than
+            // by the task root, so nothing is lost by keeping them here; SINGLE_TOP and
+            // REORDER_TO_FRONT bring an instance that is already running forward instead of
+            // starting a second copy of it.
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         })
         if (screen == ComposeScreen.YEAR || screen == ComposeScreen.AGENDA ||
             screen == ComposeScreen.DATE_CALCULATOR || screen == ComposeScreen.COUNTDOWN
         ) {
+            // This screen is being replaced by the one that was just started, so it declares the
+            // movement: the new screen comes in from the right and this one leaves to the left,
+            // which is the same slide every other switch in the app plays. Declared before
+            // finish() because it is the finishing screen's close transition that decides the pair.
+            leaveForward()
             finish()
         }
         return true

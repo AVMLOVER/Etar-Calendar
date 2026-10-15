@@ -53,7 +53,7 @@
             app:summary="@string/preferences_staggered_display_summary" />
         <SwitchPreference
             app:key="preferences_show_week_num"
-            app:defaultValue="false"
+            app:defaultValue="true"
             app:title="@string/preferences_show_week_num_title" />
         <SwitchPreference
             app:key="pref_show_lunar"

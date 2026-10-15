@@ -27,7 +27,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.CalendarContract;
 import android.provider.CalendarContract.CalendarAlerts;
 import android.text.TextUtils;
@@ -91,7 +93,27 @@ public class AlertUtils {
         return new AlarmManagerInterface() {
             @Override
             public void set(int type, long triggerAtMillis, PendingIntent operation) {
-                mgr.setExactAndAllowWhileIdle(type, triggerAtMillis, operation);
+                // Exact alarms are denied by default for an app installed on Android 14+ while
+                // targeting 33+, so setExactAndAllowWhileIdle throws a SecurityException there - and
+                // one exception here silently killed every reminder alarm the app schedules for
+                // itself. An inexact alarm still wakes the device and fires within a window, which
+                // is the difference between a slightly late notification and none at all, so it is
+                // the fallback both when the permission is missing and when the exact call refuses.
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                            && !mgr.canScheduleExactAlarms()) {
+                        mgr.setAndAllowWhileIdle(type, triggerAtMillis, operation);
+                        return;
+                    }
+                    mgr.setExactAndAllowWhileIdle(type, triggerAtMillis, operation);
+                } catch (SecurityException exactDenied) {
+                    Log.w(TAG, "exact alarm denied; falling back to an inexact one", exactDenied);
+                    try {
+                        mgr.setAndAllowWhileIdle(type, triggerAtMillis, operation);
+                    } catch (Throwable inexactFailed) {
+                        Log.e(TAG, "inexact alarm also failed", inexactFailed);
+                    }
+                }
             }
         };
     }
@@ -111,6 +133,28 @@ public class AlertUtils {
             long alarmTime) {
         scheduleAlarmHelper(context, manager, alarmTime, false);
     }
+
+    /**
+     * Schedules the app's own notification refresh one second from now.
+     *
+     * Used after a provider reminder broadcast: on providers that only insert the alert row at its
+     * alarm time, the refresh that runs straight after the broadcast finds no row, and the reminder
+     * would then have no notification from this app. The delay gives the row a moment to appear, and
+     * the alarm is the app's own action, which AlertService always acts on.
+     */
+    public static void scheduleCatchUpAlarm(Context context) {
+        scheduleAlarm(context, createAlarmManager(context),
+                System.currentTimeMillis() + CATCH_UP_DELAY_MS);
+    }
+
+    /**
+     * How long after a reminder the app re-checks it before sounding.
+     *
+     * Slightly longer than AlertService.LOUD_GRACE_MS, so the re-check always runs past the grace:
+     * by then any other calendar app has either claimed the row (the app stays quiet) or has not
+     * (the app rings).
+     */
+    private static final long CATCH_UP_DELAY_MS = 4000L;
 
     /**
      * Schedules the next alarm to silently refresh the notifications.  Note that if there
@@ -214,11 +258,23 @@ public class AlertUtils {
     }
 
     public static Intent buildEventViewIntent(Context c, long eventId, long begin, long end) {
+        // The reminder click lands on the Material 3 Expressive details screen rather than on the
+        // classic EventInfoActivity. The classic screen reads the event through
+        // Events.CONTENT_URI/<id>, which the provider answers with an empty cursor for an event on
+        // a local calendar - so tapping a reminder for such an event showed "event not found".
+        // The details screen reads through the collection URI with _ID=?, which works for every
+        // calendar, and it is also where a tap on the event in any calendar view already lands.
         Intent i = new Intent(Intent.ACTION_VIEW);
+        // The data uri is not read by the details screen, but it must stay: it is what makes each
+        // reminder's click PendingIntent distinct. Two intents that only differ by extras compare
+        // as equal, so with FLAG_UPDATE_CURRENT the last notification posted would become the click
+        // target of every notification.
         Uri.Builder builder = CalendarContract.CONTENT_URI.buildUpon();
         builder.appendEncodedPath("events/" + eventId);
         i.setData(builder.build());
-        i.setClass(c, EventInfoActivity.class);
+        i.setClass(c, com.android.calendar.event.compose.ComposeEventDetailsActivity.class);
+        i.putExtra(com.android.calendar.event.compose.ComposeEventDetailsActivity.EXTRA_EVENT_ID,
+                eventId);
         i.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, begin);
         i.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, end);
         return i;
@@ -248,9 +304,28 @@ public class AlertUtils {
             return;
         }
 
+        // The event's start is recorded as dismissed, so a later notification refresh does not
+        // resurrect the reminder the user just put away.
+        ContentResolver resolver = context.getContentResolver();
+        Cursor row = null;
+        try {
+            row = resolver.query(CalendarAlerts.CONTENT_URI,
+                    new String[] { CalendarAlerts.BEGIN },
+                    CalendarAlerts.EVENT_ID + "=?",
+                    new String[] { Long.toString(eventId) }, null);
+            if (row != null && row.moveToFirst()) {
+                setAlertDismissedInSharedPrefs(context, eventId, row.getLong(0));
+            }
+        } catch (Throwable t) {
+            // The dismissal itself below still runs.
+        } finally {
+            if (row != null) {
+                row.close();
+            }
+        }
+
         String selection = CalendarAlerts.STATE + "=" + CalendarAlerts.STATE_FIRED + " AND " +
             CalendarAlerts.EVENT_ID + "=" + eventId;
-        ContentResolver resolver = context.getContentResolver();
         ContentValues values = new ContentValues();
         values.put(CalendarAlerts.STATE, CalendarAlerts.STATE_DISMISSED);
 
@@ -292,6 +367,36 @@ public class AlertUtils {
         SharedPreferences.Editor editor = prefs.edit();
         editor.putLong(getFiredAlertsKey(eventId, beginTime, alarmTime), alarmTime);
         editor.apply();
+    }
+
+    /**
+     * Records that the user dismissed this app's notification for an event.
+     *
+     * Kept apart from the fired flag: a reminder the user dismissed must stay dismissed, while one
+     * that merely fired stays visible in the notification list until it is.
+     */
+    public static void setAlertDismissedInSharedPrefs(Context context, long eventId,
+            long beginTime) {
+        SharedPreferences prefs = getFiredAlertsTable(context);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putLong(getDismissedAlertsKey(eventId, beginTime), beginTime);
+        editor.apply();
+    }
+
+    /** Whether the user dismissed this app's notification for an event. */
+    public static boolean hasAlertDismissedInSharedPrefs(Context context, long eventId,
+            long beginTime) {
+        SharedPreferences prefs = getFiredAlertsTable(context);
+        return prefs.contains(getDismissedAlertsKey(eventId, beginTime));
+    }
+
+    private static String getDismissedAlertsKey(long eventId, long beginTime) {
+        StringBuilder sb = new StringBuilder(KEY_FIRED_ALERT_PREFIX);
+        sb.append("dismissed_");
+        sb.append(eventId);
+        sb.append("_");
+        sb.append(beginTime);
+        return sb.toString();
     }
 
     /**

@@ -88,6 +88,7 @@
     <string name="m3e_import_downloading">Downloading…</string>
     <string name="m3e_import_pick_file">Pick a file</string>
     <string name="m3e_import_failed">Import failed. Check the url or the file.</string>
+    <string name="m3e_import_calendar_label">Import into</string>
     <string name="m3e_add_calendar">Add calendar</string>
     <string name="m3e_no_browser">No browser available to open the store page</string>
     <string name="m3e_predictive_back">Predictive back gesture</string>

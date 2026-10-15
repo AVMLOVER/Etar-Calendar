@@ -88,6 +88,7 @@
     <string name="m3e_import_downloading">正在下載…</string>
     <string name="m3e_import_pick_file">選擇檔案</string>
     <string name="m3e_import_failed">匯入失敗，請檢查網址或檔案</string>
+    <string name="m3e_import_calendar_label">匯入到</string>
     <string name="m3e_add_calendar">新增行事曆</string>
     <string name="m3e_no_browser">沒有可用的瀏覽器開啟應用程式商店</string>
     <string name="m3e_predictive_back">預測性返回手勢</string>

@@ -147,6 +147,35 @@ public class ImportActivity extends Activity {
         finish();
     }
 
+    /**
+     * The calendar the import was asked to write into, or -1 for the first writable one.
+     *
+     * The import dialog lets the user pick the target calendar and passes its id along. An id that
+     * is missing, or that no longer names a writable calendar, falls back to the old behaviour.
+     */
+    private static final String EXTRA_ICS_CALENDAR_ID = "m3eIcsCalendarId";
+
+    /**
+     * True when [calendarId] names a calendar this app is allowed to write to.
+     *
+     * A stale id - the calendar was deleted between the dialog and the import - must not be used:
+     * the provider would reject every insert with an unknown calendar id and the whole file would
+     * come back as unreadable.
+     */
+    private boolean isWritableCalendar(long calendarId) {
+        try (Cursor c = getContentResolver().query(
+                CalendarContract.Calendars.CONTENT_URI,
+                CALENDAR_PROJECTION,
+                CalendarContract.Calendars._ID + "=?",
+                new String[] { String.valueOf(calendarId) },
+                null)) {
+            return c != null && c.moveToFirst()
+                    && c.getInt(1) >= CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     private void parseCalFile() {
         Uri uri = getIntent().getData();
         VCalendar calendar = IcalendarUtils.readCalendarFromFile(this, uri);
@@ -162,7 +191,10 @@ public class ImportActivity extends Activity {
             return;
         }
 
-        long calendarId = writableCalendarId();
+        long calendarId = getIntent().getLongExtra(EXTRA_ICS_CALENDAR_ID, -1L);
+        if (calendarId == -1 || !isWritableCalendar(calendarId)) {
+            calendarId = writableCalendarId();
+        }
         if (calendarId == -1) {
             // Nothing to import into. Said plainly rather than silently doing nothing.
             Toast.makeText(this, R.string.cal_import_no_calendar, Toast.LENGTH_LONG).show();

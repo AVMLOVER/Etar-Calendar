@@ -108,8 +108,25 @@ class ComposeYearActivity : M3eHostActivity() {
                     setPickerTitle(getString(R.string.m3e_year_title, year.toString()))
                 },
                 onOpenMonth = { year, month -> openMonth(year, month) },
+                // The add button: an event on today, at the next half-hour slot. A year view has
+                // no "first day of the view" that means anything, so today is always the answer.
+                onCreateEvent = { createEventToday() },
             )
         }
+    }
+
+    /** Starts the editor for a new event today, at the shared next-slot time. */
+    private fun createEventToday() {
+        val start = Utils.getNextCreateEventStart(System.currentTimeMillis())
+        startActivity(
+            com.android.calendar.CalendarController.getInstance(this).generateCreateEventIntent(
+                start,
+                start + 60L * 60L * 1000L,
+                false,
+                null,
+                -1L,
+            )
+        )
     }
 
     override fun onResume() {

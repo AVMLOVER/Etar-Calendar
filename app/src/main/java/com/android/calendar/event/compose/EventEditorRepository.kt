@@ -315,17 +315,25 @@ class EventEditorRepository(private val context: Context) {
                     original.mReminders.add(entry)
                 }
             } else {
+                // The defaults for a brand new event: the user's chosen default lead time (ten
+                // minutes, unless the setting says otherwise) and a reminder at the start. The two
+                // are what the checkbox menu shows ticked when a new event is opened, and what gets
+                // saved when the user does not touch them. Only a caller that seeds the event with
+                // its own reminders - a duplicated event - overrides this pair.
                 val prefs = android.preference.PreferenceManager.getDefaultSharedPreferences(context)
                 val minutes = prefs.getString(
                     KEY_DEFAULT_REMINDER, DEFAULT_REMINDER_MINUTES.toString()
                 )?.toIntOrNull() ?: DEFAULT_REMINDER_MINUTES
-                if (minutes != NO_REMINDER) {
-                    val entry = CalendarEventModel.ReminderEntry.valueOf(
-                        minutes, reminderMethod(model)
-                    )
-                    model.mReminders.add(entry)
-                    original.mReminders.add(entry)
-                }
+                val method = reminderMethod(model)
+                listOf(minutes, AT_START_REMINDER_MINUTES)
+                    .filter { it != NO_REMINDER }
+                    .distinct()
+                    .sortedDescending()
+                    .forEach { lead ->
+                        val entry = CalendarEventModel.ReminderEntry.valueOf(lead, method)
+                        model.mReminders.add(entry)
+                        original.mReminders.add(entry)
+                    }
             }
         }
         model.mHasAlarm = model.mReminders.isNotEmpty()
@@ -717,6 +725,9 @@ class EventEditorRepository(private val context: Context) {
 
         /** Matches GeneralPreferences.NO_REMINDER. */
         const val NO_REMINDER = -1
+
+        /** The second default reminder: at the event's start. */
+        const val AT_START_REMINDER_MINUTES = 0
 
         /** Same preference key the classic editor reads for its default reminder. */
         const val KEY_DEFAULT_REMINDER = "preferences_default_reminder"

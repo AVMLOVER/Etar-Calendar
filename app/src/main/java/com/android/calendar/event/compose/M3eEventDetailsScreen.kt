@@ -304,68 +304,15 @@ private fun ScheduleCard(
             HorizontalDivider()
         }
 
-        // Notifications are editable right here, one row each, with an "add" action - the classic
-        // details screen allowed several reminders per event and let each one's lead time be set, and
-        // collapsing that into a single read-only line lost the point of the screen.
-        reminders.forEachIndexed { index, minutes ->
-            var menuOpen by remember(index, minutes) { mutableStateOf(false) }
-            Box {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { menuOpen = true }
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.event_info_reminders_label),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = reminderLabel(minutes),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    TextButton(onClick = {
-                        onRemindersChanged(reminders.filterIndexed { i, _ -> i != index })
-                    }) {
-                        Text(stringResource(R.string.m3e_reminder_remove))
-                    }
-                }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    REMINDER_MINUTES.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(reminderLabel(option)) },
-                            onClick = {
-                                menuOpen = false
-                                // Replace in place so the row keeps its position.
-                                onRemindersChanged(
-                                    reminders.toMutableList().also { it[index] = option }
-                                )
-                            },
-                        )
-                    }
-                }
-            }
-            HorizontalDivider()
-        }
-
-        if (reminders.isEmpty()) {
-            RowItem(
-                label = stringResource(R.string.event_info_reminders_label),
-                value = stringResource(R.string.m3e_no_reminders),
-            )
-            HorizontalDivider()
-        }
-
-        TextButton(
-            onClick = { onRemindersChanged(reminders + DEFAULT_REMINDER_MINUTES) },
-            modifier = Modifier.padding(horizontal = 4.dp),
-        ) {
-            Text(stringResource(R.string.m3e_reminder_add))
-        }
+        // Notifications: one row whose menu is a list of checkboxes, identical to the editor's -
+        // the same composable, so a reminder is chosen the same way in both places, and several can
+        // be ticked in one visit. Every change is written straight away and the row shows what is
+        // set.
+        M3eReminderMenuRow(
+            reminders = reminders,
+            onRemindersChanged = onRemindersChanged,
+            label = stringResource(R.string.event_info_reminders_label),
+        )
 
         // The event's zone, editable here rather than only through the editor: it is one value with
         // an obvious meaning, and routing it through the whole editor to change it is friction.
@@ -456,19 +403,6 @@ private fun TimeZonePickerDialog(
         },
     )
 }
-/** Lead times offered per notification, matching the agenda row and the editor. */
-private val REMINDER_MINUTES = listOf(0, 5, 10, 15, 30, 60, 120, 240, 480, 720, 1440)
-
-private const val DEFAULT_REMINDER_MINUTES = 10
-
-@Composable
-private fun reminderLabel(minutes: Int): String = when {
-    minutes <= 0 -> stringResource(R.string.m3e_reminder_at_time)
-    minutes % (24 * 60) == 0 -> stringResource(R.string.m3e_reminder_days, minutes / (24 * 60))
-    minutes % 60 == 0 -> stringResource(R.string.m3e_reminder_hours, minutes / 60)
-    else -> stringResource(R.string.m3e_reminder_minutes, minutes)
-}
-
 @Composable
 private fun NotesCard(details: EventDetails) {
     SettingsSurface {
@@ -597,12 +531,6 @@ private fun repeatString(rrule: String): String {
             rrule
         }
     }
-}
-
-/** Not @Composable on purpose - see the call site in ScheduleCard. */
-private fun reminderLabel(context: android.content.Context, minutes: Int): String = when (minutes) {
-    0 -> context.getString(R.string.m3e_reminder_at_time)
-    else -> context.getString(R.string.m3e_reminder_minutes_before, minutes)
 }
 
 @Composable

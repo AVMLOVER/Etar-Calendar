@@ -47,19 +47,23 @@ object M3eMonthPickerDialog {
     /**
      * Shows the picker just under [anchor], spanning the screen width.
      *
+     * @param initialYear the year the picker is scrolled to when it opens, or null for today's.
+     * @param initialMonth the 1-based month it is scrolled to, or null for today's.
      * @param onPick called with the chosen year and 1-based month; the dialog closes itself first.
      * @return the dialog, so the caller can dismiss it if it needs to.
      */
     fun show(
         context: Context,
         anchor: View,
+        initialYear: Int?,
+        initialMonth: Int?,
         onPick: java.util.function.BiConsumer<Int, Int>,
     ): Dialog = showPicker(context, anchor) { dismiss ->
         val today = LocalDate.now()
         M3eMonthPickerHeader(day = null)
         M3eMonthYearPicker(
-            year = today.year,
-            month = today.monthValue,
+            year = initialYear ?: today.year,
+            month = initialMonth ?: today.monthValue,
             onPick = { year, month ->
                 dismiss()
                 onPick.accept(year, month)

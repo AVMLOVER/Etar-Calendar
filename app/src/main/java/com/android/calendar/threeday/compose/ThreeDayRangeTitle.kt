@@ -23,9 +23,9 @@ import java.time.ZoneId
 /**
  * The three day range, written the way each language writes dates.
  *
- *     Chinese   10月13日-15日          10月31日-11月2日
- *     German    14-16 Okt.            31 Okt.-2 Nov.
- *     English   Oct 28-31             Oct 31-Nov 2
+ *     Chinese   2026年10月13日-15日      2026年10月31日-11月2日
+ *     German    13-15 Okt. 2026         31 Okt.-2 Nov. 2026
+ *     English   Oct 13-15, 2026         Oct 31-Nov 2, 2026
  *
  * Built from the platform's own patterns rather than from the month number and the characters 月 and
  * 日, which is what used to be here and which showed a Chinese range in every language.
@@ -64,36 +64,49 @@ internal fun rangeTitleOf(first: LocalDate): String {
     val monthPattern = formatted(first, "MMM").trim()
     val wholePattern = formatted(first, "MMMd").trim()
 
+    // Whether this language puts the month before the day, read from a date that has both.
+    val monthFirst = wholePattern.indexOf(monthPattern) == 0
+
     /**
-     * The month as this language abbreviates it in running text: "Okt." in German, "Oct." in English,
-     * "10月" in Chinese.
+     * The month as this language writes it inside a running date: "Sept." in German, "Oct." in
+     * English, "10月" in Chinese.
      *
-     * A function of the date, not a value worked out once. It was a value, and that is what made a
-     * range across two months read "31 Okt-2 Okt": both sides were written with the first day's month,
-     * so the second never changed. Read per date, each side names its own.
+     * Read out of the full date rather than rebuilt from the "MMM" piece. The piece alone is wrong
+     * in German for September: the platform returns "Sep", and appending the shortening stop gave
+     * "Sep." where German actually writes "Sept." - the extra t is part of the abbreviation and the
+     * piece does not carry it. The full date ("16. Sept.") does, so the month is cut out of that
+     * around the day number instead.
      *
-     * The full stop is added here rather than expected from the pattern. Asking for "MMM" gives the
-     * abbreviation without it - Android's formatter returns "Okt" and "Oct", and the stop that appears
-     * in "14. Okt." belongs to the day, not to the month - so a title built from the piece alone came
-     * out as "13-15 Okt". It is added only when the language actually writes one: whether it does is
-     * read from the month name the platform gives, "Oktober" against "Okt", where the abbreviation
-     * being a prefix of the full name means the language marks the shortening.
+     * Day-first languages keep the punctuation the full date carries. Month-first languages write
+     * no stop in the date itself ("Oct 13"), so the stop is added back when the piece is a
+     * shortening of the full name - which is what the English heading used to show.
+     *
+     * A function of the date, not a value worked out once, because a range across two months names
+     * each side's own month.
      */
     fun month(date: LocalDate): String {
-        val abbreviated = formatted(date, "MMM").trim()
-        if (abbreviated.endsWith('.')) {
-            return abbreviated
+        val whole = formatted(date, "MMMd").trim()
+        val dayDigits = formatted(date, "d").filter { it.isDigit() }
+        // The day's LAST occurrence: a single-digit day in a month like 1月 would otherwise match
+        // the month's own number first.
+        val dayIndex = if (monthFirst) whole.lastIndexOf(dayDigits) else whole.indexOf(dayDigits)
+        val extracted = if (dayIndex >= 0 && dayDigits.isNotEmpty()) {
+            if (monthFirst) {
+                whole.substring(0, dayIndex).trimEnd(' ', '.')
+            } else {
+                whole.substring(dayIndex + dayDigits.length).trim().trimStart(' ', '.')
+            }
+        } else {
+            formatted(date, "MMM").trim()
         }
-        val full = formatted(date, "MMMM").trim()
-        // "Okt" is a prefix of "Oktober", so German marks the shortening with a stop. "May" is not a
-        // prefix of "May" - the month has no longer form - and gets nothing.
-        val shortens = abbreviated.isNotEmpty() && full.length > abbreviated.length &&
-                full.startsWith(abbreviated)
-        return if (shortens) "$abbreviated." else abbreviated
+        if (monthFirst && extracted.isNotEmpty() && !extracted.endsWith('.')) {
+            val full = formatted(date, "MMMM").trim()
+            if (full.length > extracted.length && full.startsWith(extracted)) {
+                return "$extracted."
+            }
+        }
+        return extracted
     }
-
-    // Whether this language puts the day before the month, read from a date that has both.
-    val monthFirst = wholePattern.indexOf(monthPattern) == 0
 
     // What the language writes after the day number, if anything.
     //
@@ -122,7 +135,7 @@ internal fun rangeTitleOf(first: LocalDate): String {
     }
 
     val last = first.plusDays(2)
-    return if (first.monthValue == last.monthValue && first.year == last.year) {
+    val range = if (first.monthValue == last.monthValue && first.year == last.year) {
         // "10月13日-15日", "14-16 Okt.", "Oct. 28-31": the month once, the first day in full, the
         // second with only the part that does not repeat.
         val m = month(first)
@@ -134,5 +147,50 @@ internal fun rangeTitleOf(first: LocalDate): String {
     } else {
         // "10月31日-11月2日" / "31 Okt.-2 Nov.": both sides named.
         side(first) + "-" + side(last)
+    }
+
+    // The year the range falls in, placed where the language puts it in a full date: Chinese
+    // writes it first - "2026年10月13日-15日" - while German and English write it last -
+    // "13-15 Okt. 2026", "Oct 13-15, 2026". The glue around the year (年, " ", ", ") is read from
+    // the language's own full-date pattern rather than assumed, the same way the day suffix is.
+    val fullYearDate = formatted(first, "yMMMd").trim()
+    // Digits only: some locales write the bare year with its suffix (2026年), which the glue
+    // extraction below would then pick up twice.
+    val yearDigits = formatted(first, "y").filter { it.isDigit() }
+    val yearStart = fullYearDate.indexOf(yearDigits)
+    val yearEnd = if (yearStart >= 0) yearStart + yearDigits.length else -1
+    val monthIndex = fullYearDate.indexOf(monthPattern)
+
+    return if (monthFirst) {
+        // Year first, with the language's own suffix after it: "2026年" + "10月13日-15日".
+        if (yearEnd >= 0 && monthIndex > yearEnd) {
+            fullYearDate.substring(0, monthIndex) + range
+        } else {
+            "$yearDigits\u5e74$range"
+        }
+    } else {
+        // Year last, with the language's own glue before it: "13-15 Okt. 2026", "Oct 13-15, 2026".
+        // The glue is the run of punctuation and spaces directly before the year in the full date.
+        //
+        // It is read from the text, not measured from the month pattern: the "MMM" piece ("Sep")
+        // can be shorter than the month inside the date ("Sept."), and measuring from it left the
+        // month's own tail - "t. " - behind as though it were glue, which is how the title came out
+        // as "Sep.t. 2026". Walking backwards from the year stops exactly where the month ends.
+        if (yearStart >= 0) {
+            val beforeYear = fullYearDate.substring(0, yearStart)
+            var glue = ""
+            var k = beforeYear.length
+            while (k > 0) {
+                val ch = beforeYear[k - 1]
+                if (ch.isLetterOrDigit()) {
+                    break
+                }
+                glue = ch + glue
+                k--
+            }
+            range + glue + yearDigits
+        } else {
+            "$range $yearDigits"
+        }
     }
 }

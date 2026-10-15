@@ -115,9 +115,19 @@ class ComposeEventEditorActivity : AbstractCalendarActivity() {
         // Reminders are rewritten from the list, so an event that had none keeps none and one the
         // user edited gets exactly what the form shows. The method is the one already on each
         // existing reminder, or an alert for a reminder the user just added.
+        //
+        // One lead time is dropped on save: for an event that starts within ten minutes, the
+        // ten-minutes-before reminder would already be due - its alarm time is in the past the
+        // moment the event is saved, and the provider then fires it late and out of order, which is
+        // exactly how the notification for such an event came from the system calendar instead of
+        // this app. The at-start reminder stays, so the event still notifies when it begins.
+        var remindersToSave = edited.reminderMinutes
+        if (edited.start - System.currentTimeMillis() < 10L * 60L * 1000L) {
+            remindersToSave = remindersToSave.filterNot { it == 10 }
+        }
         val methods = snapshot.model.mReminders.associate { it.minutes to it.method }
         model.mReminders = ArrayList(
-            edited.reminderMinutes.sortedDescending().map { minutes ->
+            remindersToSave.sortedDescending().map { minutes ->
                 CalendarEventModel.ReminderEntry.valueOf(
                     minutes,
                     methods[minutes] ?: CalendarContract.Reminders.METHOD_ALERT,

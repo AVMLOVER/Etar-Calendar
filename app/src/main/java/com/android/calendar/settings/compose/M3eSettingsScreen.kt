@@ -187,7 +187,9 @@ fun M3eSettingsScreen(
     var showLunar by remember {
         mutableStateOf(repo.bool(KEY_SHOW_LUNAR, com.android.calendar.LunarUtils.defaultShowLunar()))
     }
-    var showWeekNum by remember { mutableStateOf(repo.bool(KEY_SHOW_WEEK_NUM, false)) }
+    // Week numbers are on by default, matching GeneralPreferences.DEFAULT_SHOW_WEEK_NUM - a fresh
+    // install shows them until the user turns the switch off.
+    var showWeekNum by remember { mutableStateOf(repo.bool(KEY_SHOW_WEEK_NUM, true)) }
     var hideDeclined by remember { mutableStateOf(repo.bool(KEY_HIDE_DECLINED, false)) }
     var staggered by remember { mutableStateOf(repo.bool(KEY_STAGGERED, false)) }
     var weekStart by remember { mutableStateOf(repo.string(KEY_WEEK_START, "-1")) }

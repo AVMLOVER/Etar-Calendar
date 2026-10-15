@@ -771,6 +771,30 @@ public class Utils {
     }
 
     /**
+     * The start time of an event the add button creates "for now".
+     *
+     * The next half hour, pushed on by one more half hour when that is less than half an hour
+     * away: the new event starts at least 30 and at most 60 minutes from now, on a whole or a
+     * half hour. The seconds are dropped, so the slot begins cleanly.
+     */
+    public static long getNextCreateEventStart(long nowMillis) {
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.setTimeInMillis(nowMillis);
+        cal.set(java.util.Calendar.SECOND, 0);
+        cal.set(java.util.Calendar.MILLISECOND, 0);
+        if (cal.get(java.util.Calendar.MINUTE) < 30) {
+            cal.set(java.util.Calendar.MINUTE, 30);
+        } else {
+            cal.add(java.util.Calendar.HOUR_OF_DAY, 1);
+            cal.set(java.util.Calendar.MINUTE, 0);
+        }
+        if (cal.getTimeInMillis() - nowMillis < 30L * 60L * 1000L) {
+            cal.add(java.util.Calendar.MINUTE, 30);
+        }
+        return cal.getTimeInMillis();
+    }
+
+    /**
      * @return true when declined events should be hidden.
      */
     public static boolean getHideDeclinedEvents(Context context) {
