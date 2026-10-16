@@ -149,9 +149,14 @@ public class CalendarToolbarHandler {
         String title = mHeadingTitle == null ? "" : mHeadingTitle;
         String subtitle = mHeadingSubtitle == null ? "" : mHeadingSubtitle;
         if (subtitle.isEmpty()) {
+            // One line, always: a wrapped date reads worse than a smaller one. maxLines has to say
+            // 1 for the auto-sizer to treat a wrap as overflow - with 2 allowed it accepted
+            // "September" on one line and "2026" on the next instead of shrinking the text.
+            view.setMaxLines(1);
             view.setText(title);
             return;
         }
+        view.setMaxLines(2);
 
         if (mSubtitleColor == null) {
             mSubtitleColor = com.google.android.material.color.MaterialColors.getColor(

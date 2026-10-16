@@ -359,9 +359,6 @@ public class CalendarController {
         synchronized (this) {
             mDispatchInProgressCounter++;
 
-            if (DEBUG) {
-                Log.d(TAG, "sendEvent: Dispatching to " + eventHandlers.size() + " handlers");
-            }
             // Dispatch to event handler(s)
             if (mFirstEventHandler != null) {
                 // Handle the 'first' one before handling the others

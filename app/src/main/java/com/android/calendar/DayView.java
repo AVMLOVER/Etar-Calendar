@@ -1908,6 +1908,9 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
     }
 
     private View switchViews(boolean forward, float xOffSet, float width, float velocity) {
+        // Settle any flip still running before starting this one: two animations on the switcher at
+        // once are what left the page half way across.
+        cancelAnimation();
         mAnimationDistance = width - xOffSet;
         if (DEBUG) {
             Log.d(TAG, "switchViews(" + forward + ") O:" + xOffSet + " Dist:" + mAnimationDistance);
@@ -1978,6 +1981,15 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
 
         DayView view = (DayView) mViewSwitcher.getCurrentView();
         view.cleanup();
+        // Prepare the view coming in the way the drag preview does, before it is shown.
+        //
+        // The incoming view takes this one's scroll position (mFirstHour and mFirstHourOffset) and
+        // is measured at the current size, so the day that arrives is at the same time of day, with
+        // its hour labels worked out from that same position. Without this the incoming view kept
+        // whatever hour state it happened to have - the very first one had none (-1) - and the grid
+        // and the hour column could disagree: the labels were drawn from a stale hour and only came
+        // back after the next scroll recomputed them.
+        initView((DayView) mViewSwitcher.getNextView());
         mViewSwitcher.showNext();
         view = (DayView) mViewSwitcher.getCurrentView();
         view.setSelected(newSelected, true, false);
@@ -2603,12 +2615,21 @@ public class DayView extends View implements View.OnCreateContextMenuListener,
 
     private void drawHours(Rect r, Canvas canvas, Paint p) {
         setupHourTextPaint(p);
+        // Nothing is measurable before the first layout: the cell height and the text height are
+        // both zero, and a step of zero would spin this loop forever. The next draw, after layout,
+        // is the one with real numbers.
+        if (mCellHeight <= 0 || mHoursTextHeight <= 0) {
+            return;
+        }
         int totCellHeight =  mCellHeight + HOUR_GAP;
-        int hourStep = (mHoursTextHeight + totCellHeight - 1)/ totCellHeight;
+        // At least one hour per step, whatever the two heights work out to.
+        int hourStep = Math.max(1, (mHoursTextHeight + totCellHeight - 1)/ totCellHeight);
         // The first label drawn is the first hour on screen, 00:00 at the top. The day view used
         // to skip the first hour when it sat right under the header - a holdover that made the day
         // view's top label 01:00 while the week and three day views both showed 00:00.
-        int i = Math.max(mFirstHour, 0);
+        // Clamped into the day: an hour outside 0..23 means the state is stale, and no label at all
+        // is better than a column drawn from an hour that does not exist.
+        int i = Math.max(Math.min(mFirstHour, 23), 0);
         int deltaY = hourStep * totCellHeight;
         int y = i * totCellHeight + mHoursTextHeight / 2 - HOUR_GAP;
 

@@ -211,6 +211,11 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
      * attachOrReuse.
      */
     private Fragment mAttachedMainFragment;
+    /**
+     * The tag the main pane's fragment is filed under by the last committed transaction, while that
+     * transaction has not executed yet. See findOrCreateFragment.
+     */
+    private String mPendingMainPaneTag;
     private Fragment mAttachedSecondaryFragment;
 
     private boolean mPaused = true;
@@ -1720,6 +1725,15 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             FragmentFactory factory) {
         String tag = fragmentTag(viewType, variant);
         Fragment existing = fm.findFragmentByTag(tag);
+        if (existing == null && tag.equals(mPendingMainPaneTag) && mAttachedMainFragment != null) {
+            // The replace that filed this fragment has not run yet, so the tag lookup above misses
+            // it - the fragment is the one that was just scheduled. Creating a second instance for
+            // the same tag is what left the controller's event handler pointing at a fragment that
+            // was not the one on screen: the two replace transactions raced, one instance was
+            // removed right after being added, and its detached handler kept eating the GO_TO
+            // events - today taps moved a view nobody saw while the toolbar title followed them.
+            existing = mAttachedMainFragment;
+        }
         if (existing != null) {
             return existing;
         }
@@ -1959,6 +1973,10 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         // switches are what they were before this was touched.
         ft.replace(viewId, frag, fragmentTag(viewType, fragmentVariant(viewType)));
         mAttachedMainFragment = frag;
+        // The tag the pane's fragment will be filed under once the transaction runs. A second
+        // setMainPane for the same view before that - the force rebuild that follows the first
+        // switch right away - must reuse this fragment instead of making another one for the tag.
+        mPendingMainPaneTag = fragmentTag(viewType, fragmentVariant(viewType));
 
         // What the pane is about to contain, written down because a switch that leaves it empty has
         // to be told apart from one that leaves the wrong fragment in it.

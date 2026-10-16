@@ -23,7 +23,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.Interpolator;
+import android.view.animation.TranslateAnimation;
 import android.widget.ProgressBar;
 import android.widget.ViewSwitcher;
 import android.widget.ViewSwitcher.ViewFactory;
@@ -41,6 +43,12 @@ import ws.xsoh.etar.R;
  */
 public class DayFragment extends Fragment implements CalendarController.EventHandler, ViewFactory {
     protected static final String BUNDLE_KEY_RESTORE_TIME = "key_restore_time";
+
+    /** How long the slide of a "go to" jump lasts, whatever the distance jumped. */
+    private static final long JUMP_ANIMATION_MS = 320L;
+
+    /** The easing of that slide: fast at first, settling at the end. */
+    private final Interpolator mJumpInterpolator = new DecelerateInterpolator();
 
     /**
      * How many days this fragment shows: one for the day view, seven for the week.
@@ -60,10 +68,6 @@ public class DayFragment extends Fragment implements CalendarController.EventHan
     private static final int VIEW_ID = 1;
     protected ProgressBar mProgressBar;
     protected ViewSwitcher mViewSwitcher;
-    protected Animation mInAnimationForward;
-    protected Animation mOutAnimationForward;
-    protected Animation mInAnimationBackward;
-    protected Animation mOutAnimationBackward;
     EventLoader mEventLoader;
 
     Time mSelectedDay = new Time();
@@ -112,11 +116,6 @@ public class DayFragment extends Fragment implements CalendarController.EventHan
             // Never zero. Nothing has said how many days to show, which is the day view's one.
             mNumDays = 1;
         }
-
-        mInAnimationForward = AnimationUtils.loadAnimation(context, R.anim.slide_left_in);
-        mOutAnimationForward = AnimationUtils.loadAnimation(context, R.anim.slide_left_out);
-        mInAnimationBackward = AnimationUtils.loadAnimation(context, R.anim.slide_right_in);
-        mOutAnimationBackward = AnimationUtils.loadAnimation(context, R.anim.slide_right_out);
 
         mEventLoader = new EventLoader(context);
     }
@@ -259,13 +258,29 @@ public class DayFragment extends Fragment implements CalendarController.EventHan
             currentView.setSelected(goToTime, ignoreTime, animateToday);
         } else {
             // Figure out which way to animate
-            if (diff > 0) {
-                mViewSwitcher.setInAnimation(mInAnimationForward);
-                mViewSwitcher.setOutAnimation(mOutAnimationForward);
-            } else {
-                mViewSwitcher.setInAnimation(mInAnimationBackward);
-                mViewSwitcher.setOutAnimation(mOutAnimationBackward);
-            }
+            //
+            // A fresh pair of slide animations for this jump, rather than the instances loaded once
+            // in onCreate. A reused Animation carries the state of its previous run into the next
+            // one, and a jump of two pages or more could then be played as one that had already
+            // finished: the destination simply appeared, while a single page jump still slid.
+            // Building them here gives every jump the same movement and the same duration.
+            final boolean forward = diff > 0;
+            TranslateAnimation inAnimation = new TranslateAnimation(
+                    Animation.RELATIVE_TO_SELF, forward ? 1.0f : -1.0f,
+                    Animation.RELATIVE_TO_SELF, 0.0f,
+                    Animation.ABSOLUTE, 0.0f,
+                    Animation.ABSOLUTE, 0.0f);
+            TranslateAnimation outAnimation = new TranslateAnimation(
+                    Animation.RELATIVE_TO_SELF, 0.0f,
+                    Animation.RELATIVE_TO_SELF, forward ? -1.0f : 1.0f,
+                    Animation.ABSOLUTE, 0.0f,
+                    Animation.ABSOLUTE, 0.0f);
+            inAnimation.setDuration(JUMP_ANIMATION_MS);
+            outAnimation.setDuration(JUMP_ANIMATION_MS);
+            inAnimation.setInterpolator(mJumpInterpolator);
+            outAnimation.setInterpolator(mJumpInterpolator);
+            mViewSwitcher.setInAnimation(inAnimation);
+            mViewSwitcher.setOutAnimation(outAnimation);
 
             DayView next = (DayView) mViewSwitcher.getNextView();
             if (ignoreTime) {
