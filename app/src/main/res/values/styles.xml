@@ -48,7 +48,24 @@
     </style>
 
     <style name="ThemeOverlay.CalendarAppTheme.ActionBar" parent="ThemeOverlay.Material3.ActionBar">
-        <item name="android:textColorPrimary">@color/titleTextColor</item>
+        <!--
+          The toolbar's own text colours, in the theme's own pair rather than a fixed white.
+
+          This was @color/titleTextColor - white - from a time when the ActionBar drew its title
+          itself on a dark bar. The app draws its own heading now and carries the colours on that
+          view, so the white was left reaching everything else under the toolbar, and what it
+          reached was the three dot menu's rows: white text on the light popup, invisible in the
+          light appearance. Following the theme makes them dark on a light popup and light on a
+          dark one.
+        -->
+        <item name="android:textColorPrimary">?attr/colorOnSurface</item>
+        <item name="android:textColorSecondary">?attr/colorOnSurfaceVariant</item>
+        <!-- The menu rows are given the same appearance the popup theme names, so whichever context
+             the platform builds the popup from, the entries come out in that colour. -->
+        <item name="android:textAppearanceLargePopupMenu">@style/TextAppearance.Etar.PopupItem</item>
+        <item name="textAppearanceLargePopupMenu">@style/TextAppearance.Etar.PopupItem</item>
+        <item name="android:textAppearanceSmallPopupMenu">@style/TextAppearance.Etar.PopupItem</item>
+        <item name="textAppearanceSmallPopupMenu">@style/TextAppearance.Etar.PopupItem</item>
     </style>
 
 

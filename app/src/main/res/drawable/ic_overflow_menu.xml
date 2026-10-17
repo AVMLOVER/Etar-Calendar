@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Overflow (three vertical dots) icon for the Compose toolbar.
+  Overflow (three vertical dots) icon, in the theme's control colour.
 
-  Deliberately no android:tint here, for the same reason as ic_menu.xml.
+  It used to be a fixed black, which the Compose bars recolour themselves but the classic title bar
+  does not: set as that bar's overflow icon it drew black dots on the dark bar. Following the theme
+  attribute makes it black on a light bar and white on a dark one; the Compose usages set their own
+  colour and are unaffected.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
@@ -10,12 +13,12 @@
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
-        android:fillColor="#FF000000"
+        android:fillColor="?attr/colorControlNormal"
         android:pathData="M12,5 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0" />
     <path
-        android:fillColor="#FF000000"
+        android:fillColor="?attr/colorControlNormal"
         android:pathData="M12,12 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0" />
     <path
-        android:fillColor="#FF000000"
+        android:fillColor="?attr/colorControlNormal"
         android:pathData="M12,19 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0" />
 </vector>

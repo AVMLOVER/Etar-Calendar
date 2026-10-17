@@ -438,4 +438,14 @@
         <item>#FFCC770C</item>
     </array>
 
+    <!--
+      The three dot menu's own colours, fixed per appearance rather than taken from a theme role.
+
+      The menu is drawn by the platform from a theme overlay, and the text it picks up there was
+      white in the light appearance - unreadable on the light popup it sits on. These two colours
+      are named for that menu alone so nothing else can shift them.
+    -->
+    <color name="m3e_popup_text">#1C1B1F</color>
+    <color name="m3e_popup_background">#F7F2FA</color>
+
 </resources>

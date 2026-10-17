@@ -703,6 +703,23 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         mActionBar.setDisplayHomeAsUpEnabled(true);
         mActionBar.setHomeButtonEnabled(true);
 
+        // The hamburger, the three dots and the menu they open, all in the theme's own colour.
+        //
+        // None of the three follows the theme on its own: the home-as-up arrow and the overflow
+        // dots are drawables with a fixed colour of their own, and the popup menu's entries took
+        // their colour from a theme overlay that left them white on a light popup. Each is given a
+        // colour here - black on a light bar, white on a dark one - so the light appearance reads
+        // as it should.
+        int barIconColor = resolveBarIconColor();
+        android.graphics.drawable.Drawable navigationIcon = mToolbar.getNavigationIcon();
+        if (navigationIcon != null) {
+            navigationIcon.mutate();
+            navigationIcon.setTintList(android.content.res.ColorStateList.valueOf(barIconColor));
+        }
+        mToolbar.setOverflowIcon(androidx.appcompat.content.res.AppCompatResources
+                .getDrawable(this, R.drawable.ic_overflow_menu));
+        mToolbar.setPopupTheme(R.style.ThemeOverlay_Etar_PopupMenu);
+
         // The date in the heading opens the date picker, the same control the Compose screens
         // carry; the down caret is what marks it as something that opens.
         mToolbar.post(this::installTitlePicker);
@@ -1404,7 +1421,48 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         LayerDrawable icon = (LayerDrawable) menuItem.getIcon();
         Utils.setTodayIcon(icon, this, mTimeZone);
 
+        // Everything in the bar drawn in the theme's own colour.
+        //
+        // The action icons are not tinted by the framework, so each one shows whatever colour its
+        // drawable was built with - and a drawable built white is invisible on a light bar. Tinting
+        // them here makes black-on-light and white-on-dark the rule for every icon in the bar,
+        // including any added by an extension.
+        tintTitleBarIcons(menu);
+
         return true;
+    }
+
+    /**
+     * The colour a title bar icon is drawn in: black on a light bar, white on a dark one.
+     *
+     * The theme's control colour, which is exactly that pair, read here rather than relied on to be
+     * applied by the framework - it is not applied to action icons or to the home-as-up arrow.
+     */
+    private int resolveBarIconColor() {
+        android.content.res.TypedArray ta = obtainStyledAttributes(
+                new int[]{android.R.attr.colorControlNormal});
+        int color = ta.getColor(0, android.graphics.Color.BLACK);
+        ta.recycle();
+        return color;
+    }
+
+    /**
+     * Gives every title bar icon the theme's control colour.
+     *
+     * Done in code rather than per drawable: the bar also carries icons from extensions that this
+     * app does not own, and one that arrives white would be as invisible as the search icon was.
+     */
+    private void tintTitleBarIcons(Menu menu) {
+        int color = resolveBarIconColor();
+        for (int i = 0; i < menu.size(); i++) {
+            android.graphics.drawable.Drawable drawable = menu.getItem(i).getIcon();
+            if (drawable != null) {
+                // mutate() first: the drawable is shared with the resources cache, and tinting a
+                // shared instance would recolour every other user of it.
+                drawable.mutate();
+                drawable.setTintList(android.content.res.ColorStateList.valueOf(color));
+            }
+        }
     }
 
     private static final int REQUEST_CODE_IMPORT = 101;

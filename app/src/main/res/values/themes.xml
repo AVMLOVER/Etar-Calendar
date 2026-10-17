@@ -26,6 +26,12 @@
              title bar uses; without it the popup still renders with the AppCompat look. -->
         <item name="actionBarPopupTheme">@style/ThemeOverlay.Etar.PopupMenu</item>
         <item name="popupMenuStyle">@style/Widget.Etar.PopupMenu</item>
+        <!--
+          The style the three dot menu itself is built with. Without it the platform's own overflow
+          style is used, and its entries did not pick up the popup theme's text colour - they stayed
+          white on a white menu in the light appearance.
+        -->
+        <item name="actionOverflowMenuStyle">@style/Widget.Etar.PopupMenu</item>
         <!-- Ripple over the surface colour, so the overflow entries respond to a tap. -->
         <item name="android:itemBackground">@drawable/m3e_popup_item_background</item>
 
@@ -69,14 +75,44 @@
 
     <!-- Material 3 popup menu (the three-dot overflow in the title bar). -->
     <style name="Widget.Etar.PopupMenu" parent="Widget.Material3.PopupMenu.Overflow">
-        <item name="android:popupBackground">?attr/colorSurfaceContainer</item>
+        <item name="android:popupBackground">@color/m3e_popup_background</item>
+        <item name="android:textColor">@color/m3e_popup_text</item>
+        <item name="android:textAppearanceLargePopupMenu">@style/TextAppearance.Etar.PopupItem</item>
+        <item name="textAppearanceLargePopupMenu">@style/TextAppearance.Etar.PopupItem</item>
+        <item name="android:textAppearanceSmallPopupMenu">@style/TextAppearance.Etar.PopupItem</item>
+        <item name="textAppearanceSmallPopupMenu">@style/TextAppearance.Etar.PopupItem</item>
     </style>
 
     <style name="ThemeOverlay.Etar.PopupMenu" parent="ThemeOverlay.Material3">
-        <item name="colorSurface">?attr/colorSurfaceContainer</item>
-        <item name="android:colorBackground">?attr/colorSurfaceContainer</item>
-        <item name="android:textColorPrimary">?attr/colorOnSurface</item>
-        <item name="android:textColorSecondary">?attr/colorOnSurfaceVariant</item>
+        <!--
+          Fixed light/dark colours rather than theme roles.
+
+          This overlay is what the three dot menu is drawn with. Taking the roles from the theme left
+          its entries white in the light appearance, sitting on the light popup - invisible. The two
+          colours flip with the appearance through values-night.
+        -->
+        <item name="android:textColorPrimary">@color/m3e_popup_text</item>
+        <item name="android:textColorSecondary">@color/m3e_popup_text</item>
+        <item name="colorSurface">@color/m3e_popup_background</item>
+        <item name="android:colorBackground">@color/m3e_popup_background</item>
+        <item name="colorControlNormal">@color/m3e_popup_text</item>
+        <item name="android:popupBackground">@color/m3e_popup_background</item>
+        <!--
+          The entries themselves, pointed at a text appearance that names its colour outright.
+
+          Setting the theme's text roles was not enough: the popup's rows take their text appearance
+          from these attributes, and the one they resolved to left the text white in the light
+          appearance - white on a white menu. Naming the colour on the appearance is what settles it.
+        -->
+        <item name="android:textAppearanceLargePopupMenu">@style/TextAppearance.Etar.PopupItem</item>
+        <item name="textAppearanceLargePopupMenu">@style/TextAppearance.Etar.PopupItem</item>
+        <item name="android:textAppearanceSmallPopupMenu">@style/TextAppearance.Etar.PopupItem</item>
+        <item name="textAppearanceSmallPopupMenu">@style/TextAppearance.Etar.PopupItem</item>
+    </style>
+
+    <!-- The menu entries' own text: dark on the light menu, light on the dark one. -->
+    <style name="TextAppearance.Etar.PopupItem" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textColor">@color/m3e_popup_text</item>
     </style>
 
     <style name="ShapeAppearance.Etar.SmallComponent" parent="ShapeAppearance.Material3.SmallComponent">

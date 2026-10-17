@@ -210,6 +210,19 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         drawerLayout.addDrawerListener(toggle)
         toggle.syncState()
 
+        // The hamburger, the three dots and the menu they open, in the theme's own colour.
+        //
+        // The toggle's arrow paints itself and ignores a tint, the overflow dots are the platform's
+        // own fixed-colour drawable, and the popup's entries took their colour from an overlay that
+        // left them white on a light popup. Each is set here so the light appearance reads properly.
+        val barIconColor = resolveBarIconColor()
+        toggle.drawerArrowDrawable?.setColor(barIconColor)
+        toolbar.setOverflowIcon(
+            androidx.appcompat.content.res.AppCompatResources
+                .getDrawable(this, R.drawable.ic_overflow_menu)
+        )
+        toolbar.popupTheme = R.style.ThemeOverlay_Etar_PopupMenu
+
         // The to-do entry's icon is the title bar's today icon, so today's day number is drawn into
         // it - the same treatment the toolbar's own today button gets.
         navigationView.menu.findItem(R.id.action_todo)?.let { item ->
@@ -549,6 +562,16 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
 
         // The to-do screen's edit action: there is one only while the day on screen has a to-do.
         menu.findItem(R.id.action_todo_edit)?.isVisible = showTodoEditAction
+
+        // Every action icon in the theme's own colour, so a drawable built white cannot show white
+        // on a light bar. The framework does not tint action icons itself.
+        val iconColor = resolveBarIconColor()
+        for (i in 0 until menu.size()) {
+            menu.getItem(i).icon?.let { drawable ->
+                drawable.mutate()
+                drawable.setTintList(android.content.res.ColorStateList.valueOf(iconColor))
+            }
+        }
         return true
     }
 
@@ -566,6 +589,19 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     /** Re-reads the title bar actions; see [showTodoEditAction]. */
     protected fun refreshTitleBarMenu() {
         invalidateOptionsMenu()
+    }
+
+    /**
+     * The colour a title bar icon is drawn in: black on a light bar, white on a dark one.
+     *
+     * The theme's control colour, which is exactly that pair, read here because the framework
+     * applies it to none of the icons that need it.
+     */
+    private fun resolveBarIconColor(): Int {
+        val typedArray = obtainStyledAttributes(intArrayOf(android.R.attr.colorControlNormal))
+        val color = typedArray.getColor(0, android.graphics.Color.BLACK)
+        typedArray.recycle()
+        return color
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
