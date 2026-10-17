@@ -110,6 +110,12 @@ class ComposeThreeDayActivity : M3eHostActivity() {
     }
 
     /**
+     * The three days on screen: three, so a screen opened from here - the to-do list - lands on today
+     * while today is one of them and on the first day of the block otherwise.
+     */
+    override val visibleDaySpan: Int = 3
+
+    /**
      * The day the calendar views open on when this screen sends the user to one of them: the first
      * day of the three day block on screen. Null until the screen has reported a block, which
      * leaves the calendar on its own date.
@@ -137,6 +143,11 @@ class ComposeThreeDayActivity : M3eHostActivity() {
 
     /** Opens the Material 3 Expressive details screen, which can hand off to the editor. */
     private fun openEvent(eventId: Long) {
+        // A to-do sits in the all-day strip like any other all-day event; tapping it opens the to-do
+        // screen for its day rather than the event details.
+        if (com.android.calendar.todo.openTodoForEvent(this, eventId)) {
+            return
+        }
         startActivity(
             Intent(this, com.android.calendar.event.compose.ComposeEventDetailsActivity::class.java)
                 .putExtra(

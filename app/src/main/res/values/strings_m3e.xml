@@ -217,4 +217,43 @@
     <string name="m3e_event_edit_title">Edit event</string>
     <string name="m3e_event_view_title">Event</string>
     <string name="m3e_year_title">Year %1$s</string>
+
+    <!-- Date calculator: the interval between two dates, and the date a number of days away. -->
+    <string name="m3e_date_interval_title">Date interval</string>
+    <string name="m3e_date_offset_title">Date arithmetic</string>
+    <string name="m3e_date_offset_date">Date</string>
+    <string name="m3e_date_offset_direction">Add or subtract</string>
+    <string name="m3e_date_offset_add">Add</string>
+    <string name="m3e_date_offset_subtract">Subtract</string>
+    <string name="m3e_date_offset_days">Days</string>
+    <string name="m3e_date_offset_result">Result</string>
+    <string name="m3e_date_offset_need">Enter a date and a number of days</string>
+    <string name="m3e_date_offset_summary">Days added to or taken from the date.</string>
+    <!-- To-dos: a day's checklist, its editor and its reminder. -->
+    <string name="m3e_todo_title">To-dos</string>
+    <string name="m3e_todo_calendar_name">To-dos</string>
+    <string name="m3e_todo_new">New to-do</string>
+    <string name="m3e_todo_edit_title">To-do</string>
+    <string name="m3e_todo_edit_action">Edit to-do</string>
+    <string name="m3e_todo_name_hint">Name</string>
+    <string name="m3e_todo_items">Things to do</string>
+    <string name="m3e_todo_add_item">Add an item</string>
+    <string name="m3e_todo_remind">Remind me</string>
+    <string name="m3e_todo_remind_time">Reminder time</string>
+    <string name="m3e_todo_empty_today">Nothing to do today</string>
+    <string name="m3e_todo_empty">Nothing to do on this day</string>
+    <string name="m3e_todo_progress">%1$d/%2$d done</string>
+    <string name="m3e_todo_delete">Delete to-do</string>
+    <string name="m3e_todo_delete_title">Delete this to-do?</string>
+    <string name="m3e_todo_delete_message">Are you sure you want to delete this to-do?</string>
+    <string name="m3e_todo_delete_item_title">Delete this item?</string>
+    <string name="m3e_todo_delete_item_message">“%1$s” will be removed from this to-do.</string>
+    <string name="m3e_todo_reminder_channel">To-do reminders</string>
+    <string name="m3e_todo_reminder_channel_summary">Reminders for to-dos</string>
+    <string name="m3e_todo_reminder_text">There is a to-do for today</string>
+    <string name="m3e_todo_reminder_progress">%1$d of %2$d done</string>
+    <string name="m3e_todo_note">Note</string>
+    <string name="m3e_todo_note_hint">Anything else about this day</string>
+    <string name="m3e_todo_empty_yesterday">Nothing to do yesterday</string>
+    <string name="m3e_todo_empty_tomorrow">Nothing to do tomorrow</string>
 </resources>

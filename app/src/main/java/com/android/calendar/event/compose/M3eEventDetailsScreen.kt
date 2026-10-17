@@ -67,7 +67,9 @@ import kotlinx.coroutines.withContext
 import ws.xsoh.etar.R
 import java.text.SimpleDateFormat
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.util.Date
 import java.util.Locale
 
@@ -502,8 +504,24 @@ private fun whenText(details: EventDetails): String {
     }
 
     return if (details.allDay) {
-        val s = Instant.ofEpochMilli(details.start).atZone(zone).toLocalDate()
-        "${dateFmt.format(Date(details.start))} · ${stringResource(R.string.edit_event_all_day_label)}"
+        // An all-day event keeps its days as UTC days, and its stored end is exclusive: midnight of
+        // the day after the last one it covers. The last day is the one before that, and a span of
+        // more than one day prints both ends rather than only the first. The formatter is set to UTC
+        // for these, or a zone behind it would print the day before the one stored.
+        val utcDateFmt = remember {
+            DateFormat.getMediumDateFormat(context).apply {
+                timeZone = java.util.TimeZone.getTimeZone("UTC")
+            }
+        }
+        val first = utcDay(details.start)
+        val last = utcDay(details.end).minusDays(1)
+        val allDayLabel = stringResource(R.string.edit_event_all_day_label)
+        if (last.isAfter(first)) {
+            "${utcDateFmt.format(Date(utcMidnight(first)))} – " +
+                    "${utcDateFmt.format(Date(utcMidnight(last)))} · $allDayLabel"
+        } else {
+            "${utcDateFmt.format(Date(utcMidnight(first)))} · $allDayLabel"
+        }
     } else {
         val s = Instant.ofEpochMilli(details.start).atZone(zone).toLocalDate()
         val e = Instant.ofEpochMilli(details.end).atZone(zone).toLocalDate()
@@ -517,9 +535,16 @@ private fun whenText(details: EventDetails): String {
     }
 }
 
+/** The UTC midnight of [date], which is how an all-day event's day is stored. */
+private fun utcMidnight(date: LocalDate): Long =
+    date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+/** The UTC day a stored all-day instant falls on. */
+private fun utcDay(millis: Long): LocalDate =
+    Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+
 @Composable
-private fun repeatString(rrule: String): String {
-    val context = LocalContext.current
+private fun repeatString(rrule: String): String {    val context = LocalContext.current
     return remember(rrule) {
         try {
             val recurrence = EventRecurrence()

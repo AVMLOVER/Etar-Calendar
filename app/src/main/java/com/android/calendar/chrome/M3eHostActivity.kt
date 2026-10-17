@@ -210,6 +210,14 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         drawerLayout.addDrawerListener(toggle)
         toggle.syncState()
 
+        // The to-do entry's icon is the title bar's today icon, so today's day number is drawn into
+        // it - the same treatment the toolbar's own today button gets.
+        navigationView.menu.findItem(R.id.action_todo)?.let { item ->
+            (item.icon as? LayerDrawable)?.let { icon ->
+                Utils.setTodayIcon(icon, this, Utils.getTimeZone(this, null))
+            }
+        }
+
         // Back returns to the month view for the screens that are destinations of their own
         // (the year view and the agenda); the month view's own back then leaves the app. The date
         // calculator keeps the platform's default back, which is what carries the predictive
@@ -458,6 +466,7 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             R.id.agenda_menu_item -> openScreen(ComposeScreen.AGENDA)
             R.id.action_date_calculator -> openScreen(ComposeScreen.DATE_CALCULATOR)
             R.id.action_countdown -> openScreen(ComposeScreen.COUNTDOWN)
+            R.id.action_todo -> openScreen(ComposeScreen.TODO)
             R.id.action_settings -> openScreen(ComposeScreen.SETTINGS)
             R.id.action_about -> openScreen(ComposeScreen.ABOUT)
             else -> false
@@ -537,7 +546,26 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
                 Utils.setTodayIcon(icon, this, Utils.getTimeZone(this, null))
             }
         }
+
+        // The to-do screen's edit action: there is one only while the day on screen has a to-do.
+        menu.findItem(R.id.action_todo_edit)?.isVisible = showTodoEditAction
         return true
+    }
+
+    /**
+     * True to offer "edit this to-do" in the title bar.
+     *
+     * The to-do screen is the only screen that has one, and only while the day it is showing has a
+     * to-do; it calls [refreshTitleBarMenu] when that changes as the user pages between days.
+     */
+    protected open val showTodoEditAction: Boolean = false
+
+    /** What the title bar's edit-the-to-do action does. */
+    protected open fun onTodoEdit() {}
+
+    /** Re-reads the title bar actions; see [showTodoEditAction]. */
+    protected fun refreshTitleBarMenu() {
+        invalidateOptionsMenu()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -565,6 +593,8 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             R.id.action_m3e_calendars -> openScreen(ComposeScreen.CALENDARS)
             R.id.action_m3e_agenda -> openScreen(ComposeScreen.AGENDA)
             R.id.action_view_settings -> openScreen(ComposeScreen.SETTINGS)
+            R.id.action_todo -> openScreen(ComposeScreen.TODO)
+            R.id.action_todo_edit -> onTodoEdit()
 
             else -> return false
         }
@@ -574,7 +604,7 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     // --------------------------------------------------------------------------- navigation
 
     private enum class ComposeScreen {
-        YEAR, AGENDA, DATE_CALCULATOR, COUNTDOWN, CALENDARS, SETTINGS, ABOUT, THREE_DAY
+        YEAR, AGENDA, DATE_CALCULATOR, COUNTDOWN, CALENDARS, SETTINGS, ABOUT, THREE_DAY, TODO
     }
 
     private fun openScreen(screen: ComposeScreen): Boolean {
@@ -596,6 +626,8 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
                 com.android.calendar.datecalc.compose.ComposeDateCalculatorActivity::class.java
             ComposeScreen.COUNTDOWN ->
                 com.android.calendar.countdown.compose.ComposeCountdownActivity::class.java
+            ComposeScreen.TODO ->
+                com.android.calendar.todo.compose.ComposeTodoActivity::class.java
             ComposeScreen.CALENDARS ->
                 com.android.calendar.selectcalendars.compose.ComposeCalendarsActivity::class.java
             ComposeScreen.SETTINGS ->
@@ -604,7 +636,15 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
                 com.android.calendar.about.compose.ComposeAboutActivity::class.java
         }
         val agendaDate = if (screen == ComposeScreen.AGENDA) agendaDateMillis() else null
-        startActivity(Intent(this, target).apply {
+        val launch = if (screen == ComposeScreen.TODO) {
+            // The to-do screen opens on the day this screen is showing rather than on today, so a
+            // week or three day view paged to another part of the calendar hands its day over -
+            // and today when today is part of what is on screen.
+            com.android.calendar.todo.compose.ComposeTodoActivity.intent(this, anchorDayOnScreen())
+        } else {
+            Intent(this, target)
+        }
+        startActivity(launch.apply {
             // The agenda opens around the day this screen is on, when it has one, so coming from
             // the three day view lands on the days the user was looking at instead of on today.
             if (agendaDate != null) {
@@ -625,7 +665,8 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         })
         if (screen == ComposeScreen.YEAR || screen == ComposeScreen.AGENDA ||
-            screen == ComposeScreen.DATE_CALCULATOR || screen == ComposeScreen.COUNTDOWN
+            screen == ComposeScreen.DATE_CALCULATOR || screen == ComposeScreen.COUNTDOWN ||
+            screen == ComposeScreen.TODO
         ) {
             // This screen is being replaced by the one that was just started, so it declares the
             // movement: the new screen comes in from the right and this one leaves to the left,
@@ -639,6 +680,30 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
 
     /** Name of the ComposeScreen this host represents, used to avoid re-opening itself. */
     protected open val currentScreenName: String = ""
+
+    /**
+     * How many days the screen on top shows, starting at [calendarViewDateMillis].
+     *
+     * One by default. The three day view is three, which is what lets a screen opened from it land on
+     * today whenever today is one of the days on screen. See [anchorDayOnScreen].
+     */
+    protected open val visibleDaySpan: Int = 1
+
+    /**
+     * The day another screen should open on when it is started from this one.
+     *
+     * Today while today is part of what is on screen, and the first day shown otherwise - the rule
+     * the calendar's own views use when they hand a day over. With a single day on screen the two
+     * answers are the same, so the span is only consulted for the screens that show more.
+     */
+    private fun anchorDayOnScreen(): java.time.LocalDate {
+        val zone = java.time.ZoneId.systemDefault()
+        val today = java.time.LocalDate.now(zone)
+        val millis = calendarViewDateMillis() ?: return today
+        val first = java.time.Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+        val last = first.plusDays((visibleDaySpan - 1).coerceAtLeast(0).toLong())
+        return if (!today.isBefore(first) && !today.isAfter(last)) today else first
+    }
 
     /**
      * The date the calendar views should open on when this screen sends the user to one of them,
@@ -766,6 +831,7 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
                 "AGENDA" -> com.android.calendar.agenda.compose.ComposeAgendaActivity::class.java
                 "COUNTDOWN" ->
                     com.android.calendar.countdown.compose.ComposeCountdownActivity::class.java
+                "TODO" -> com.android.calendar.todo.compose.ComposeTodoActivity::class.java
                 else ->
                     com.android.calendar.datecalc.compose.ComposeDateCalculatorActivity::class.java
             }

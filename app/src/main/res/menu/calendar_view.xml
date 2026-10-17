@@ -46,6 +46,12 @@
             android:id="@+id/action_countdown"
             android:icon="@drawable/outline_countdown"
             android:title="@string/m3e_countdown_title" />
+        <!-- The to-do list, directly under the countdown. Its icon is the title bar's today icon, and
+             today's day number is drawn into it as the drawer is built. -->
+        <item
+            android:id="@+id/action_todo"
+            android:icon="@drawable/today_icon"
+            android:title="@string/m3e_todo_title" />
     </group>
 
     <group android:id="@+id/navigation_subheader" android:checkableBehavior="none">

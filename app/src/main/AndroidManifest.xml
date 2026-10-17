@@ -280,6 +280,17 @@
             android:theme="@style/Theme.Etar" />
 
         <!--
+          Material 3 Expressive to-do list. A screen of its own, like the countdown above it: it is
+          reached from the drawer, from the three dot menu, and from a to-do tapped in any view.
+        -->
+        <activity
+            android:name="com.android.calendar.todo.compose.ComposeTodoActivity"
+            android:exported="false"
+            android:label="@string/m3e_todo_title"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+
+        <!--
           The event delete confirmation, reached from the day view's long-press menu. Transparent and
           without a title, because only the dialog it draws should be visible.
         -->
@@ -440,6 +451,14 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!--
+          The to-do reminders. This app's own alarm and notification, because a to-do's reminder is a
+          time of day rather than an offset before an event - see TodoReminder.
+        -->
+        <receiver
+            android:name="com.android.calendar.todo.TodoReminderReceiver"
+            android:exported="false" />
 
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"

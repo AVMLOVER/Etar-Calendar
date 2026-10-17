@@ -188,8 +188,12 @@ fun M3eCalendarsScreen(onBack: () -> Unit) {
                     },
                     onPickColor = { colorTarget = entry },
                     // Only calendars this app created can be deleted; every other calendar is
-                    // owned by its account and stays.
-                    onDelete = if (entry.isOffline) {
+                    // owned by its account and stays. The to-do calendar is one of the app's own
+                    // but is not offered: every to-do lives in it, so deleting it would take them
+                    // all with it, and there is nothing in this list that says so.
+                    onDelete = if (entry.isOffline &&
+                        entry.accountName != com.android.calendar.todo.TodoStore.ACCOUNT_NAME
+                    ) {
                         { deleteTarget = entry }
                     } else {
                         null

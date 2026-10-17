@@ -309,19 +309,44 @@ fun M3eEventEditorScreen(
                     SwitchRow(
                         title = stringResource(R.string.edit_event_all_day_label),
                         checked = allDay,
-                        onCheckedChange = { allDay = it },
+                        onCheckedChange = { on ->
+                            allDay = on
+                            // The two kinds of event keep their days in different places: a timed one
+                            // in local time, an all-day one at UTC midnight, which is the only form
+                            // CalendarProvider builds Instances rows for. Turning the switch moves
+                            // the dates between the two, keeping the days they name.
+                            if (on) {
+                                val firstDay = Instant.ofEpochMilli(start).atZone(zone).toLocalDate()
+                                val lastDay = Instant.ofEpochMilli(end).atZone(zone).toLocalDate()
+                                start = utcMidnight(firstDay)
+                                // A timed event that ends at midnight ends at the start of its last
+                                // day; as an all-day event that day is still one of its own, so the
+                                // end - which is exclusive - is the day after it.
+                                val lastIncluded =
+                                    if (lastDay.isAfter(firstDay)) lastDay else firstDay
+                                end = utcMidnight(lastIncluded.plusDays(1))
+                            } else {
+                                val firstDay = utcDateOf(start)
+                                val lastDay = utcDateOf(end).minusDays(1)
+                                start = firstDay.atStartOfDay(zone).toInstant().toEpochMilli()
+                                end = lastDay.plusDays(1)
+                                    .atStartOfDay(zone).toInstant().toEpochMilli()
+                            }
+                        },
                     )
                     Spacer(Modifier.height(4.dp))
                     DateTimeRow(
                         label = stringResource(R.string.m3e_event_starts),
                         millis = start,
                         allDay = allDay,
+                        endRow = false,
                         onClick = { editingStart = true },
                     )
                     DateTimeRow(
                         label = stringResource(R.string.m3e_event_ends),
                         millis = end,
                         allDay = allDay,
+                        endRow = true,
                         onClick = { editingEnd = true },
                     )
                     HorizontalDivider()
@@ -686,8 +711,14 @@ fun M3eEventEditorScreen(
 
     if (editingStart || editingEnd) {
         val initial = if (editingStart) start else end
-        var pickedDate by remember(initial) {
-            mutableStateOf(Instant.ofEpochMilli(initial).atZone(zone).toLocalDate())
+        // An all-day event is a day, not a moment: its pickers work from the stored UTC days and it
+        // has no time to choose.
+        val initialDay = if (allDay) utcDateOf(initial) else
+            Instant.ofEpochMilli(initial).atZone(zone).toLocalDate()
+        var pickedDate by remember(initial, allDay) {
+            mutableStateOf(
+                if (allDay && editingEnd) initialDay.minusDays(1) else initialDay
+            )
         }
         var showTime by remember { mutableStateOf(false) }
 
@@ -700,9 +731,26 @@ fun M3eEventEditorScreen(
                 firstDayOfWeek = java.time.DayOfWeek.MONDAY,
                 onDismiss = { editingStart = false; editingEnd = false },
                 onPick = { picked ->
-                    pickedDate = picked
-                    // The date is settled; the time follows in its own step.
-                    showTime = true
+                    if (allDay) {
+                        // The day picked is part of the event, at both ends: the start is that day,
+                        // and the end - stored as the midnight after the last day - is the day after
+                        // the one picked. Choosing the same day for both is a single all-day event.
+                        if (editingStart) {
+                            val last = utcDateOf(end).minusDays(1)
+                            start = utcMidnight(picked)
+                            if (!last.isAfter(picked)) {
+                                end = utcMidnight(picked.plusDays(1))
+                            }
+                        } else {
+                            end = utcMidnight(picked.plusDays(1))
+                        }
+                        editingStart = false
+                        editingEnd = false
+                    } else {
+                        pickedDate = picked
+                        // The date is settled; the time follows in its own step.
+                        showTime = true
+                    }
                 },
             )
         } else {
@@ -1324,10 +1372,27 @@ private fun SwitchRow(title: String, checked: Boolean, onCheckedChange: (Boolean
 }
 
 @Composable
-private fun DateTimeRow(label: String, millis: Long, allDay: Boolean, onClick: () -> Unit) {
+private fun DateTimeRow(
+    label: String,
+    millis: Long,
+    allDay: Boolean,
+    endRow: Boolean,
+    onClick: () -> Unit,
+) {
     val context = LocalContext.current
-    val dateText = remember(millis) {
-        DateFormat.getMediumDateFormat(context).format(Date(millis))
+    // An all-day event's days are UTC days, and its end is exclusive - midnight of the day after the
+    // last one - so the end row prints the day before it. That is the day the event still covers,
+    // which is the one the user picked.
+    val shownMillis = remember(millis, allDay, endRow) {
+        if (allDay && endRow) utcMidnight(utcDateOf(millis).minusDays(1)) else millis
+    }
+    val dateText = remember(shownMillis, allDay) {
+        if (allDay) {
+            DateFormat.getMediumDateFormat(context)
+                .format(Date(utcMidnight(utcDateOf(shownMillis))))
+        } else {
+            DateFormat.getMediumDateFormat(context).format(Date(shownMillis))
+        }
     }
     val timeText = remember(millis, allDay) {
         if (allDay) {
@@ -1353,9 +1418,17 @@ private fun DateTimeRow(label: String, millis: Long, allDay: Boolean, onClick: (
             modifier = Modifier.weight(1f),
         )
         Text(
-            text = "$dateText  $timeText",
+            text = if (allDay) dateText else "$dateText  $timeText",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
         )
     }
 }
+
+/** The UTC midnight of [date], which is how an all-day event's day is stored. */
+private fun utcMidnight(date: LocalDate): Long =
+    date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+
+/** The UTC day a stored all-day instant falls on. */
+private fun utcDateOf(millis: Long): LocalDate =
+    Instant.ofEpochMilli(millis).atZone(java.time.ZoneOffset.UTC).toLocalDate()

@@ -205,4 +205,43 @@
     <string name="m3e_event_edit_title">Termin bearbeiten</string>
     <string name="m3e_event_view_title">Termin</string>
     <string name="m3e_year_title">Jahr %1$s</string>
+
+    <!-- Datumsrechner: der Abstand zwischen zwei Daten und das Datum in einer Anzahl von Tagen. -->
+    <string name="m3e_date_interval_title">Datumsabstand</string>
+    <string name="m3e_date_offset_title">Datum berechnen</string>
+    <string name="m3e_date_offset_date">Datum</string>
+    <string name="m3e_date_offset_direction">Addieren oder subtrahieren</string>
+    <string name="m3e_date_offset_add">Addieren</string>
+    <string name="m3e_date_offset_subtract">Subtrahieren</string>
+    <string name="m3e_date_offset_days">Tage</string>
+    <string name="m3e_date_offset_result">Ergebnis</string>
+    <string name="m3e_date_offset_need">Datum und Anzahl der Tage eingeben</string>
+    <string name="m3e_date_offset_summary">Tage, die zum Datum addiert oder davon abgezogen werden.</string>
+    <!-- Aufgaben: die Liste eines Tages, ihr Editor und ihre Erinnerung. -->
+    <string name="m3e_todo_title">Aufgaben</string>
+    <string name="m3e_todo_calendar_name">Aufgaben</string>
+    <string name="m3e_todo_new">Neue Aufgabe</string>
+    <string name="m3e_todo_edit_title">Aufgabe</string>
+    <string name="m3e_todo_edit_action">Aufgabe bearbeiten</string>
+    <string name="m3e_todo_name_hint">Name</string>
+    <string name="m3e_todo_items">Zu erledigen</string>
+    <string name="m3e_todo_add_item">Eintrag hinzufügen</string>
+    <string name="m3e_todo_remind">Erinnern</string>
+    <string name="m3e_todo_remind_time">Erinnerungszeit</string>
+    <string name="m3e_todo_empty_today">Heute nichts zu tun</string>
+    <string name="m3e_todo_empty">An diesem Tag nichts zu tun</string>
+    <string name="m3e_todo_progress">%1$d/%2$d erledigt</string>
+    <string name="m3e_todo_delete">Aufgabe löschen</string>
+    <string name="m3e_todo_delete_title">Diese Aufgabe löschen?</string>
+    <string name="m3e_todo_delete_message">Diese Aufgabe wirklich löschen?</string>
+    <string name="m3e_todo_delete_item_title">Diesen Eintrag löschen?</string>
+    <string name="m3e_todo_delete_item_message">„%1$s“ wird aus dieser Aufgabe entfernt.</string>
+    <string name="m3e_todo_reminder_channel">Aufgaben-Erinnerungen</string>
+    <string name="m3e_todo_reminder_channel_summary">Erinnerungen für Aufgaben</string>
+    <string name="m3e_todo_reminder_text">Für heute steht etwas an</string>
+    <string name="m3e_todo_reminder_progress">%1$d von %2$d erledigt</string>
+    <string name="m3e_todo_note">Notiz</string>
+    <string name="m3e_todo_note_hint">Sonstiges zu diesem Tag</string>
+    <string name="m3e_todo_empty_yesterday">Gestern nichts zu tun</string>
+    <string name="m3e_todo_empty_tomorrow">Morgen nichts zu tun</string>
 </resources>

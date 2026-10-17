@@ -475,6 +475,14 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         mDrawerLayout = binding.drawerLayout;
         mNavigationView = binding.navigationView;
 
+        // The to-do entry's icon is the title bar's today icon with today's day number drawn into
+        // it, the same treatment the toolbar's own today button gets.
+        android.view.MenuItem todoItem = mNavigationView.getMenu().findItem(R.id.action_todo);
+        if (todoItem != null && todoItem.getIcon() instanceof android.graphics.drawable.LayerDrawable) {
+            Utils.setTodayIcon((android.graphics.drawable.LayerDrawable) todoItem.getIcon(),
+                    this, Utils.getTimeZone(this, null));
+        }
+
         mFab = binding.floatingActionButton;
 
         if (mIsTabletConfig) {
@@ -1470,6 +1478,9 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             // the month-view layout options that used to live on the old preference page.
             startActivity(new Intent(this,
                     com.android.calendar.settings.compose.ComposeSettingsActivity.class));
+        } else if (itemId == R.id.action_todo) {
+            // The to-do list, opened on the day this view is on so the entry lands where the user is.
+            openTodo(currentViewDateMillis());
         } else {
                 return mExtensions.handleItemSelected(item, this);
         }
@@ -1571,6 +1582,9 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             // view underneath, and its own drawer entry shows as checked while it is open.
             startActivity(new Intent(this,
                     com.android.calendar.countdown.compose.ComposeCountdownActivity.class));
+        } else if (itemId == R.id.action_todo) {
+            // A screen of its own, like the countdown above it in the drawer.
+            openTodo(currentViewDateMillis());
         } else if (itemId == R.id.action_settings) {
             mController.sendEvent(this, EventType.LAUNCH_SETTINGS, null, null, 0, 0);
         } else if (itemId == R.id.action_about) {
@@ -2270,6 +2284,13 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
                     mController.sendEvent(this, EventType.GO_TO, event.selectedTime,
                             event.selectedTime, -1, ViewType.CURRENT);
                 }
+                // A to-do is an all-day event in a calendar of its own, which is what puts it in the
+                // all-day strip of every view. Tapping it there lands here, and it opens the to-do
+                // screen for its day rather than the event details: it is a checklist, not an event.
+                if (openTodoForEvent(event.id)) {
+                    displayTime = event.startTime.toMillis();
+                    return;
+                }
                 // Every view now opens the Material 3 Expressive details screen. The classic
                 // EventInfoActivity / EventInfoFragment pair is still reachable from elsewhere, but
                 // tapping an event in the calendar no longer lands in it.
@@ -2399,15 +2420,52 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             }
         } else if ((mCurrentView == ViewType.DAY || mCurrentView == ViewType.WEEK)
                 && mDayWeekViewDisplayedMillis > 0) {
+            // The week view's own day is the first of the week it is showing, but a week that holds
+            // today should hand today over: the screen being opened is about the day the user is
+            // looking at, and with today's week that is today rather than its Monday. A week paged
+            // away from today has no today in it, so its first day is the day to pass on.
+            if (mCurrentView == ViewType.WEEK) {
+                LocalDate first = Instant.ofEpochMilli(mDayWeekViewDisplayedMillis)
+                        .atZone(getZoneId()).toLocalDate();
+                LocalDate today = LocalDate.now(getZoneId());
+                int days = Utils.getDaysPerWeek(this);
+                if (!today.isBefore(first) && today.isBefore(first.plusDays(days))) {
+                    return today.atStartOfDay(getZoneId()).toInstant().toEpochMilli();
+                }
+            }
             return mDayWeekViewDisplayedMillis;
         }
         long controllerTime = mController.getTime();
         return controllerTime > 0 ? controllerTime : System.currentTimeMillis();
     }
 
+    /**
+     * Opens the to-do screen on the day [millis] falls on, or on today when it is not a time.
+     *
+     * The screen pages day by day on its own from there, so the date is handed over rather than
+     * turned into an intent that names a view type.
+     */
+    private void openTodo(long millis) {
+        long when = millis > 0 ? millis : System.currentTimeMillis();
+        java.time.LocalDate date = Instant.ofEpochMilli(when).atZone(getZoneId()).toLocalDate();
+        startActivity(com.android.calendar.todo.compose.ComposeTodoActivity.Companion
+                .intent(this, date));
+    }
+
+    /**
+     * Opens the to-do an event carries, when it is one, and reports whether it did.
+     *
+     * A to-do is stored as an all-day event in a calendar of its own - that is what puts it in the
+     * all-day strip of the day, three day, week and month views without those views knowing what a
+     * to-do is - so a tap on one arrives here as a view-event request and has to end up on the to-do
+     * screen for its day instead of on the event details.
+     */
+    private boolean openTodoForEvent(long eventId) {
+        return com.android.calendar.todo.TodoNavigatorKt.openTodoForEvent(this, eventId);
+    }
+
     /** Timezone of the calendar views, falling back to the device one */
-    private ZoneId getZoneId() {
-        try {
+    private ZoneId getZoneId() {        try {
             if (mTimeZone != null) {
                 return ZoneId.of(mTimeZone);
             }

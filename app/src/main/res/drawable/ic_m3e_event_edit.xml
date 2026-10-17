@@ -2,9 +2,9 @@
 <!--
   A pencil, for the edit action.
 
-  Untinted on purpose: the fill is black and the colour comes from the composable that draws it, so
-  the same icon is legible in both themes. Icons in this app that hard-coded white were invisible in
-  the light one.
+  The fill is the theme's control colour rather than a fixed black: the icon is also used as a menu
+  item in the title bar, where nothing tints it, and a black pencil on a dark bar is invisible. The
+  composable that draws it still sets its own colour, which wins over this one.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
@@ -12,6 +12,6 @@
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
-        android:fillColor="#FF000000"
+        android:fillColor="?attr/colorControlNormal"
         android:pathData="M3,17.25V21h3.75L17.81,9.94l-3.75,-3.75L3,17.25zM20.71,7.04c0.39,-0.39 0.39,-1.02 0,-1.41l-2.34,-2.34c-0.39,-0.39 -1.02,-0.39 -1.41,0l-1.83,1.83 3.75,3.75 1.83,-1.83z" />
 </vector>

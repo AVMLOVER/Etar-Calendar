@@ -93,6 +93,22 @@
         android:orderInCategory="6"
         android:title="@string/m3e_agenda_menu_title"
         app:showAsAction="never" />
+    <!-- The to-do screen, reachable from every title bar's three dot menu, not only from the drawer. -->
+    <item
+        android:id="@+id/action_todo"
+        android:alphabeticShortcut="d"
+        android:icon="@drawable/today_icon"
+        android:orderInCategory="6"
+        android:title="@string/m3e_todo_title"
+        app:showAsAction="never" />
+    <!-- Shown by the to-do screen, and only while the day on screen has a to-do to edit. -->
+    <item
+        android:id="@+id/action_todo_edit"
+        android:icon="@drawable/ic_m3e_event_edit"
+        android:orderInCategory="1"
+        android:title="@string/m3e_todo_edit_action"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_view_settings"
         android:alphabeticShortcut="v"

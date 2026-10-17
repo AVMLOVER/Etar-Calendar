@@ -217,4 +217,43 @@
     <string name="m3e_event_edit_title">日程编辑</string>
     <string name="m3e_event_view_title">日程查看</string>
     <string name="m3e_year_title">%1$s年</string>
+
+    <!-- 日期计算器：两个日期之间的间隔，以及某个日期加减若干天之后的日期。 -->
+    <string name="m3e_date_interval_title">日期间隔</string>
+    <string name="m3e_date_offset_title">日期推算</string>
+    <string name="m3e_date_offset_date">日期</string>
+    <string name="m3e_date_offset_direction">增加或减少</string>
+    <string name="m3e_date_offset_add">增加</string>
+    <string name="m3e_date_offset_subtract">减少</string>
+    <string name="m3e_date_offset_days">天数</string>
+    <string name="m3e_date_offset_result">结果</string>
+    <string name="m3e_date_offset_need">请输入日期和天数</string>
+    <string name="m3e_date_offset_summary">相对该日期增加或减少的天数。</string>
+    <!-- 待办：某一天的待办清单、编辑器与提醒。 -->
+    <string name="m3e_todo_title">待办</string>
+    <string name="m3e_todo_calendar_name">待办</string>
+    <string name="m3e_todo_new">新建待办</string>
+    <string name="m3e_todo_edit_title">待办编辑</string>
+    <string name="m3e_todo_edit_action">待办编辑</string>
+    <string name="m3e_todo_name_hint">待办名称</string>
+    <string name="m3e_todo_items">待办事项</string>
+    <string name="m3e_todo_add_item">添加待办事项</string>
+    <string name="m3e_todo_remind">提醒</string>
+    <string name="m3e_todo_remind_time">提醒时间</string>
+    <string name="m3e_todo_empty_today">今天没有待办</string>
+    <string name="m3e_todo_empty">这一天没有待办</string>
+    <string name="m3e_todo_progress">已完成 %1$d/%2$d</string>
+    <string name="m3e_todo_delete">删除待办</string>
+    <string name="m3e_todo_delete_title">删除此待办？</string>
+    <string name="m3e_todo_delete_message">您真的要删除此待办吗？</string>
+    <string name="m3e_todo_delete_item_title">删除这个待办事项？</string>
+    <string name="m3e_todo_delete_item_message">将从待办中移除“%1$s”。</string>
+    <string name="m3e_todo_reminder_channel">待办提醒</string>
+    <string name="m3e_todo_reminder_channel_summary">待办事项的提醒</string>
+    <string name="m3e_todo_reminder_text">今天有待办事项</string>
+    <string name="m3e_todo_reminder_progress">已完成 %1$d/%2$d</string>
+    <string name="m3e_todo_note">备注</string>
+    <string name="m3e_todo_note_hint">这一天的其他说明</string>
+    <string name="m3e_todo_empty_yesterday">昨天没有待办</string>
+    <string name="m3e_todo_empty_tomorrow">明天没有待办</string>
 </resources>

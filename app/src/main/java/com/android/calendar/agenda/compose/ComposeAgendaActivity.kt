@@ -91,6 +91,11 @@ class ComposeAgendaActivity : M3eHostActivity() {
 
     /** Opens the Material 3 Expressive details screen, which in turn can hand off to the editor. */
     private fun openEvent(event: AgendaEvent) {
+        // A to-do is listed here like any other all-day event, but it opens its own screen: it is a
+        // checklist, not an event with guests and a location.
+        if (com.android.calendar.todo.openTodoForEvent(this, event.id)) {
+            return
+        }
         startActivity(
             Intent(this, com.android.calendar.event.compose.ComposeEventDetailsActivity::class.java)
                 .putExtra(

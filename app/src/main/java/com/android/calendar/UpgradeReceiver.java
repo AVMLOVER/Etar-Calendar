@@ -19,11 +19,20 @@ package com.android.calendar;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 
 public class UpgradeReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(final Context context, final Intent intent) {
         Utils.trySyncAndDisableUpgradeReceiver(context);
+        // Alarms do not survive a restart, so the to-do reminders that are still to come are put
+        // back on the clock here as well as when the to-do screen is opened.
+        try {
+            com.android.calendar.todo.TodoReminder.INSTANCE.rescheduleAll(context);
+        } catch (Throwable t) {
+            // A missing reminder is not worth taking the boot receiver down for.
+            Log.w("UpgradeReceiver", "to-do reminders could not be rescheduled", t);
+        }
     }
 
 }
