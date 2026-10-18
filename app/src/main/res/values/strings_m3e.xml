@@ -256,4 +256,15 @@
     <string name="m3e_todo_note_hint">Anything else about this day</string>
     <string name="m3e_todo_empty_yesterday">Nothing to do yesterday</string>
     <string name="m3e_todo_empty_tomorrow">Nothing to do tomorrow</string>
+
+    <!-- The to-do widget: today's checklist on the home screen. -->
+    <string name="m3e_todo_widget_name">To-dos</string>
+    <string name="m3e_todo_widget_empty">No to-dos today</string>
+    <string name="m3e_todo_widget_header">Today’s to-dos</string>
+    <string name="m3e_todo_widget_mark_done">Mark done</string>
+    <string name="m3e_todo_widget_mark_not_done">Mark not done</string>
+    <!-- The month widget: a month grid on the home screen. -->
+    <string name="m3e_month_widget_name">Month</string>
+    <string name="m3e_month_widget_prev">Previous month</string>
+    <string name="m3e_month_widget_next">Next month</string>
 </resources>

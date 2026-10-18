@@ -76,10 +76,17 @@ public class CalendarApplication extends Application {
         // Initialize the registry mapping some custom behavior.
         ExtensionsFactory.init(getAssets());
 
-        // Debug and release both.
+        // The crash report, on in debug and in release alike.
         //
         // It writes a file into the app's external storage. That was the reason it was debug-only for
         // a while, but the crashes worth having a record of happen on the build people actually use.
+        //
+        // The call had been lost - installCrashLogger() was left with no caller, so a crash produced
+        // no file at all - which is why a report from the release build arrived with nothing to read.
+        // Kept unconditional here, release included: this is the only record a crash leaves behind on
+        // a phone with no logcat attached.
+        installCrashLogger();
+
         // Numbered steps of picking a month in the year view; debug only.
 
         // On in release as well: the stall this is looking for was being reproduced on the release

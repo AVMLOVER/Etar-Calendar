@@ -27,6 +27,10 @@ import java.time.ZoneId
  *     German    13-15 Okt. 2026         31 Okt.-2 Nov. 2026
  *     English   Oct 13-15, 2026         Oct 31-Nov 2, 2026
  *
+ * The same builder writes the week's heading, which is the same kind of range with seven days in
+ * it, so [last] is a parameter rather than the first day plus two. Everything below works from the
+ * two ends of the range and does not care how many days they hold.
+ *
  * Built from the platform's own patterns rather than from the month number and the characters 月 and
  * 日, which is what used to be here and which showed a Chinese range in every language.
  *
@@ -50,8 +54,11 @@ import java.time.ZoneId
  * Top level rather than a member of the three day activity, because the screen shows the same range
  * as its tab title and could not reach a member. There used to be a second builder over there,
  * written as "M月d日" for every language; this is now the only one.
+ *
+ * @param first the first day of the range.
+ * @param last the last day of the range, inclusive. Defaults to the three day view's own range.
  */
-internal fun rangeTitleOf(first: LocalDate): String {
+internal fun rangeTitleOf(first: LocalDate, last: LocalDate = first.plusDays(2)): String {
     val locale = java.util.Locale.getDefault()
     val zone = ZoneId.systemDefault()
 
@@ -66,6 +73,25 @@ internal fun rangeTitleOf(first: LocalDate): String {
 
     // Whether this language puts the month before the day, read from a date that has both.
     val monthFirst = wholePattern.indexOf(monthPattern) == 0
+
+    // What the language writes between the month and the day when the month comes first: a space in
+    // English ("Sep 27"), nothing in Chinese ("9月27日").
+    //
+    // Read out of the whole date rather than assumed. It used to be omitted, which is what made the
+    // English heading read "Sep.27-Oct.3": the month was concatenated straight onto the number,
+    // where English puts a space and Chinese does not.
+    val monthDayGlue = if (monthFirst) {
+        val dayDigits = formatted(first, "d").filter { it.isDigit() }
+        val monthStart = wholePattern.indexOf(monthPattern)
+        val monthEnd = if (monthStart < 0) 0 else monthStart + monthPattern.length
+        // Searched from the end of the month, not from the start of the date: a month that carries a
+        // number - 10月, 1月 - contains the day's digits when the day is a single digit, and the
+        // match found there would leave the glue as the month's own text.
+        val dayStart = if (dayDigits.isEmpty()) monthEnd else wholePattern.indexOf(dayDigits, monthEnd)
+        if (dayStart >= monthEnd) wholePattern.substring(monthEnd, dayStart) else " "
+    } else {
+        ""
+    }
 
     /**
      * The month as this language writes it inside a running date: "Sept." in German, "Oct." in
@@ -131,16 +157,15 @@ internal fun rangeTitleOf(first: LocalDate): String {
     // "10月31日", "31 Okt.", "Oct. 31".
     fun side(date: LocalDate): String {
         val d = dayAndSuffix(date)
-        return if (monthFirst) "${month(date)}$d" else "$d ${month(date)}"
+        return if (monthFirst) "${month(date)}$monthDayGlue$d" else "$d ${month(date)}"
     }
 
-    val last = first.plusDays(2)
     val range = if (first.monthValue == last.monthValue && first.year == last.year) {
         // "10月13日-15日", "14-16 Okt.", "Oct. 28-31": the month once, the first day in full, the
         // second with only the part that does not repeat.
         val m = month(first)
         if (monthFirst) {
-            "$m${dayAndSuffix(first)}-${dayAndSuffix(last)}"
+            "$m$monthDayGlue${dayAndSuffix(first)}-${dayAndSuffix(last)}"
         } else {
             "${dayAndSuffix(first)}-${dayAndSuffix(last)} $m"
         }
@@ -158,17 +183,20 @@ internal fun rangeTitleOf(first: LocalDate): String {
     // extraction below would then pick up twice.
     val yearDigits = formatted(first, "y").filter { it.isDigit() }
     val yearStart = fullYearDate.indexOf(yearDigits)
-    val yearEnd = if (yearStart >= 0) yearStart + yearDigits.length else -1
     val monthIndex = fullYearDate.indexOf(monthPattern)
 
-    return if (monthFirst) {
+    // Where the language puts the year, read from the positions of the pieces in a full date.
+    //
+    // It used to be decided by "does the month come before the day", which is a different question:
+    // English writes the month first *and* the year last, so the Chinese branch was taken and the
+    // heading read "2026年Sep.27-Oct.3" in English. Chinese and Japanese put the year before the
+    // month; German and English put it after the whole date.
+    val yearFirst = yearStart >= 0 && monthIndex >= 0 && yearStart < monthIndex
+
+    return if (yearFirst) {
         // Year first, with the language's own suffix after it: "2026年" + "10月13日-15日".
-        if (yearEnd >= 0 && monthIndex > yearEnd) {
-            fullYearDate.substring(0, monthIndex) + range
-        } else {
-            "$yearDigits\u5e74$range"
-        }
-    } else {
+        fullYearDate.substring(0, monthIndex) + range
+    } else if (yearStart >= 0) {
         // Year last, with the language's own glue before it: "13-15 Okt. 2026", "Oct 13-15, 2026".
         // The glue is the run of punctuation and spaces directly before the year in the full date.
         //
@@ -176,26 +204,24 @@ internal fun rangeTitleOf(first: LocalDate): String {
         // can be shorter than the month inside the date ("Sept."), and measuring from it left the
         // month's own tail - "t. " - behind as though it were glue, which is how the title came out
         // as "Sep.t. 2026". Walking backwards from the year stops exactly where the month ends.
-        if (yearStart >= 0) {
-            val beforeYear = fullYearDate.substring(0, yearStart)
-            var glue = ""
-            var k = beforeYear.length
-            while (k > 0) {
-                val ch = beforeYear[k - 1]
-                if (ch.isLetterOrDigit()) {
-                    break
-                }
-                glue = ch + glue
-                k--
+        val beforeYear = fullYearDate.substring(0, yearStart)
+        var glue = ""
+        var k = beforeYear.length
+        while (k > 0) {
+            val ch = beforeYear[k - 1]
+            if (ch.isLetterOrDigit()) {
+                break
             }
-            // A full stop picked up there is the month's own abbreviation stop - German writes
-            // "Okt." and the range's month already carries it; keeping it doubled the dot.
-            if (glue.startsWith(".") && month(first).endsWith(".")) {
-                glue = glue.substring(1)
-            }
-            range + glue + yearDigits
-        } else {
-            "$range $yearDigits"
+            glue = ch + glue
+            k--
         }
+        // A full stop picked up there is the month's own abbreviation stop - German writes
+        // "Okt." and the range's month already carries it; keeping it doubled the dot.
+        if (glue.startsWith(".") && month(first).endsWith(".")) {
+            glue = glue.substring(1)
+        }
+        range + glue + yearDigits
+    } else {
+        "$range $yearDigits"
     }
 }

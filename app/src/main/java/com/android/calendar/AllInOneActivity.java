@@ -320,6 +320,27 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         if (DEBUG)
             Log.d(TAG, "New intent received " + intent);
 
+        // Tapping the launcher icon while a copy of this activity is already running arrives here
+        // rather than through onCreate. The experimental UI still takes over: the app the user knows
+        // as "the calendar" is the Compose screen the settings name as the start view, and a launcher
+        // tap should land there whether the process was already up or not. The checks are the ones
+        // onCreate makes - see isLauncherIntent and experimentalLandingScreen.
+        if (isLauncherIntent(intent) && hasCalendarPermissions()
+                && com.android.calendar.composeui.ExperimentalCalendarUi.enabled(this)) {
+            Class<? extends android.app.Activity> landing = experimentalLandingScreen();
+            if (landing != null) {
+                startActivity(new Intent(this, landing)
+                        .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME,
+                                System.currentTimeMillis())
+                        // A screen that is already running is brought forward and moved to today
+                        // rather than duplicated, which is what onNewIntent of that screen is for.
+                        .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+                finish();
+                return;
+            }
+        }
+
         // The year view (and its drawer) asks for an explicit view type; the plain ACTION_VIEW
         // path below keeps the current view instead, so it has to be handled separately.
         int requestedView = Utils.viewTypeFromIntentValue(
@@ -377,6 +398,43 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
 
         // Create notification channels
         AlertService.createChannels(this);
+
+        // Taken before anything below can finish this activity early.
+        //
+        // onDestroy unregisters the provider observers whenever the calendar permission is granted,
+        // and an activity that finishes in onCreate is still destroyed - it just skips start, resume
+        // and pause. This used to be assigned further down, after the layout was inflated, so the
+        // redirect below - which leaves this method from before that point, and only runs when the
+        // permission *is* granted - handed onDestroy a null resolver. That was the crash on opening
+        // the experimental UI: a NullPointerException on the way out of the launcher activity, which
+        // is why the app closed even though the new screen had nothing wrong with it.
+        mContentResolver = getContentResolver();
+
+        // The experimental all-Compose calendar takes over the launcher entry.
+        //
+        // Only the launcher's own intent is redirected. VIEW, EDIT, INSERT and SEARCH intents carry
+        // work this activity has to do, and a screen started in their place would drop it. The
+        // redirect is also skipped while the calendar permissions are missing: the permission
+        // prompt's result is delivered to this activity, and one that finished immediately would not
+        // be there to receive it. In practice permissions are granted on the first launch, long
+        // before the switch is turned on, so this only ever affects an install that is being set up.
+        //
+        // Which screen is opened is the start view from the settings, not always the week: it used to
+        // be hard-wired to the week view, so choosing a start view had no effect at all while the
+        // switch was on. See experimentalLandingScreen().
+        if (icicle == null && isLauncherIntent(getIntent()) && hasCalendarPermissions()
+                && com.android.calendar.composeui.ExperimentalCalendarUi.enabled(this)) {
+            Class<? extends android.app.Activity> landing = experimentalLandingScreen();
+            if (landing != null) {
+                startActivity(new Intent(this, landing)
+                        .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME,
+                                System.currentTimeMillis())
+                        .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+                finish();
+                return;
+            }
+        }
 
         // Get time from intent or icicle
         long timeMillis = -1;
@@ -517,9 +575,6 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         SharedPreferences prefs = GeneralPreferences.Companion.getSharedPreferences(this);
         prefs.registerOnSharedPreferenceChangeListener(this);
 
-        mContentResolver = getContentResolver();
-
-
         getOnBackPressedDispatcher().addCallback(this, mBackCallback = new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -570,6 +625,40 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
                     || defaultStartView == com.android.calendar.CalendarController.ViewType.DAY;
         }
         mBackCallback.setEnabled(!wouldExit);
+    }
+
+    /**
+     * True for the intent the launcher sends: ACTION_MAIN, or the one with no action at all that
+     * some launchers and shortcuts send.
+     *
+     * A request that names a view type, carries a data uri or carries a start time is this app
+     * re-entering itself - the widget's "open the calendar at this day" is an intent with no action
+     * at all - and those have to be handled by this activity rather than replaced by the week view,
+     * which would drop the day they name.
+     */
+    private static boolean isLauncherIntent(Intent intent) {
+        if (intent == null) {
+            return false;
+        }
+        if (intent.getStringExtra(Utils.INTENT_KEY_VIEW_TYPE) != null) {
+            return false;
+        }
+        if (intent.getData() != null) {
+            return false;
+        }
+        if (intent.hasExtra(EXTRA_EVENT_BEGIN_TIME)) {
+            return false;
+        }
+        String action = intent.getAction();
+        return action == null || Intent.ACTION_MAIN.equals(action);
+    }
+
+    /** True when the calendar may be read and written; the redirect waits for this. */
+    private boolean hasCalendarPermissions() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR)
+                == PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_CALENDAR)
+                == PackageManager.PERMISSION_GRANTED;
     }
 
     private void checkAppPermissions() {
@@ -1573,11 +1662,15 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
     public boolean onNavigationItemSelected(MenuItem item) {
         final int itemId = item.getItemId();
         if (itemId == R.id.day_menu_item) {
-            if (mCurrentView != ViewType.DAY) {
+            if (experimentalCalendarUi()) {
+                openExperimentalView(com.android.calendar.composeui.ComposeDayActivity.class);
+            } else if (mCurrentView != ViewType.DAY) {
                 switchToView(ViewType.DAY);
             }
         } else if (itemId == R.id.week_menu_item) {
-            if (mCurrentView != ViewType.WEEK) {
+            if (experimentalCalendarUi()) {
+                openExperimentalView(com.android.calendar.composeui.ComposeWeekActivity.class);
+            } else if (mCurrentView != ViewType.WEEK) {
                 switchToView(ViewType.WEEK);
             }
         } else if (itemId == R.id.threeday_menu_item) {
@@ -1602,7 +1695,9 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
                             | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
             syncNavigationCheckedItem();
         } else if (itemId == R.id.month_menu_item) {
-            if (mCurrentView != ViewType.MONTH) {
+            if (experimentalCalendarUi()) {
+                openExperimentalView(com.android.calendar.composeui.ComposeMonthActivity.class);
+            } else if (mCurrentView != ViewType.MONTH) {
                 mController.sendEvent(this, EventType.GO_TO, null, null, -1, ViewType.MONTH);
             }
         } else if (itemId == R.id.agenda_menu_item) {
@@ -1652,6 +1747,64 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         }
         mDrawerLayout.closeDrawers();
         return true;
+    }
+
+    /** True when the day, week and month views should be the all-Compose screens. */
+    private boolean experimentalCalendarUi() {
+        return com.android.calendar.composeui.ExperimentalCalendarUi.enabled(this);
+    }
+
+    /**
+     * The all-Compose screen the launcher should open, or null when the view the user starts on has
+     * no Compose version and this activity has to keep it.
+     *
+     * The start view comes from the settings ("Default view"), resolved through
+     * Utils.getViewTypeFromIntentAndSharedPref - the same call this activity makes for its own
+     * view - so "Day", "Week", "Month" and "Agenda" each open the screen they name. The redirect
+     * used to start the week view unconditionally, which is why choosing a start view had no effect
+     * while the Experimental calendar UI switch was on.
+     *
+     * Agenda is in the list because it is already an all-Compose screen in this app, the one the
+     * drawer's agenda entry opens. A view type with no Compose screen is left to the classic
+     * activity: returning null here is what keeps EDIT and any other unmatched request working.
+     */
+    private Class<? extends android.app.Activity> experimentalLandingScreen() {
+        switch (Utils.getViewTypeFromIntentAndSharedPref(this)) {
+            case ViewType.DAY:
+                return com.android.calendar.composeui.ComposeDayActivity.class;
+            case ViewType.WEEK:
+                return com.android.calendar.composeui.ComposeWeekActivity.class;
+            case ViewType.MONTH:
+                return com.android.calendar.composeui.ComposeMonthActivity.class;
+            case ViewType.AGENDA:
+                return com.android.calendar.agenda.compose.ComposeAgendaActivity.class;
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Opens one of the all-Compose calendar views over this activity.
+     *
+     * This activity keeps the view it was showing underneath, the same way the three day, year and
+     * agenda entries already work: those screens are destinations of their own rather than a view
+     * type this activity can switch to. The check mark the drawer just moved onto the tapped entry
+     * is therefore put back, so the drawer goes on describing the view that is still underneath.
+     *
+     * The date this activity is on travels with the intent. A new screen otherwise starts on today,
+     * so a calendar paged away from today would open the Compose view back on today's month;
+     * currentViewDateMillis() is the same day the other screens are handed.
+     */
+    private void openExperimentalView(Class<? extends android.app.Activity> target) {
+        startActivity(new Intent(this, target)
+                .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, currentViewDateMillis())
+                // Back from that screen returns to this one, which is still underneath, rather than
+                // starting the month view afresh. A start plays the forward slide, so the return
+                // would go left a second time instead of back to the right.
+                .putExtra(com.android.calendar.composeui.ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+        syncNavigationCheckedItem();
     }
 
     /** Puts the navigation check mark back on the view this activity is actually showing. */

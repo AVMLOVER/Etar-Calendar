@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+To-do widget backdrop.
+
+A concrete surface colour, not a theme role: a widget's drawables are inflated by the launcher, and
+the app's theme attributes are not available there - `?attr/colorSurfaceContainer` resolved to
+nothing, which left the card transparent. The pair in values/values-night keeps it opaque and
+following the appearance, with the 24dp corner the countdown and month widgets use.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/widget_surface" />
+    <corners android:radius="24dp" />
+</shape>

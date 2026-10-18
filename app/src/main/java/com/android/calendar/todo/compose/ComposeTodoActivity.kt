@@ -26,8 +26,6 @@ class ComposeTodoActivity : M3eHostActivity() {
 
     override val checkedMenuItemId: Int = R.id.action_todo
     override val currentScreenName: String = "TODO"
-    override val exitOnBack: Boolean = true
-
     /** The heading is a date, so tapping it picks a date. */
     override val pickerChoosesDate: Boolean = true
 
@@ -56,6 +54,15 @@ class ComposeTodoActivity : M3eHostActivity() {
     private var hasTodo by mutableStateOf(false)
 
     /**
+     * True when the screen was opened straight into the editor.
+     *
+     * The to-do widget's header asks for this: a tap there means "work on today's to-do", which is
+     * adding one when the day has none and editing it when it has. Whether that is an add or an edit
+     * is decided from the day's own to-do, so the intent only has to ask for the editor.
+     */
+    private var openEditor by mutableStateOf(false)
+
+    /**
      * The edit action is offered only while the day on screen has something to edit; the screen
      * reports that as the user pages from day to day, and the menu is rebuilt when it changes.
      */
@@ -74,6 +81,7 @@ class ComposeTodoActivity : M3eHostActivity() {
         if (requested != Long.MIN_VALUE) {
             day = requested
         }
+        openEditor = intent.getBooleanExtra(EXTRA_OPEN_EDITOR, false)
 
         // Alarms do not survive a restart; opening this screen is one of the moments to put the
         // reminders that are still to come back on the clock.
@@ -86,6 +94,7 @@ class ComposeTodoActivity : M3eHostActivity() {
                 todayKey = todayKey,
                 pickedDayKey = pickedDayKey,
                 editRequestKey = editRequestKey,
+                openEditorOnStart = openEditor,
                 onDayChanged = { visible ->
                     day = visible.toEpochDay()
                     setDayHeading(visible)
@@ -151,6 +160,9 @@ class ComposeTodoActivity : M3eHostActivity() {
     companion object {
         /** The day the screen should open on, as an epoch day. */
         const val EXTRA_EPOCH_DAY = "m3e_todo_day"
+
+        /** Open straight into the editor for the day: adding when it has no to-do, editing when it has. */
+        const val EXTRA_OPEN_EDITOR = "m3e_todo_open_editor"
 
         fun intent(context: Context, date: LocalDate): Intent =
             Intent(context, ComposeTodoActivity::class.java)

@@ -263,6 +263,31 @@
             android:parentActivityName="com.android.calendar.AllInOneActivity"
             android:theme="@style/Theme.Etar" />
 
+        <!--
+          The experimental all-Compose calendar views: the day, week and month screens. They are
+          opened instead of the classic views only while the "Experimental calendar UI" setting is
+          on - the drawer of both the classic and the Compose calendar and the launcher redirect
+          read it - so they are declared like any other screen the app can navigate to.
+        -->
+        <activity
+            android:name="com.android.calendar.composeui.ComposeDayActivity"
+            android:exported="false"
+            android:label="@string/day_view"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+        <activity
+            android:name="com.android.calendar.composeui.ComposeWeekActivity"
+            android:exported="false"
+            android:label="@string/week_view"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+        <activity
+            android:name="com.android.calendar.composeui.ComposeMonthActivity"
+            android:exported="false"
+            android:label="@string/month_view"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+
         <!-- Material 3 Expressive date calculator. -->
         <activity
             android:name="com.android.calendar.datecalc.compose.ComposeDateCalculatorActivity"
@@ -511,6 +536,56 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider"
                 android:resource="@xml/countdown_widget_info_4x4" />
+        </receiver>
+
+        <!--
+          The to-do widget (2x3). Beyond its periodic refresh it also listens for the day rolling
+          over: the widget always shows today, so at midnight it has to rebuild both its header and
+          its list even though nothing about the to-do itself changed.
+        -->
+        <receiver android:name="com.android.calendar.widget.TodoWidgetProvider"
+            android:exported="true"
+            android:label="@string/m3e_todo_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/todo_widget_info" />
+        </receiver>
+
+        <!-- Supplies the widget's rows. Only the launcher may bind to it, which is what the
+             BIND_REMOTEVIEWS permission enforces. -->
+        <service
+            android:name="com.android.calendar.widget.TodoWidgetService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
+        <!--
+          The month widget (4x4). Beyond its periodic refresh it listens for the day rolling over and
+          for the calendar provider changing, so an event added in the app shows up on the home screen
+          without waiting for the next update.
+        -->
+        <receiver android:name="com.android.calendar.widget.MonthWidgetProvider"
+            android:exported="true"
+            android:label="@string/m3e_month_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PROVIDER_CHANGED" />
+                <data android:scheme="content" />
+                <data android:host="com.android.calendar" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/month_widget_info" />
         </receiver>
 
         <receiver android:name="com.android.calendar.widget.CalendarAppWidgetService$CalendarFactory"

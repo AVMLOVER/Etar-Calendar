@@ -256,4 +256,14 @@
     <string name="m3e_todo_note_hint">这一天的其他说明</string>
     <string name="m3e_todo_empty_yesterday">昨天没有待办</string>
     <string name="m3e_todo_empty_tomorrow">明天没有待办</string>
+    <!-- 待办小组件：主屏幕上的今日清单。 -->
+    <string name="m3e_todo_widget_name">待办</string>
+    <string name="m3e_todo_widget_empty">今日没有待办</string>
+    <string name="m3e_todo_widget_header">今日待办</string>
+    <string name="m3e_todo_widget_mark_done">标记为完成</string>
+    <string name="m3e_todo_widget_mark_not_done">标记为未完成</string>
+    <!-- 月视图小组件：主屏幕上的月历。 -->
+    <string name="m3e_month_widget_name">月视图</string>
+    <string name="m3e_month_widget_prev">上个月</string>
+    <string name="m3e_month_widget_next">下个月</string>
 </resources>

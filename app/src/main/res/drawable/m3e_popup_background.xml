@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Background of the three dot (overflow) menu: the rounded surface the rest of the Material 3
+  Expressive screens are drawn on.
+
+  The popup theme named a flat colour for android:popupBackground, and the platform draws that as a
+  plain rectangle - so the menu came out with square corners next to cards, dialogs and sheets that
+  are all rounded. The colour stays the same one the theme uses (values-night flips it with the
+  appearance); only the shape is added.
+
+  The inset is what keeps the menu's rows inside that shape: the popup window is still a rectangle,
+  and the background's padding becomes the content inset, so the first and last row stop before the
+  corner instead of painting over it.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetTop="6dp"
+    android:insetBottom="6dp">
+    <shape android:shape="rectangle">
+        <solid android:color="@color/m3e_popup_background" />
+        <corners android:radius="16dp" />
+    </shape>
+</inset>

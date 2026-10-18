@@ -50,9 +50,6 @@ class ComposeAboutActivity : M3eHostActivity() {
     override val checkedMenuItemId: Int = 0
     override val currentScreenName: String = "ABOUT"
 
-    /** Back returns to the calendar, as it does from the other drawer entries. */
-    override val exitOnBack: Boolean = true
-
     /** The heading is the screen's name, so there is no period for a picker to open. */
     override val titleOpensPicker: Boolean = false
 
@@ -164,8 +161,8 @@ private fun AboutContent() {
             ) {
                 // A Material text button reserves 16dp on each side. Three of those come to 96dp of a
                 // row that is only about 330dp wide, which is what left the German label -
-                // "Anderungsübersicht" is the longest of the three - with too little room even at the
-                // smaller size, so it was cut to "Anderungsüb". Eight a side gives the text back 48dp
+                // "Anderungs眉bersicht" is the longest of the three - with too little room even at the
+                // smaller size, so it was cut to "Anderungs眉b". Eight a side gives the text back 48dp
                 // without crowding the labels together.
                 val linkPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)
                 TextButton(

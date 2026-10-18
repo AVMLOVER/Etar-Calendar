@@ -16,9 +16,6 @@ class ComposeDateCalculatorActivity : M3eHostActivity() {
 
     override val checkedMenuItemId: Int = R.id.action_date_calculator
     override val currentScreenName: String = "DATE_CALCULATOR"
-    /** Back returns to the calendar, as it does from the other drawer entries. */
-    override val exitOnBack: Boolean = true
-
     /** The heading is the screen's name, not a period, so there is no picker for it to open. */
     override val titleOpensPicker: Boolean = false
 

@@ -39,10 +39,11 @@ object DayHeading {
     fun subtitle(context: Context, date: LocalDate): String {
         val zone = ZoneId.systemDefault()
         val millis = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val locale = Locale.getDefault()
         val weekdayPattern = android.text.format.DateFormat.getBestDateTimePattern(
-            Locale.getDefault(), "EEE",
+            locale, "EEE",
         )
-        val weekday = SimpleDateFormat(weekdayPattern, Locale.getDefault()).format(Date(millis))
+        val weekday = SimpleDateFormat(weekdayPattern, locale).format(Date(millis))
         val today = LocalDate.now(zone)
         var text = when (date) {
             today -> context.getString(R.string.agenda_today, weekday)
@@ -58,7 +59,12 @@ object DayHeading {
                 false, null,
             )
             if (!lunar.isNullOrEmpty()) {
-                text = text + "，" + lunar
+                // The joiner belongs to the language, like the rest of the line. Chinese separates the
+                // two with a full-width comma and no space, so it is written that way; every other
+                // language gets "Sun, 重阳节" - the full-width comma after a Latin weekday left a gap
+                // that read as a stray space at the end of the line.
+                val joiner = if (locale.language == Locale.CHINESE.language) "，" else ", "
+                text = text + joiner + lunar
             }
         }
         return text

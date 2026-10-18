@@ -448,4 +448,26 @@
     <color name="m3e_popup_text">#1C1B1F</color>
     <color name="m3e_popup_background">#F7F2FA</color>
 
+    <!--
+      The widgets' own colours.
+
+      A widget is inflated by the launcher, where the app's Material theme is not applied: a `?attr`
+      role resolves to nothing there (which is what left the to-do card transparent and its text
+      black on black), and resolving the roles at runtime only gives the app's static palette anyway.
+      So every colour a widget draws with is written out here, with a night counterpart in
+      values-night, exactly as the Material 3 roles would read in each appearance.
+    -->
+    <color name="widget_surface">#F3EDF7</color>
+    <color name="widget_surface_high">#ECE6F0</color>
+    <color name="widget_on_surface">#1C1B1F</color>
+    <color name="widget_on_surface_variant">#49454F</color>
+    <color name="widget_on_surface_dim">#611C1B1F</color>
+    <color name="widget_primary">#41C3B1</color>
+    <color name="widget_on_primary">#FFFFFF</color>
+    <color name="widget_primary_container">#C8F5EE</color>
+    <color name="widget_on_primary_container">#003731</color>
+
+    <color name="todo_widget_check_on">@color/widget_primary</color>
+    <color name="todo_widget_check_off">@color/widget_on_surface_variant</color>
+
 </resources>

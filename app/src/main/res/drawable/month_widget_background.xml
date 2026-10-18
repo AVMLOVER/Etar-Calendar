@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Month widget backdrop: a concrete surface colour with the same 24dp corner the other widgets use,
+so the calendar and the to-do tiles read as one set on the home screen. A theme role cannot be used
+here - the launcher inflates widgets without the app's theme, which is what left the to-do card
+transparent.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/widget_surface" />
+    <corners android:radius="24dp" />
+</shape>

@@ -18,6 +18,8 @@ import com.android.calendar.AllInOneActivity
 import com.android.calendar.LunarUtils
 import com.android.calendar.Utils
 import com.android.calendar.chrome.M3eHostActivity
+import com.android.calendar.composeui.ComposeMonthActivity
+import com.android.calendar.composeui.ExperimentalCalendarUi
 import com.android.calendar.settings.compose.SettingsRepository
 import com.android.calendar.settings.compose.YEAR_SCROLL_VERTICAL
 import com.android.calendar.settings.compose.yearScrollMode
@@ -134,12 +136,31 @@ class ComposeYearActivity : M3eHostActivity() {
         refreshKey++
     }
 
-    /** Opens the month view on the given month, reusing the running calendar activity. */
+    /** Opens the month view on the given month, reusing the running calendar screen. */
     private fun openMonth(year: Int, month: Int) {
         val millis = LocalDate.of(year, month, 1)
             .atStartOfDay(ZoneId.systemDefault())
             .toInstant()
             .toEpochMilli()
+
+        // With the experimental UI on, "the month view" is the all-Compose screen. Opening the
+        // classic one here left a month pick from this screen on the old View-based grid while every
+        // other way into the month view - the drawer, the start view - went to the new one.
+        if (ExperimentalCalendarUi.enabled(this)) {
+            startActivity(
+                Intent(this, ComposeMonthActivity::class.java)
+                    // The month that contains this day is the month opened, the same extra the
+                    // classic intent below carries.
+                    .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, millis)
+                    .addFlags(
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    )
+            )
+            // This screen is left underneath rather than finished: back from the month view then
+            // comes back here, which is the way the user arrived, and the return plays the reverse
+            // of the way in instead of stepping on to whatever was behind this screen.
+            return
+        }
 
         startActivity(
             Intent(this, AllInOneActivity::class.java).apply {

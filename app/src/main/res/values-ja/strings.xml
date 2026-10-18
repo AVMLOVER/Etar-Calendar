@@ -354,4 +354,29 @@
     <string name="chips_action_copy" msgid="6984158516334578792">"コピー"</string>
     <string name="chips_action_cancel" msgid="2582257014578396781">"キャンセル"</string>
     <string name="chips_permission_text" msgid="5601284803674008863">連絡先の提案を許可する</string>
+    <!-- Germanium Mod additions that the AOSP translation does not carry. -->
+    <string name="standalone_app_label">Etar-Mod</string>
+    <string name="threeday_view">3日</string>
+    <string name="email_subject_prefix">Re: </string>
+    <string name="preferences_color_teal">ティール</string>
+    <string name="preferences_color_blue">青</string>
+    <string name="preferences_color_orange">オレンジ</string>
+    <string name="preferences_color_green">緑</string>
+    <string name="preferences_color_red">赤</string>
+    <string name="preferences_color_purple">紫</string>
+    <string name="preferences_view_switch_buttons">ツールバーの表示ボタン</string>
+    <string name="preferences_view_switch_buttons_summary">日・週・月の表示をワンタップで切り替えます（タイトルの月名は短縮されます）</string>
+    <string name="week_start_locale_default">地域の既定</string>
+    <string name="preferences_show_lunar_title">旧暦を表示</string>
+    <string name="preferences_show_lunar_summary">月表示と週表示で、各日の下に中国の旧暦と伝統的な祭日を表示します</string>
+    <string name="preferences_staggered_display_title">ずらして表示</string>
+    <string name="preferences_staggered_display_summary">重なっている予定をずらして表示します</string>
+    <string name="app_authors">The Etar Project — Germanium Mod 提供</string>
+    <string name="cal_export_success">予定を書き出しました</string>
+    <string name="cal_export_error">予定を書き出せませんでした</string>
+    <string name="color_picker_default_title">色を選択</string>
+    <string name="color_swatch_description">色 <xliff:g id="color_index" example="14">%1$d</xliff:g></string>
+    <string name="color_swatch_description_selected">色 <xliff:g id="color_index" example="14">%1$d</xliff:g> を選択中</string>
+    <string name="cal_import_no_calendar">読み込み先の書き込み可能なカレンダーがありません。先に設定でアカウントを追加してください。</string>
+    <string name="cal_import_result">%1$d 件の予定を読み込みました。%2$d 件は既に存在します。%3$d 件は読み込めませんでした。</string>
 </resources>

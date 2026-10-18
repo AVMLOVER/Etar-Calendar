@@ -276,6 +276,9 @@ object TodoStore {
             .apply()
 
         TodoReminder.schedule(context, todo)
+        // The home screen widget shows the same checklist, and this is the one place every change to
+        // a to-do goes through - the screen, the widget's own boxes, a delete that empties the day.
+        com.android.calendar.widget.TodoWidgetUpdater.updateAll(context)
         return true
     }
 
@@ -299,6 +302,7 @@ object TodoStore {
             .remove(key(date) + "_" + KEY_MINUTE)
             .apply()
         TodoReminder.cancel(context, date)
+        com.android.calendar.widget.TodoWidgetUpdater.updateAll(context)
         return ok
     }
 

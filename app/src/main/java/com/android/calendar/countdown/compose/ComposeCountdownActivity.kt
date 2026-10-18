@@ -16,9 +16,6 @@ class ComposeCountdownActivity : M3eHostActivity() {
 
     override val checkedMenuItemId: Int = R.id.action_countdown
     override val currentScreenName: String = "COUNTDOWN"
-    /** Back returns to the calendar, as it does from the other drawer entries. */
-    override val exitOnBack: Boolean = true
-
     /** The heading is the screen name, not a period, so it does not open the month picker. */
     override val titleOpensPicker: Boolean = false
 

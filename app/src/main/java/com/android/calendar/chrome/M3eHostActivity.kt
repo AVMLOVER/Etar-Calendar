@@ -30,6 +30,7 @@ import androidx.drawerlayout.widget.DrawerLayout
 import com.android.calendar.AllInOneActivity
 import com.android.calendar.Utils
 import com.android.calendar.chrome.compose.M3eMonthPickerDialog
+import com.android.calendar.composeui.ComposeCalendarViewActivity
 import com.android.calendar.settings.compose.EtarM3ETheme
 import com.android.calendar.settings.compose.SettingsRepository
 import com.android.calendar.theme.applyTheme
@@ -52,11 +53,24 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     protected open val checkedMenuItemId: Int = 0
 
     /**
-     * True for the screens that are destinations in their own right (the year view, the agenda):
-     * back leaves the app. False for the ones you dip into and come back from, like the date
-     * calculator.
+     * Whether back steps on to the month view, or hands the screen back to the one underneath.
+     *
+     * Every screen the drawer opens is opened *over* the calendar, which stays underneath - and the
+     * intent says so with [ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER]. Back on such a screen
+     * is a plain finish, so it plays the reverse of the way in: the screen leaves to the right and the
+     * one it covered comes back from the left. Stepping to the month view instead *starts* a screen,
+     * and a start is an open transition, so the return slid left a second time.
+     *
+     * A screen with nothing underneath keeps the calendar's own back, which goes on to the month view.
      */
-    protected open val exitOnBack: Boolean = true
+    protected open val exitOnBack: Boolean
+        get() = !intent.getBooleanExtra(
+            ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER,
+            false,
+        )
+
+    /** The back callback installed in onCreate; kept so a new intent can update whether it is on. */
+    private var backCallback: OnBackPressedCallback? = null
 
 
     /**
@@ -152,6 +166,40 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         // the next screen simply laid over this one - plays instead.
         declareForwardSlide()
         declareReturnSlide()
+        // The drawer's current-screen mark, put back on this screen every time it comes forward.
+        //
+        // It used to be set once, in onCreate, and nothing touched it again. A screen that was
+        // revealed rather than created - the week view uncovered when the three day view opened over
+        // it finished, for instance - came back with its own drawer unchanged, which is the right
+        // item for it; but a screen whose drawer had been opened and had its item moved while it was
+        // covered came back naming the other screen. Re-applying it on every resume makes the
+        // drawer always describe the screen that is actually on top, whichever way it arrived.
+        applyDrawerCheckedItem()
+    }
+
+    /**
+     * Marks [checkedMenuItemId] as the current screen in the drawer, and clears every other view
+     * entry.
+     *
+     * Set on the menu items themselves rather than through NavigationView.setCheckedItem. The
+     * checked-item call keeps its own idea of which item is current, and after the clear below it
+     * decided there was nothing to do: every calendar screen came back with no entry marked at all,
+     * which is worse than the stale mark it was meant to fix. Setting the item is also what the
+     * classic calendar's own drawer handler does, for the same reason.
+     *
+     * The menu XML ships day_menu_item checked, so the whole group is cleared first. A screen that is
+     * not a calendar view passes 0 and is left with nothing selected.
+     */
+    private fun applyDrawerCheckedItem() {
+        if (!this::navigationView.isInitialized) {
+            return
+        }
+        CALENDAR_VIEW_ITEMS.forEach { id ->
+            navigationView.menu.findItem(id)?.isChecked = false
+        }
+        if (checkedMenuItemId != 0) {
+            navigationView.menu.findItem(checkedMenuItemId)?.isChecked = true
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -187,22 +235,7 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         drawerLayout = findViewById(R.id.drawer_layout)
         navigationView = findViewById(R.id.navigation_view)
         navigationView.setNavigationItemSelectedListener(this)
-                // day_menu_item ships checked in the menu XML, so clear the whole view group first: for a
-        // calendar view setCheckedItem then re-checks just that one, and for anything else nothing
-        // stays selected. Without this the drawer claimed the user was on the day view.
-        CALENDAR_VIEW_ITEMS.forEach { id ->
-            navigationView.menu.findItem(id)?.isChecked = false
-        }
-        if (checkedMenuItemId != 0) {
-            navigationView.setCheckedItem(checkedMenuItemId)
-        } else {
-            // Not a calendar view (the date calculator): no view entry should look selected. The
-            // menu XML ships with day_menu_item checked, so it has to be cleared explicitly -
-            // otherwise the drawer claims the user is on the day view.
-            CALENDAR_VIEW_ITEMS.forEach { id ->
-                navigationView.menu.findItem(id)?.isChecked = false
-            }
-        }
+        applyDrawerCheckedItem()
 
         val toggle = ActionBarDrawerToggle(
             this, drawerLayout, toolbar, R.string.app_label, R.string.app_label
@@ -231,11 +264,11 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             }
         }
 
-        // Back returns to the month view for the screens that are destinations of their own
-        // (the year view and the agenda); the month view's own back then leaves the app. The date
-        // calculator keeps the platform's default back, which is what carries the predictive
-        // animation, so it goes back to the screen it was opened from.
-        val backCallback = object : OnBackPressedCallback(exitOnBack) {
+        // Back is the platform's own for a screen that was opened over another one: it finishes, and
+        // a finish plays the reverse of the way in. A screen with nothing underneath keeps the
+        // calendar's back, which steps on to the month view. The one exception in the callback below
+        // is the drawer: while it is open, back closes it.
+        val callback = object : OnBackPressedCallback(exitOnBack || drawerLayout.isDrawerOpen(GravityCompat.START)) {
             override fun handleOnBackPressed() {
                 if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
                     drawerLayout.closeDrawers()
@@ -244,16 +277,33 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
                 }
             }
         }
-        onBackPressedDispatcher.addCallback(this, backCallback)
+        backCallback = callback
+        onBackPressedDispatcher.addCallback(this, callback)
         drawerLayout.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
             override fun onDrawerOpened(drawerView: View) {
-                backCallback.isEnabled = true
+                callback.isEnabled = true
             }
 
             override fun onDrawerClosed(drawerView: View) {
-                backCallback.isEnabled = exitOnBack
+                callback.isEnabled = exitOnBack
             }
         })
+    }
+
+    /**
+     * Keeps the intent current when a running instance is reused.
+     *
+     * The drawer brings a screen forward with REORDER_TO_FRONT instead of starting a second copy, so
+     * the intent that arrives is the one that says what was asked for - including whether back should
+     * reveal the screen underneath. Without this the first intent would go on being reported, and a
+     * screen first opened without that would keep stepping to the month view when it later had a
+     * screen to return to.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // The intent decides what back does, so the callback follows it.
+        backCallback?.isEnabled = exitOnBack || drawerLayout.isDrawerOpen(GravityCompat.START)
     }
 
     /** Installs the Compose UI into the host's content slot. */
@@ -454,6 +504,21 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             .atStartOfDay(java.time.ZoneId.systemDefault())
             .toInstant()
             .toEpochMilli()
+
+        // With the experimental UI on, "the month view" is the all-Compose screen. Sending the picker
+        // result to the classic activity put the old View-based grid back on screen from every heading
+        // in the app, which is not what the switch promises.
+        if (com.android.calendar.composeui.ExperimentalCalendarUi.enabled(this)) {
+            startActivity(
+                Intent(this, com.android.calendar.composeui.ComposeMonthActivity::class.java)
+                    .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, millis)
+                    .addFlags(
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    )
+            )
+            return
+        }
+
         startActivity(
             Intent(this, AllInOneActivity::class.java).apply {
                 action = Intent.ACTION_VIEW
@@ -672,13 +737,32 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
                 com.android.calendar.about.compose.ComposeAboutActivity::class.java
         }
         val agendaDate = if (screen == ComposeScreen.AGENDA) agendaDateMillis() else null
-        val launch = if (screen == ComposeScreen.TODO) {
+        val launch = when (screen) {
             // The to-do screen opens on the day this screen is showing rather than on today, so a
             // week or three day view paged to another part of the calendar hands its day over -
             // and today when today is part of what is on screen.
-            com.android.calendar.todo.compose.ComposeTodoActivity.intent(this, anchorDayOnScreen())
-        } else {
-            Intent(this, target)
+            ComposeScreen.TODO ->
+                com.android.calendar.todo.compose.ComposeTodoActivity.intent(this, anchorDayOnScreen())
+            // The three day view is one of the calendar views, so it opens where this screen is
+            // looking rather than on today. The day handed over is the same one the calendar's own
+            // views pass on: today while today is part of what is on screen, and the first day shown
+            // otherwise - so a week containing today opens the three day block holding today, and any
+            // other week opens the block that starts on the week's first day. Screens with no day of
+            // their own fall back to today inside the screen itself.
+            ComposeScreen.THREE_DAY ->
+                Intent(this, target)
+                    .putExtra(
+                        CalendarContract.EXTRA_EVENT_BEGIN_TIME,
+                        anchorDayOnScreenMillis(),
+                    )
+                    // This screen stays underneath rather than being finished, so back from the
+                    // three day view must reveal it instead of stepping on to the month view.
+                    .putExtra(
+                        com.android.calendar.composeui.ComposeCalendarViewActivity
+                            .EXTRA_RETURN_TO_OPENER,
+                        true,
+                    )
+            else -> Intent(this, target)
         }
         startActivity(launch.apply {
             // The agenda opens around the day this screen is on, when it has one, so coming from
@@ -686,6 +770,11 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             if (agendaDate != null) {
                 putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, agendaDate)
             }
+            // This screen stays underneath rather than being finished, so back from the screen being
+            // opened reveals it instead of stepping on to the month view. A step to the month starts
+            // a screen, and a start plays the forward slide - which is why the return came out as a
+            // second slide to the left instead of the reverse of the way in.
+            putExtra(ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true)
             // Every screen switch stays in the task this one is in, including the year view and
             // the agenda.
             //
@@ -700,17 +789,6 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             // starting a second copy of it.
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         })
-        if (screen == ComposeScreen.YEAR || screen == ComposeScreen.AGENDA ||
-            screen == ComposeScreen.DATE_CALCULATOR || screen == ComposeScreen.COUNTDOWN ||
-            screen == ComposeScreen.TODO
-        ) {
-            // This screen is being replaced by the one that was just started, so it declares the
-            // movement: the new screen comes in from the right and this one leaves to the left,
-            // which is the same slide every other switch in the app plays. Declared before
-            // finish() because it is the finishing screen's close transition that decides the pair.
-            leaveForward()
-            finish()
-        }
         return true
     }
 
@@ -740,6 +818,12 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         val last = first.plusDays((visibleDaySpan - 1).coerceAtLeast(0).toLong())
         return if (!today.isBefore(first) && !today.isAfter(last)) today else first
     }
+
+    /** [anchorDayOnScreen] as epoch millis, which is how a day travels in an intent. */
+    private fun anchorDayOnScreenMillis(): Long = anchorDayOnScreen()
+        .atStartOfDay(java.time.ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
 
     /**
      * The date the calendar views should open on when this screen sends the user to one of them,
@@ -771,6 +855,23 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
      * the week view the opposite way from its step to the day view.
      */
     private fun openCalendarView(viewTypeValue: String): Boolean {
+        // With the experimental UI switched on, the day, week and month views are the all-Compose
+        // screens of their own. The drawer, the back gesture and the default today action all come
+        // through here, so routing the request once covers all three.
+        if (com.android.calendar.composeui.ExperimentalCalendarUi.enabled(this)) {
+            val experimentalTarget = when (viewTypeValue) {
+                Utils.INTENT_VALUE_VIEW_TYPE_DAY ->
+                    com.android.calendar.composeui.ComposeDayActivity::class.java
+                Utils.INTENT_VALUE_VIEW_TYPE_WEEK ->
+                    com.android.calendar.composeui.ComposeWeekActivity::class.java
+                Utils.INTENT_VALUE_VIEW_TYPE_MONTH ->
+                    com.android.calendar.composeui.ComposeMonthActivity::class.java
+                else -> null
+            }
+            if (experimentalTarget != null) {
+                return openComposeCalendarView(experimentalTarget, viewTypeValue)
+            }
+        }
         val leavesTheSequence = isFirstOfSequence(viewTypeValue)
         val dateMillis = calendarViewDateMillis()
         startActivity(
@@ -815,6 +916,82 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         finish()
         return true
     }
+
+    /**
+     * Opens one of the all-Compose calendar views over this screen.
+     *
+     * The movement follows the direction of travel: a step to the day, three day or week view moves
+     * leftwards, and the way back moves rightwards - out of the screen that is closing, back onto the
+     * one that opened it.
+     *
+     * What makes the return go the right way is that this screen is *not* finished. It stays
+     * underneath, and the screen opened over it hands back with [EXTRA_RETURN_TO_OPENER] so that its
+     * back is a plain finish. A finish is a close transition, and the platform plays the reverse of
+     * the way in - the closing screen leaves to the right and this one returns from the left.
+     *
+     * It used to finish this screen and let the screen above step back to a freshly started month
+     * view. A start is an *open* transition, so both halves of the return moved left: the day or week
+     * view left to the left, and the new month arrived from the right. That is the second leftward
+     * slide the animation showed.
+     *
+     * SINGLE_TOP and REORDER_TO_FRONT bring an instance that is already running forward instead of
+     * stacking a second copy of it; the day is passed on so that instance can move to it rather than
+     * staying on whatever it was showing.
+     */
+    private fun openComposeCalendarView(
+        target: Class<out android.app.Activity>,
+        viewTypeValue: String,
+    ): Boolean {
+        // Selecting the view that is already on screen just closes the drawer.
+        if (target.isInstance(this)) {
+            return true
+        }
+
+        // Back out to the month view from a screen that was opened over one: the month is still
+        // underneath, so this is a finish, not a step. Starting another month here would stack a
+        // second one and play an open transition, which is the movement that went the wrong way.
+        if (viewTypeValue == Utils.INTENT_VALUE_VIEW_TYPE_MONTH) {
+            if (hasOpener()) {
+                declareReturnSlide()
+                finish()
+                return true
+            }
+            // Nothing underneath, so this screen is replaced by the month instead of being revealed
+            // by it - the way in again, declared on the screen that is finishing.
+            startActivity(
+                Intent(this, target).apply {
+                    putExtra(
+                        CalendarContract.EXTRA_EVENT_BEGIN_TIME,
+                        calendarViewDateMillis() ?: System.currentTimeMillis(),
+                    )
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    )
+                }
+            )
+            leaveForward()
+            finish()
+            return true
+        }
+
+        startActivity(
+            Intent(this, target).apply {
+                putExtra(
+                    CalendarContract.EXTRA_EVENT_BEGIN_TIME,
+                    calendarViewDateMillis() ?: System.currentTimeMillis(),
+                )
+                // The screen underneath stays, so the one being opened returns to it by finishing,
+                // which the platform plays as the reverse of this entry.
+                putExtra(ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true)
+                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            }
+        )
+        return true
+    }
+
+    /** True when this screen was opened over another one, which back should reveal. */
+    private fun hasOpener(): Boolean =
+        intent?.getBooleanExtra(ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, false) == true
 
     /** True for a view that is not part of the day / three day / week sequence. */
     private fun isFirstOfSequence(viewTypeValue: String): Boolean =
@@ -872,6 +1049,9 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
                     com.android.calendar.datecalc.compose.ComposeDateCalculatorActivity::class.java
             }
             from.startActivity(Intent(from, target).apply {
+                // The screen being opened returns to whatever launched it by finishing, so the slide
+                // back is the reverse of the way in rather than a second slide to the left.
+                putExtra(ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true)
                 // Destinations of their own become a task root, so the platform's back - the one
                 // that carries the predictive animation - leaves the app.
                 if (screen == "YEAR" || screen == "AGENDA") {

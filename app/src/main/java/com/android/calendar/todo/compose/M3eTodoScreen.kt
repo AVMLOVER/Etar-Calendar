@@ -74,6 +74,11 @@ fun M3eTodoScreen(
     todayKey: Int,
     pickedDayKey: Long,
     editRequestKey: Int,
+    /**
+     * Open the editor as soon as the day has been read: the to-do widget's header asks for this, and
+     * the day's own to-do decides whether that is an edit or a new one.
+     */
+    openEditorOnStart: Boolean = false,
     onDayChanged: (LocalDate) -> Unit,
     onHasTodoChanged: (Boolean) -> Unit,
 ) {
@@ -125,6 +130,17 @@ fun M3eTodoScreen(
     LaunchedEffect(editRequestKey) {
         if (editRequestKey == 0) return@LaunchedEffect
         visibleTodo?.let { editing = it }
+    }
+
+    // The same editor, asked for before the screen even appeared: the widget's header opens the
+    // screen in this mode. Once only - cancelling the editor must not bring it straight back - and
+    // only after the day has been read, because whether this is an add or an edit is the day's own
+    // to-do's answer. A day with nothing on it gets a new, empty one.
+    var startEditorOpened by remember { mutableStateOf(false) }
+    LaunchedEffect(visibleLoaded, openEditorOnStart) {
+        if (!openEditorOnStart || startEditorOpened || !visibleLoaded) return@LaunchedEffect
+        startEditorOpened = true
+        editing = visibleTodo ?: Todo(date = visibleDay, name = "")
     }
 
     // A day chosen from the heading's picker: the page that day falls on, measured from the day the
@@ -199,7 +215,6 @@ fun M3eTodoScreen(
             if (visibleTodo == null) {
                 FloatingActionButton(
                     onClick = { editing = Todo(date = visibleDay, name = "") },
-                    shape = RoundedCornerShape(20.dp),
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier

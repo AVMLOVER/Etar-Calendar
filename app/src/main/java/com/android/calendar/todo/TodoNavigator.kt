@@ -11,6 +11,7 @@
 package com.android.calendar.todo
 
 import android.content.Context
+import com.android.calendar.composeui.ComposeCalendarViewActivity
 import com.android.calendar.todo.compose.ComposeTodoActivity
 
 /**
@@ -20,6 +21,13 @@ import com.android.calendar.todo.compose.ComposeTodoActivity
  */
 fun openTodoForEvent(context: Context, eventId: Long): Boolean {
     val date = TodoStore.todoDateForEvent(context, eventId) ?: return false
-    context.startActivity(ComposeTodoActivity.intent(context, date))
+    context.startActivity(
+        ComposeTodoActivity.intent(context, date)
+            // Opened from the screen that showed the to-do, so back returns to that screen -
+            // finishing here and letting the platform reveal it, the reverse of the way in. Without
+            // this, back stepped to a freshly started month view, which plays the forward slide, so
+            // the return went left a second time.
+            .putExtra(ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true)
+    )
     return true
 }

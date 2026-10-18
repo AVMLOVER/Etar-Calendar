@@ -13,4 +13,18 @@
     <color name="m3e_popup_text">#E6E1E5</color>
     <color name="m3e_popup_background">#211F26</color>
 
+    <!--
+      The widgets' colours in the dark appearance: the same roles as values/colors.xml, written for a
+      dark launcher - light text on a dark card instead of the dark-on-dark the theme lookup gave.
+    -->
+    <color name="widget_surface">#1D1B20</color>
+    <color name="widget_surface_high">#2B2930</color>
+    <color name="widget_on_surface">#E6E1E5</color>
+    <color name="widget_on_surface_variant">#CAC4D0</color>
+    <color name="widget_on_surface_dim">#61E6E1E5</color>
+    <color name="widget_primary">#7FD9CC</color>
+    <color name="widget_on_primary">#003731</color>
+    <color name="widget_primary_container">#00504A</color>
+    <color name="widget_on_primary_container">#C8F5EE</color>
+
 </resources>

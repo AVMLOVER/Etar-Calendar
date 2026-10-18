@@ -72,6 +72,24 @@
     <style name="actionbar_cursor" parent="Widget.AppCompat.AutoCompleteTextView">
         <item name="android:textCursorDrawable">@drawable/actionbar_cursor</item>
     </style>
+
+    <!--
+      A weekday name in the month widget's header.
+
+      Seven equal columns, centred, in the narrow form: a 4x4 widget gives each column about thirty
+      dp, which fits one letter and not the two or three a short name needs. The colour is a widget
+      colour resource rather than a theme role, because the launcher inflates widgets without the
+      app's theme.
+    -->
+    <style name="Widget.Etar.MonthWidget.Weekday" parent="">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:textColor">@color/widget_on_surface_variant</item>
+    </style>
     <!-- END Application theme -->
 
     <style name="MinusButton">

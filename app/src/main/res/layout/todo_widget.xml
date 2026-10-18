@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  To-do widget, 2x3: today's date and weekday at the top, then the day's checklist or the line that
+  says there is nothing on it.
+
+  The list is a ListView because a to-do list has no fixed number of lines: a RemoteViews cannot add
+  an unbounded number of rows to a LinearLayout, and a list that silently stopped after the third
+  line would be worse than one that scrolls.
+
+  The empty line sits in the same frame as the list and is shown instead of it when the day has
+  nothing on it - a widget's own data decides that, not an AdapterView empty view.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/todo_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/todo_widget_background"
+    android:clipToOutline="true"
+    android:padding="12dp">
+
+    <!-- The date and the weekday, and the way into the screen: the editor for today's to-do when
+         there is one, and the editor for a new one when there is not. -->
+    <LinearLayout
+        android:id="@+id/todo_widget_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="6dp">
+
+        <TextView
+            android:id="@+id/todo_widget_date"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="@color/widget_on_surface"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/todo_widget_weekday"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="@color/widget_on_surface_variant"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ListView
+            android:id="@+id/todo_widget_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@null"
+            android:dividerHeight="0dp"
+            android:scrollbars="vertical" />
+
+        <TextView
+            android:id="@+id/todo_widget_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:text="@string/m3e_todo_widget_empty"
+            android:textColor="@color/widget_on_surface_variant"
+            android:textSize="12sp"
+            android:visibility="gone" />
+    </FrameLayout>
+</LinearLayout>

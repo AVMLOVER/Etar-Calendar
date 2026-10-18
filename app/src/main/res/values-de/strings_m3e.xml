@@ -244,4 +244,15 @@
     <string name="m3e_todo_note_hint">Sonstiges zu diesem Tag</string>
     <string name="m3e_todo_empty_yesterday">Gestern nichts zu tun</string>
     <string name="m3e_todo_empty_tomorrow">Morgen nichts zu tun</string>
+
+    <!-- Das Aufgaben-Widget: die heutige Liste auf dem Startbildschirm. -->
+    <string name="m3e_todo_widget_name">Aufgaben</string>
+    <string name="m3e_todo_widget_empty">Heute nichts zu tun</string>
+    <string name="m3e_todo_widget_header">Heutige Aufgaben</string>
+    <string name="m3e_todo_widget_mark_done">Als erledigt markieren</string>
+    <string name="m3e_todo_widget_mark_not_done">Als offen markieren</string>
+    <!-- Das Monats-Widget: ein Monatsraster auf dem Startbildschirm. -->
+    <string name="m3e_month_widget_name">Monat</string>
+    <string name="m3e_month_widget_prev">Voriger Monat</string>
+    <string name="m3e_month_widget_next">Nächster Monat</string>
 </resources>

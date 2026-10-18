@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- To-do widget: 2 columns by 3 rows, on the launcher's 70dp cell grid. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dip"
+    android:minHeight="180dip"
+    android:minResizeWidth="110dip"
+    android:minResizeHeight="110dip"
+    android:targetCellWidth="2"
+    android:targetCellHeight="3"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/todo_widget"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/m3e_todo_widget_name" />

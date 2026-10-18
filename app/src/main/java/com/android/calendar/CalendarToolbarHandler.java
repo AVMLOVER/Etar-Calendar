@@ -268,7 +268,13 @@ public class CalendarToolbarHandler {
             String lunar = LunarUtils.get(mContext, t.getYear(), t.getMonth(), t.getDay(),
                     lunarFormat, false, null);
             if (!TextUtils.isEmpty(lunar)) {
-                dayOfWeek = dayOfWeek + "，" + lunar;
+                // The joiner belongs to the language, like the rest of the line: Chinese separates the
+                // pieces with a full-width comma and no space, while the other languages read
+                // "Sun, 重阳节" - the full-width comma after a Latin weekday left a gap that looked
+                // like a stray space at the end of the heading.
+                String joiner = "zh".equals(java.util.Locale.getDefault().getLanguage())
+                        ? "\uFF0C" : ", ";
+                dayOfWeek = dayOfWeek + joiner + lunar;
             }
         }
         return dayOfWeek;

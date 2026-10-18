@@ -20,6 +20,7 @@ import com.android.calendar.CalendarEventModel
 import com.android.calendar.Utils
 import com.android.calendar.event.EditEventHelper
 import com.android.calendar.persistence.CalendarRepository
+import com.android.calendar.todo.TodoStore
 
 data class CalendarOption(
     val id: Long,
@@ -668,7 +669,13 @@ class EventEditorRepository(private val context: Context) {
     }
 
     /**
-     * The calendars this app may write to.
+     * The calendars this app may write to, without the to-do list's own calendar.
+     *
+     * To-dos are all-day events in a local calendar of their own (see TodoStore), which is what puts
+     * them in every view's all-day strip. That calendar is not a place to write a normal event into:
+     * it holds one entry per day, its events are read as a checklist, and picking it here produced an
+     * event the to-do screen would list as a to-do. The account is the way to recognise it - the
+     * display name is localised and the user may rename nothing, but the account name is fixed.
      *
      * Exposed so the editor can tell "there is no calendar" apart from "this event would
      * not load": the first has an answer the user can act on, the second does not.
@@ -686,6 +693,8 @@ class EventEditorRepository(private val context: Context) {
             while (c.moveToNext()) {
                 // Only calendars this app is allowed to write to.
                 if (c.getInt(3) < CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR) continue
+                // The to-do calendar is written only by TodoStore, never by the event editor.
+                if (c.getString(5) == TodoStore.ACCOUNT_NAME) continue
                 out.add(
                     CalendarOption(
                         id = c.getLong(0),

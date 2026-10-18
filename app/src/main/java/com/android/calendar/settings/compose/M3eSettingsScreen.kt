@@ -85,6 +85,7 @@ import ws.xsoh.etar.R
 private const val KEY_THEME = "pref_theme"
 private const val KEY_REAL_EVENT_COLORS = "pref_real_event_colors"
 private const val KEY_SHOW_LUNAR = "pref_show_lunar"
+
 private const val KEY_SHOW_WEEK_NUM = "preferences_show_week_num"
 private const val KEY_HIDE_DECLINED = "preferences_hide_declined"
 private const val KEY_STAGGERED = "preferences_staggered_display"

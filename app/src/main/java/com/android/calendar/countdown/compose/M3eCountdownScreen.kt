@@ -158,6 +158,18 @@ fun M3eCountdownScreen() {
      */
     var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+
+    // The field cannot outlive the list it filters.
+    //
+    // Deleting the last countdown while the filter was open left the field over an empty screen, and
+    // the search button that could close it is hidden when there is nothing to search - so the only
+    // way back was the cross inside the field. Closing it here keeps the two consistent.
+    LaunchedEffect(items.isEmpty()) {
+        if (items.isEmpty()) {
+            searchOpen = false
+            searchQuery = ""
+        }
+    }
     val visibleItems = remember(items, searchQuery, zone) {
         val term = searchQuery.trim()
         if (term.isEmpty()) {
@@ -288,37 +300,40 @@ fun M3eCountdownScreen() {
             // The search toggle: a plain icon button above the add button, so the field can be
             // brought up without leaving the screen. Outside the Column, so it floats like the add
             // button rather than sitting in the list's flow.
-            FilledTonalIconButton(
-                onClick = {
-                    if (searchOpen) {
-                        searchQuery = ""
-                        searchOpen = false
-                    } else {
-                        searchOpen = true
-                    }
-                },
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(
-                        end = 16.dp,
-                        bottom = 88.dp + WindowInsets.navigationBars.asPaddingValues()
-                            .calculateBottomPadding(),
-                    ),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_menu_search),
-                    contentDescription = stringResource(R.string.search),
-                )
+            //
+            // Only while there is something to search. With no countdowns at all the button opened a
+            // field over an empty screen, and the add button below it is the only thing that can help
+            // - which is the rule the to-do screen already follows.
+            if (items.isNotEmpty()) {
+                FilledTonalIconButton(
+                    onClick = {
+                        if (searchOpen) {
+                            searchQuery = ""
+                            searchOpen = false
+                        } else {
+                            searchOpen = true
+                        }
+                    },
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(
+                            end = 16.dp,
+                            bottom = 88.dp + WindowInsets.navigationBars.asPaddingValues()
+                                .calculateBottomPadding(),
+                        ),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_menu_search),
+                        contentDescription = stringResource(R.string.search),
+                    )
+                }
             }
 
             // The add button, deliberately not a Scaffold's floatingActionButton so that no Scaffold
             // has to exist for it.
             FloatingActionButton(
                 onClick = { adding = true },
-                // A squarer corner than a circle, which is what the rest of this app's primary
-                // actions use.
-                shape = RoundedCornerShape(20.dp),
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier

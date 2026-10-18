@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  One line of the to-do widget: its own rounded tile, the check box and the line's text.
+
+  The whole row is the tap target, not the box alone: the widget is small, and a 20dp box is a
+  smaller target than a finger. The tap is filled in with the item's id and handled by the provider,
+  which marks the line done and writes it back through the same store the screen uses.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/todo_widget_row_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="2dp"
+    android:layout_marginBottom="2dp"
+    android:background="@drawable/todo_widget_row_background"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="6dp"
+    android:paddingEnd="6dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <ImageView
+        android:id="@+id/todo_widget_row_check"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:contentDescription="@string/m3e_todo_widget_mark_done"
+        android:src="@drawable/ic_widget_check_open" />
+
+    <TextView
+        android:id="@+id/todo_widget_row_text"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="8dp"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:textColor="@color/widget_on_surface"
+        android:textSize="13sp" />
+</LinearLayout>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+One to-do line's own background: a gently rounded tile in the surface container role, so each line
+reads as its own row rather than as loose text on the card.
+
+Concrete colour rather than a theme role for the same reason as the card behind it - see
+todo_widget_background.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/widget_surface_high" />
+    <corners android:radius="12dp" />
+</shape>

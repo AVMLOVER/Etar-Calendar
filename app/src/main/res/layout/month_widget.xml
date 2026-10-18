@@ -1,0 +1,2292 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Month widget, 4x4: the month and year with the arrows that page it and the button that starts an
+  event, a weekday header, and six weeks of seven day cells.
+
+  The grid is written out rather than fed by an adapter: the launcher refuses RemoteViews nested
+  inside RemoteViews (that produced its "could not load the widget" line), and a fixed grid needs no
+  nesting - the provider fills the cells the month uses and hides the last row when the month only
+  spans five weeks.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/month_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/month_widget_background"
+    android:clipToOutline="true"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="2dp">
+
+        <TextView
+            android:id="@+id/month_widget_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="@color/widget_on_surface"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/month_widget_prev"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:padding="5dp"
+            android:contentDescription="@string/m3e_month_widget_prev"
+            android:src="@drawable/ic_widget_chevron_left" />
+
+        <ImageView
+            android:id="@+id/month_widget_next"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:padding="5dp"
+            android:contentDescription="@string/m3e_month_widget_next"
+            android:src="@drawable/ic_widget_chevron_right" />
+
+        <ImageView
+            android:id="@+id/month_widget_add"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_marginStart="2dp"
+            android:background="@drawable/widget_add_pill"
+            android:contentDescription="@string/event_create"
+            android:padding="6dp"
+            android:src="@drawable/ic_add"
+            android:tint="@color/widget_on_primary_container" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingBottom="2dp">
+        <TextView
+            android:id="@+id/month_widget_w0"
+            style="@style/Widget.Etar.MonthWidget.Weekday" />
+        <TextView
+            android:id="@+id/month_widget_w1"
+            style="@style/Widget.Etar.MonthWidget.Weekday" />
+        <TextView
+            android:id="@+id/month_widget_w2"
+            style="@style/Widget.Etar.MonthWidget.Weekday" />
+        <TextView
+            android:id="@+id/month_widget_w3"
+            style="@style/Widget.Etar.MonthWidget.Weekday" />
+        <TextView
+            android:id="@+id/month_widget_w4"
+            style="@style/Widget.Etar.MonthWidget.Weekday" />
+        <TextView
+            android:id="@+id/month_widget_w5"
+            style="@style/Widget.Etar.MonthWidget.Weekday" />
+        <TextView
+            android:id="@+id/month_widget_w6"
+            style="@style/Widget.Etar.MonthWidget.Weekday" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/month_widget_row0"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_0"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_0"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_0"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_0"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_0"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_1"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_1"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_1"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_1"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_1"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_2"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_2"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_2"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_2"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_2"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_3"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_3"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_3"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_3"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_3"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_4"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_4"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_4"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_4"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_4"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_5"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_5"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_5"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_5"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_5"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_6"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_6"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_6"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_6"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_6"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/month_widget_row1"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_7"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_7"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_7"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_7"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_7"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_8"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_8"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_8"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_8"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_8"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_9"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_9"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_9"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_9"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_9"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_10"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_10"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_10"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_10"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_10"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_11"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_11"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_11"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_11"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_11"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_12"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_12"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_12"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_12"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_12"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_13"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_13"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_13"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_13"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_13"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/month_widget_row2"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_14"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_14"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_14"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_14"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_14"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_15"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_15"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_15"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_15"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_15"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_16"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_16"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_16"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_16"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_16"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_17"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_17"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_17"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_17"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_17"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_18"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_18"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_18"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_18"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_18"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_19"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_19"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_19"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_19"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_19"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_20"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_20"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_20"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_20"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_20"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/month_widget_row3"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_21"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_21"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_21"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_21"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_21"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_22"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_22"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_22"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_22"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_22"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_23"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_23"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_23"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_23"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_23"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_24"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_24"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_24"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_24"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_24"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_25"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_25"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_25"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_25"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_25"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_26"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_26"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_26"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_26"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_26"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_27"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_27"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_27"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_27"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_27"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/month_widget_row4"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_28"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_28"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_28"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_28"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_28"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_29"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_29"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_29"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_29"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_29"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_30"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_30"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_30"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_30"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_30"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_31"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_31"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_31"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_31"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_31"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_32"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_32"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_32"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_32"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_32"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_33"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_33"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_33"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_33"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_33"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_34"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_34"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_34"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_34"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_34"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/month_widget_row5"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_35"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_35"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_35"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_35"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_35"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_36"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_36"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_36"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_36"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_36"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_37"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_37"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_37"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_37"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_37"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_38"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_38"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_38"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_38"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_38"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_39"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_39"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_39"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_39"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_39"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_40"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_40"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_40"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_40"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_40"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/month_widget_cell_41"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <FrameLayout
+                        android:layout_width="22dp"
+                        android:layout_height="22dp">
+
+                        <ImageView
+                            android:id="@+id/month_widget_circle_41"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_today_circle"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/month_widget_day_41"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:textColor="@color/widget_on_surface"
+                            android:textSize="11sp" />
+                    </FrameLayout>
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar0_41"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+
+                    <ImageView
+                        android:id="@+id/month_widget_bar1_41"
+                        android:layout_width="match_parent"
+                        android:layout_height="3dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:layout_marginTop="1dp"
+                        android:contentDescription="@null"
+                        android:scaleType="fitXY" />
+                </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

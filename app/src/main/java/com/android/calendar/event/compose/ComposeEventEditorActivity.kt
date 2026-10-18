@@ -41,6 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.android.calendar.AbstractCalendarActivity
 import com.android.calendar.CalendarEventModel
+import com.android.calendar.chrome.declareForwardSlide
+import com.android.calendar.chrome.declareReturnSlide
 import com.android.calendar.settings.compose.EtarM3ETheme
 import com.android.calendar.settings.compose.SettingsRepository
 import ws.xsoh.etar.R
@@ -48,6 +50,20 @@ import ws.xsoh.etar.R
 class ComposeEventEditorActivity : AbstractCalendarActivity() {
 
     private var repository: EventEditorRepository? = null
+
+    /**
+     * Declares the slide this screen plays when it is covered, and the reverse when it is revealed.
+     *
+     * The editor is opened from the day, three day and week views, so it has to hand them back the
+     * same way those screens hand the calendar back: a screen that declares nothing keeps whatever
+     * the platform last resolved, and the return came out as a second slide to the left instead of
+     * the reverse of the way in.
+     */
+    override fun onResume() {
+        super.onResume()
+        declareForwardSlide()
+        declareReturnSlide()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

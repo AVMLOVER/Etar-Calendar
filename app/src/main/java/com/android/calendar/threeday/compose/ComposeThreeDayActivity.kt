@@ -25,7 +25,15 @@ import ws.xsoh.etar.R
 class ComposeThreeDayActivity : M3eHostActivity() {
 
     override val checkedMenuItemId: Int = R.id.threeday_menu_item
-    override val currentScreenName: String = "THREEDAY"
+
+    /**
+     * Matches the name of [M3eHostActivity]'s [ComposeScreen] entry for this screen.
+     *
+     * The drawer uses it to recognise the screen it is already on, so choosing "3 days" while this
+     * screen is on top closes the drawer instead of launching the screen again - a relaunch arrived
+     * here as onNewIntent with a fresh day, which moved the pager off the block the user was reading.
+     */
+    override val currentScreenName: String = "THREE_DAY"
 
     /**
      * The heading is a range of days, so the picker under it chooses a day.
@@ -72,10 +80,17 @@ class ComposeThreeDayActivity : M3eHostActivity() {
 
         // The host may be opened either from the drawer (today) or from a date handed over in the
         // intent, so the starting three day block follows whatever day was asked for.
+        //
+        // That date is how the week and day views say "show the three days that contain this one":
+        // the grid centres its pager on the three day block holding the day, and a block is three
+        // days counted from the epoch, so the day is one of the three shown however it aligns. No
+        // extra is needed to name the block - only the day the user actually tapped.
+        val requestedMillis = intent.getLongExtra(
+            CalendarContract.EXTRA_EVENT_BEGIN_TIME,
+            System.currentTimeMillis(),
+        )
         val day = LocalDate.ofInstant(
-            java.time.Instant.ofEpochMilli(
-                intent.getLongExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, System.currentTimeMillis())
-            ),
+            java.time.Instant.ofEpochMilli(requestedMillis),
             ZoneId.systemDefault(),
         )
 
@@ -103,6 +118,26 @@ class ComposeThreeDayActivity : M3eHostActivity() {
     override fun onResume() {
         super.onResume()
         refreshKey++
+    }
+
+    /**
+     * A day handed over by a new intent, when this screen is reused rather than started afresh.
+     *
+     * The week and day views bring an already running copy forward with REORDER_TO_FRONT, which
+     * leaves its pager where it was. The day named in the intent is turned into a move through
+     * pickedDay, the same route the heading's date picker uses, so the block that contains the
+     * tapped day comes on screen instead of the block the user was on last time.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val millis = intent.getLongExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, 0L)
+        if (millis > 0) {
+            pickedDay = LocalDate.ofInstant(
+                java.time.Instant.ofEpochMilli(millis),
+                ZoneId.systemDefault(),
+            ).toEpochDay()
+        }
     }
 
     override fun onToday() {

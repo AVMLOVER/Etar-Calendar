@@ -75,7 +75,10 @@
 
     <!-- Material 3 popup menu (the three-dot overflow in the title bar). -->
     <style name="Widget.Etar.PopupMenu" parent="Widget.Material3.PopupMenu.Overflow">
-        <item name="android:popupBackground">@color/m3e_popup_background</item>
+        <!-- A rounded drawable rather than a flat colour: the platform draws a colour as a plain
+             rectangle, which is what left the menu with square corners next to every other rounded
+             surface in the app. See the drawable. -->
+        <item name="android:popupBackground">@drawable/m3e_popup_background</item>
         <item name="android:textColor">@color/m3e_popup_text</item>
         <item name="android:textAppearanceLargePopupMenu">@style/TextAppearance.Etar.PopupItem</item>
         <item name="textAppearanceLargePopupMenu">@style/TextAppearance.Etar.PopupItem</item>
@@ -96,7 +99,7 @@
         <item name="colorSurface">@color/m3e_popup_background</item>
         <item name="android:colorBackground">@color/m3e_popup_background</item>
         <item name="colorControlNormal">@color/m3e_popup_text</item>
-        <item name="android:popupBackground">@color/m3e_popup_background</item>
+        <item name="android:popupBackground">@drawable/m3e_popup_background</item>
         <!--
           The entries themselves, pointed at a text appearance that names its colour outright.
 
