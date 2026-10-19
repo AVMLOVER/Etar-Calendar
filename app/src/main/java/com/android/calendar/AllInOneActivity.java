@@ -1074,21 +1074,11 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
     protected void onResume() {
         super.onResume();
 
-        // The slide for whatever is opened from here, and the reverse for when it comes back.
-        // Declared on every resume because the transition used by the next launch is taken from
-        // whatever this activity last set, and because overrideActivityTransition is only accepted
-        // while the activity is resumed - a declaration made earlier, or from onPause while being
-        // covered, is discarded and the platform default plays instead. After super.onResume, so the
-        // activity really is in that state when it is asked.
-        if (getIntent() != null && getIntent().getBooleanExtra(
-                com.android.calendar.chrome.M3eHostActivityKt.EXTRA_FORWARD_FROM_SEQUENCE, false)) {
-            // Entered from the day / three day / week sequence, so everything keeps moving the
-            // same way rather than reversing halfway through it.
-            com.android.calendar.chrome.M3eViewTransitionsKt.declareForwardSlide(this);
-        } else {
-            com.android.calendar.chrome.M3eViewTransitionsKt.declareForwardSlide(this);
-            com.android.calendar.chrome.M3eViewTransitionsKt.declareReturnSlide(this);
-        }
+        // No transition is declared here any more. The classic host's screens take their pairs from
+        // the theme's windowAnimationStyle - the fallback for everything that does not pass one
+        // explicitly - and the Compose screens pass theirs with each start and finish. The
+        // per-activity override this used to set was only honoured in some states and was silently
+        // dropped mid-animation, which is what the explicit pairs replaced.
 
         // The settings screen can change the theme while this activity is stopped behind it, and
         // nothing would recreate it: switching to pure black in particular does not change the
@@ -1114,15 +1104,17 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
                 && hasCalendarPermissions()) {
             Class<? extends android.app.Activity> landing = experimentalLandingScreen();
             if (landing != null) {
+                // A switch between the two kinds of host is a forward step, so the pair travels
+                // with the start and with the finish instead of being stored on this activity.
+                android.os.Bundle forward = android.app.ActivityOptions.makeCustomAnimation(this,
+                        R.anim.slide_left_in, R.anim.slide_left_out).toBundle();
                 startActivity(new Intent(this, landing)
                         .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME,
                                 System.currentTimeMillis())
                         .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP
-                                | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
-                // A switch between the two kinds of host is a forward step: this activity leaves to
-                // the left while the screen it opens arrives from the right.
-                com.android.calendar.chrome.M3eViewTransitionsKt.leaveForward(this);
+                                | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT), forward);
                 finish();
+                overridePendingTransition(R.anim.slide_left_in, R.anim.slide_left_out);
                 return;
             }
         }
@@ -1282,10 +1274,10 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
 
     @Override
     protected void onPause() {
-        // No forward transition is declared here. overrideActivityTransition is only accepted while
-        // the activity is resumed or finishing, and by onPause the calendar can already be past
-        // that - the call was quietly ignored and the platform's default played instead. The screen
-        // being opened declares its own slide from its onCreate, where the call always applies.
+        // Nothing is declared here or anywhere else per activity any more: the Compose screens pass
+        // their slide with each start and finish, and the classic screens fall back to the theme's
+        // windowAnimationStyle. The per-activity override used to be set here and was silently
+        // ignored once the activity was past the state that accepted it.
         super.onPause();
 
         // Read by onResume. Set here rather than checked against isFinishing so that a return from

@@ -12,9 +12,12 @@
 package com.android.calendar.chrome
 
 import androidx.appcompat.widget.SearchView
+import android.app.ActivityOptions
 import android.content.Intent
 import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.CalendarContract
 import android.view.Menu
 import android.view.MenuItem
@@ -34,24 +37,19 @@ import com.android.calendar.chrome.compose.M3eMonthPickerDialog
 import com.android.calendar.composeui.CalendarViewStep
 import com.android.calendar.composeui.ComposeCalendarViewActivity
 import com.android.calendar.composeui.ExperimentalCalendarUi
+import com.android.calendar.composeui.PendingNavigation
+import com.android.calendar.composeui.SlideOperation
+import com.android.calendar.composeui.animationPairFor
 import com.android.calendar.composeui.calendarViewStep
+import com.android.calendar.composeui.finishOperation
 import com.android.calendar.composeui.isEffectivelyLanding
+import com.android.calendar.composeui.isReadyToNavigate
 import com.android.calendar.composeui.landingViewToShow
 import com.android.calendar.settings.compose.EtarM3ETheme
 import com.android.calendar.settings.compose.SettingsRepository
 import com.android.calendar.theme.applyTheme
 import com.google.android.material.navigation.NavigationView
 import ws.xsoh.etar.R
-
-/**
- * Set when the calendar is being entered from the day / three day / week sequence.
- *
- * Those three are read as one after another, so a step between them slides the same way every time;
- * only leaving the sequence reverses. The calendar is told which of the two this is, because it
- * cannot work it out from the view being asked for - the three day view's step to the week view and
- * its step to the day view look identical from there.
- */
-const val EXTRA_FORWARD_FROM_SEQUENCE = "m3eForwardFromSequence"
 
 abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
@@ -182,6 +180,17 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
      */
     protected open val showSearchAction: Boolean = true
 
+    /**
+     * True to build the title bar's menu at all, overflow entries included.
+     *
+     * Every other screen wants it: the overflow is the way to the calendar-wide actions - refresh,
+     * import, the calendars list, the other screens. The per-calendar screen does not. Everything it
+     * does is a row on the screen itself, and a menu there would offer to leave the calendar being
+     * edited; hiding the entries one by one still leaves the three dots in the bar, so a screen that
+     * wants none asks for no menu instead. See [onCreateOptionsMenu].
+     */
+    protected open val showsTitleBarMenu: Boolean = true
+
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var navigationView: NavigationView
 
@@ -197,14 +206,33 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     /** Open month picker, kept so picking a month can close it. */
     private var pickerPopup: android.app.Dialog? = null
 
+    /**
+     * The one menu-driven navigation step waiting for the next main-loop turn.
+     *
+     * A drawer choice and an overflow choice both come through here, and neither is run inside its
+     * menu callback: a drawer choice snaps the drawer shut without animation and posts the step, and
+     * an overflow choice posts one retry for its popup to be dismissed. See [requestNavigation] and
+     * [schedulePendingNavigation].
+     */
+    private val pendingNavigation = PendingNavigation()
+
+    /** True while an overflow-menu callback is still on the stack, so its popup has not gone yet. */
+    private var menuCallbackActive = false
+
+    /** Posts the pending navigation step. Everything that uses it runs on the main thread. */
+    private val uiHandler = Handler(Looper.getMainLooper())
+
     override fun onResume() {
         super.onResume()
-        // The slide this screen plays when it is covered, and the reverse when it is revealed.
-        // Declared here rather than in onCreate because overrideActivityTransition is only accepted
-        // while the activity is resumed; from onCreate it is discarded and the platform default -
-        // the next screen simply laid over this one - plays instead.
-        declareForwardSlide()
-        declareReturnSlide()
+        // A drawer that is open or half closed when this screen comes back is snapped shut. A panel
+        // left mid-slide (the screen was paused while its drawer was closing) would otherwise be
+        // the first thing the revealed screen shows, and the next open would start from a partial
+        // offset. Closing it here costs nothing and leaves the drawer at a clean 0.
+        if (drawerLayout.isDrawerOpen(GravityCompat.START) ||
+            drawerLayout.isDrawerVisible(GravityCompat.START)
+        ) {
+            drawerLayout.closeDrawer(GravityCompat.START, false)
+        }
         // The drawer's current-screen mark, put back on this screen every time it comes forward.
         //
         // It used to be set once, in onCreate, and nothing touched it again. A screen that was
@@ -217,6 +245,33 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         // The default view may have been changed while this screen was stopped behind the settings
         // screen; a landing screen hands over to the new one here rather than after a relaunch.
         applyConfiguredLandingView()
+    }
+
+    override fun onPause() {
+        // A menu choice is only valid while this screen is in front. If anything takes the screen
+        // away before the choice has run, drop it rather than starting or finishing a screen from
+        // the background.
+        pendingNavigation.cancel()
+        super.onPause()
+    }
+
+    /**
+     * Starts [intent] with the app's forward pair passed explicitly with the operation.
+     *
+     * Direction travels with the start instead of being stored on the activity and read whenever
+     * the platform gets round to building the transition - the per-activity scheme this replaces,
+     * which was silently dropped mid-animation and was the source of every stacking report. Every
+     * start from a host screen goes through this overload: the one-argument `startActivity(Intent)`
+     * delegates to it, so no call site can miss the pair. The app passes no ActivityOptions of its
+     * own, so replacing the bundle here cannot lose a caller's intent.
+     */
+    @Suppress("DEPRECATION")
+    override fun startActivity(intent: Intent, options: Bundle?) {
+        val pair = animationPairFor(SlideOperation.START)
+        super.startActivity(
+            intent,
+            ActivityOptions.makeCustomAnimation(this, pair.enterAnim, pair.exitAnim).toBundle(),
+        )
     }
 
     /**
@@ -267,9 +322,9 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             }
         )
         // A switch between landing screens is a forward step, not a return: this screen leaves to
-        // the left and the new one arrives the way any screen opened from here does.
-        leaveForward()
-        finish()
+        // the left and the new one arrives the way any screen opened from here does. The start
+        // above already carries that pair; finishForward() passes the matching one with the finish.
+        finishForward()
     }
 
     /**
@@ -307,14 +362,9 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
 
-        // A screen that is arrived at rather than switched to shows a back arrow in place of the
-        // drawer button, and has no drawer to open.
+        // A screen that is arrived at rather than switched to has no drawer to open: the drawer is
+        // locked shut before anything can install a drawer indicator for it.
         if (navigationIconShowsBack) {
-            toolbar.setNavigationIcon(R.drawable.ic_arrow_back)
-            // Routed through the back dispatcher rather than straight to finish(), so the arrow
-            // does exactly what the system back gesture does on this screen.
-            toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
-            toolbar.setNavigationContentDescription(androidx.appcompat.R.string.abc_action_bar_up_description)
             drawerLayout = findViewById(R.id.drawer_layout)
             drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
         }
@@ -332,11 +382,36 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         navigationView.setNavigationItemSelectedListener(this)
         applyDrawerCheckedItem()
 
-        val toggle = ActionBarDrawerToggle(
-            this, drawerLayout, toolbar, R.string.app_label, R.string.app_label
-        )
-        drawerLayout.addDrawerListener(toggle)
-        toggle.syncState()
+        val toggle: ActionBarDrawerToggle?
+        // The drawer toggle belongs to the screens that show the drawer, and only to them.
+        //
+        // syncState() is what puts the toggle's hamburger on the toolbar, and it replaces whatever
+        // navigation icon is already there - which is why the back arrow never survived on the
+        // screens that are arrived at: the toggle was installed afterwards and drew its own icon over
+        // it. Such a screen also has its drawer locked shut, so there is nothing for a toggle to
+        // toggle; leaving it out is what keeps the arrow on the bar and the drawer closed.
+        if (navigationIconShowsBack) {
+            toggle = null
+        } else {
+            val drawerToggle = ActionBarDrawerToggle(
+                this, drawerLayout, toolbar, R.string.app_label, R.string.app_label
+            )
+            drawerLayout.addDrawerListener(drawerToggle)
+            drawerToggle.syncState()
+            toggle = drawerToggle
+        }
+
+        // The back arrow is installed here, after the toggle has had its chance to put a hamburger on
+        // the bar, so it is the toolbar's navigation icon rather than something painted over later.
+        // It goes through the back dispatcher, so the arrow does exactly what the system back gesture
+        // does on this screen - finish it and reveal the list underneath.
+        if (navigationIconShowsBack) {
+            toolbar.setNavigationIcon(R.drawable.ic_arrow_back)
+            toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
+            toolbar.setNavigationContentDescription(
+                androidx.appcompat.R.string.abc_action_bar_up_description
+            )
+        }
 
         // The hamburger, the three dots and the menu they open, in the theme's own colour.
         //
@@ -344,7 +419,7 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         // own fixed-colour drawable, and the popup's entries took their colour from an overlay that
         // left them white on a light popup. Each is set here so the light appearance reads properly.
         val barIconColor = resolveBarIconColor()
-        toggle.drawerArrowDrawable?.setColor(barIconColor)
+        toggle?.drawerArrowDrawable?.setColor(barIconColor)
         toolbar.setOverflowIcon(
             androidx.appcompat.content.res.AppCompatResources
                 .getDrawable(this, R.drawable.ic_overflow_menu)
@@ -370,15 +445,20 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         val callback = object : OnBackPressedCallback(exitOnBack || drawerLayout.isDrawerOpen(GravityCompat.START)) {
             override fun handleOnBackPressed() {
                 if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                    // Backing out of the drawer cancels the choice it was about to act on; it must
+                    // not navigate after the drawer has closed.
+                    pendingNavigation.cancel()
                     drawerLayout.closeDrawers()
                 } else if (exitOnBack) {
                     // finishAffinity(), not a new screen and not just finish(): a landing screen is
                     // the state the app opens in, so its back leaves the app. finish() would only
                     // reveal whatever is underneath - the year view that opened this month view,
                     // for instance - which is exactly the walk back the landing rule exists to stop.
-                    // When there is nothing underneath, the two calls do the same thing; the close
-                    // transition declared in onResume makes the screen slide out to the right.
+                    // The return pair travels with the operation, exactly as it does for a finish().
+                    val pair = animationPairFor(SlideOperation.FINISH_RETURN)
                     finishAffinity()
+                    @Suppress("DEPRECATION")
+                    overridePendingTransition(pair.enterAnim, pair.exitAnim)
                 }
             }
         }
@@ -391,6 +471,9 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
 
             override fun onDrawerClosed(drawerView: View) {
                 callback.isEnabled = exitOnBack
+                // Nothing is gated on this any more: a choice made from the drawer closes it
+                // without animation and runs on the next main-loop turn, so there is no sliding
+                // panel for a transition to be declared under.
             }
         })
     }
@@ -632,23 +715,21 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         // result to the classic activity put the old View-based grid back on screen from every heading
         // in the app, which is not what the switch promises.
         if (com.android.calendar.composeui.ExperimentalCalendarUi.enabled(this)) {
-            startActivity(
-                Intent(this, com.android.calendar.composeui.ComposeMonthActivity::class.java)
-                    .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, millis)
-                    .apply {
-                        if (!ExperimentalCalendarUi.isConfiguredDefault(
-                                this@M3eHostActivity,
-                                CalendarController.ViewType.MONTH,
-                            )
-                        ) {
-                            putExtra(ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true)
-                            putExtra(ComposeCalendarViewActivity.EXTRA_OPENER_CLASS, javaClass.name)
-                        }
-                    }
-                    .addFlags(
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                    )
-            )
+            val intent = Intent(this, com.android.calendar.composeui.ComposeMonthActivity::class.java)
+                .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, millis)
+                .addFlags(
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                )
+            if (!ExperimentalCalendarUi.isConfiguredDefault(
+                    this,
+                    CalendarController.ViewType.MONTH,
+                )
+            ) {
+                // This screen stays underneath, so the month it opens is told which screen to hand
+                // back to. Without that the month read itself as a landing screen.
+                intent.openingOver(this)
+            }
+            startActivity(intent)
             return
         }
 
@@ -668,32 +749,88 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     // ------------------------------------------------------------------------------- drawer
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
-        val handled = when (item.itemId) {
-            R.id.day_menu_item -> openCalendarView(Utils.INTENT_VALUE_VIEW_TYPE_DAY)
+        // The choice is not acted on inside this callback. The drawer is snapped shut without
+        // animation and the step runs on the next main-loop turn, so no panel is sliding alongside
+        // the transition and nothing waits for a close animation. See requestNavigation().
+        val action: (() -> Unit)? = when (item.itemId) {
+            R.id.day_menu_item -> ({ openCalendarView(Utils.INTENT_VALUE_VIEW_TYPE_DAY) })
             // The three day view is one of the calendar views, so it moves through the same rule
             // as the others instead of opening through openScreen(): from the landing screen it
             // opens over it, and from a view that already has one it takes that view's place.
-            R.id.threeday_menu_item -> openComposeCalendarView(
-                com.android.calendar.threeday.compose.ComposeThreeDayActivity::class.java,
-                CalendarController.ViewType.THREE_DAY,
-                beginMillis = anchorDayOnScreenMillis(),
-            )
-            R.id.week_menu_item -> openCalendarView(Utils.INTENT_VALUE_VIEW_TYPE_WEEK)
-            R.id.month_menu_item -> openCalendarView(Utils.INTENT_VALUE_VIEW_TYPE_MONTH)
-            R.id.year_menu_item -> openScreen(ComposeScreen.YEAR)
-            R.id.agenda_menu_item -> openScreen(ComposeScreen.AGENDA)
-            R.id.action_date_calculator -> openScreen(ComposeScreen.DATE_CALCULATOR)
-            R.id.action_countdown -> openScreen(ComposeScreen.COUNTDOWN)
-            R.id.action_todo -> openScreen(ComposeScreen.TODO)
-            R.id.action_settings -> openScreen(ComposeScreen.SETTINGS)
-            R.id.action_about -> openScreen(ComposeScreen.ABOUT)
-            else -> false
+            R.id.threeday_menu_item -> ({
+                openComposeCalendarView(
+                    com.android.calendar.threeday.compose.ComposeThreeDayActivity::class.java,
+                    CalendarController.ViewType.THREE_DAY,
+                    beginMillis = anchorDayOnScreenMillis(),
+                )
+            })
+            R.id.week_menu_item -> ({ openCalendarView(Utils.INTENT_VALUE_VIEW_TYPE_WEEK) })
+            R.id.month_menu_item -> ({ openCalendarView(Utils.INTENT_VALUE_VIEW_TYPE_MONTH) })
+            R.id.year_menu_item -> ({ openScreen(ComposeScreen.YEAR) })
+            R.id.agenda_menu_item -> ({ openScreen(ComposeScreen.AGENDA) })
+            R.id.action_date_calculator -> ({ openScreen(ComposeScreen.DATE_CALCULATOR) })
+            R.id.action_countdown -> ({ openScreen(ComposeScreen.COUNTDOWN) })
+            R.id.action_todo -> ({ openScreen(ComposeScreen.TODO) })
+            R.id.action_settings -> ({ openScreen(ComposeScreen.SETTINGS) })
+            R.id.action_about -> ({ openScreen(ComposeScreen.ABOUT) })
+            else -> null
         }
-        if (!handled) {
+        if (action == null) {
             return false
         }
-        drawerLayout.closeDrawers()
+        requestNavigation(action, fromMenu = false)
         return true
+    }
+
+    /**
+     * Holds a menu-driven navigation step for one main-loop turn, then runs it.
+     *
+     * One slot: a second choice replaces the first, so a double tap cannot navigate twice. The step
+     * is never run inside the menu callback itself - that is where the drawer's panel or the popup
+     * is still animating, and a start or a close requested then loses its transition.
+     *
+     * A drawer choice also closes the drawer **without animation**. A panel still sliding left as
+     * the next transition starts was both the delay the user felt and a second, leftward slide; a
+     * drawer that is gone instantly has neither. Nothing is lost by snapping it: the drawer is not
+     * seen again once the next screen is up.
+     *
+     * @param fromMenu true for an overflow-menu choice, whose popup is dismissed only after the
+     *   callback returns, so the step has to wait one main-loop turn for it.
+     */
+    private fun requestNavigation(action: () -> Unit, fromMenu: Boolean) {
+        pendingNavigation.request(action)
+        if (fromMenu) {
+            // The popup is dismissed after this callback returns; schedulePendingNavigation() sees
+            // the callback still on the stack, defers, and posts the single retry.
+            menuCallbackActive = true
+            schedulePendingNavigation()
+        } else {
+            // Snap the drawer shut rather than animating it closed, then run on the next turn.
+            drawerLayout.closeDrawer(GravityCompat.START, false)
+            uiHandler.post { schedulePendingNavigation() }
+        }
+    }
+
+    /**
+     * Runs the waiting navigation step once the menu popup is out of the way.
+     *
+     * The only remaining gate is the overflow popup, which is dismissed after its callback returns;
+     * a menu choice therefore takes exactly one posted retry. The drawer is not a gate: it was
+     * snapped shut before the step was posted, and `onDrawerClosed` gates nothing.
+     */
+    private fun schedulePendingNavigation() {
+        if (!pendingNavigation.hasPending) {
+            return
+        }
+        if (!isReadyToNavigate(menuDismissing = menuCallbackActive)) {
+            // The menu callback has returned by the time this retry runs; it must not keep seeing
+            // the callback as active. One retry, not a chain.
+            menuCallbackActive = false
+            uiHandler.post { schedulePendingNavigation() }
+            return
+        }
+        // take() empties the slot before the step runs, so a second request cannot run it again.
+        pendingNavigation.take()?.invoke()
     }
 
     // ------------------------------------------------------------------------------ toolbar
@@ -712,6 +849,11 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         return intent
     }
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        // A screen can ask for no menu at all; see showsTitleBarMenu. Returning false leaves the
+        // toolbar with no items, and an empty menu draws no overflow button.
+        if (!showsTitleBarMenu) {
+            return false
+        }
         menuInflater.inflate(R.menu.all_in_one_title_bar, menu)
 
         // The classic calendar's chrome controls are not part of these screens.
@@ -877,10 +1019,12 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        // Anything that starts or finishes a screen is requested through requestNavigation(), not
+        // run here: the popup is dismissed only after this callback returns, and a navigation
+        // started while it is still dismissing is the same race as the drawer's panel. Actions that
+        // change nothing but data - the refresh, the search field - stay synchronous.
         when (item.itemId) {
-            R.id.action_today -> {
-                onToday()
-            }
+            R.id.action_today -> requestNavigation({ onToday() }, fromMenu = true)
 
             // "Go to" is the heading's picker, on every screen.
             //
@@ -889,7 +1033,7 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             // another one: a date on the day, three day, week and to-do screens, a month on the
             // month screen, a year on the year screen, and a day that moves the loaded window on
             // the agenda. The entry had no branch at all, so it closed the menu and did nothing.
-            R.id.action_goto -> showTitlePicker()
+            R.id.action_goto -> requestNavigation({ showTitlePicker() }, fromMenu = true)
 
             // The refresh the classic title bar offers, followed by the screen's own re-read.
             //
@@ -909,20 +1053,27 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             //
             // This used to open a document picker and never look at the result, so choosing a file
             // did nothing at all. It now goes through the same activity the settings entry uses.
-            R.id.action_import -> {
-                startActivity(
-                    Intent(
-                        this,
-                        com.android.calendar.chrome.compose.ComposeImportActivity::class.java,
+            R.id.action_import -> requestNavigation(
+                {
+                    startActivity(
+                        Intent(
+                            this,
+                            com.android.calendar.chrome.compose.ComposeImportActivity::class.java,
+                        )
                     )
-                )
-            }
+                },
+                fromMenu = true,
+            )
 
-            R.id.action_m3e_calendars -> openScreen(ComposeScreen.CALENDARS)
-            R.id.action_m3e_agenda -> openScreen(ComposeScreen.AGENDA)
-            R.id.action_view_settings -> openScreen(ComposeScreen.SETTINGS)
-            R.id.action_todo -> openScreen(ComposeScreen.TODO)
-            R.id.action_todo_edit -> onTodoEdit()
+            R.id.action_m3e_calendars ->
+                requestNavigation({ openScreen(ComposeScreen.CALENDARS) }, fromMenu = true)
+            R.id.action_m3e_agenda ->
+                requestNavigation({ openScreen(ComposeScreen.AGENDA) }, fromMenu = true)
+            R.id.action_view_settings ->
+                requestNavigation({ openScreen(ComposeScreen.SETTINGS) }, fromMenu = true)
+            R.id.action_todo ->
+                requestNavigation({ openScreen(ComposeScreen.TODO) }, fromMenu = true)
+            R.id.action_todo_edit -> requestNavigation({ onTodoEdit() }, fromMenu = true)
 
             else -> return false
         }
@@ -940,8 +1091,8 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         //
         // The calendar views do not come through here: they are peers of one another and move
         // through openComposeCalendarView, which keeps the stack two deep. This is the path for the
-        // tool screens, and they keep their own place: what they open goes on top of them and back
-        // returns to them, exactly as it always has.
+        // tool screens. What they open goes on top of them and back returns to them - except when
+        // the entry names the screen this one was opened over, which is a step back.
         if (screen.name == currentScreenName) {
             return true
         }
@@ -962,6 +1113,14 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             ComposeScreen.ABOUT ->
                 com.android.calendar.about.compose.ComposeAboutActivity::class.java
         }
+        // The entry that names the screen this one was opened over is the same move as back: finish
+        // this screen and let the platform reveal that one, with the return slide - no screen is
+        // started. Starting the month over the year view instead is what read as a stacked
+        // animation: two screens, and the entry slide rather than the return one.
+        if (isOpenerScreen(target)) {
+            finish()
+            return true
+        }
         val agendaDate = if (screen == ComposeScreen.AGENDA) agendaDateMillis() else null
         val launch = when (screen) {
             // The to-do screen opens on the day this screen is showing rather than on today, so a
@@ -977,11 +1136,6 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             if (agendaDate != null) {
                 putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, agendaDate)
             }
-            // This screen stays underneath rather than being finished, so back from the screen being
-            // opened reveals it instead of stepping on to another view. Only the drawer's calendar
-            // views are peers of one another - see openComposeCalendarView - so a tool screen is
-            // always left in place under whatever it opens.
-            putExtra(ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true)
             // Every screen switch stays in the task this one is in, including the year view and
             // the agenda.
             //
@@ -995,7 +1149,7 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             // REORDER_TO_FRONT bring an instance that is already running forward instead of
             // starting a second copy of it.
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-        })
+        }.openingOver(this))
         return true
     }
 
@@ -1098,27 +1252,17 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
                     // refused when the two were showing different months.
                     putExtra(AllInOneActivity.EXTRA_GOTO_EXPLICIT, true)
                 }
-                // Tells the calendar to come in from the right, as a step along the sequence,
-                // rather than from the left as a return to it.
-                putExtra(EXTRA_FORWARD_FROM_SEQUENCE, !leavesTheSequence)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
         )
+        // Stepping out to the month is the reverse of the way in; a step along the day / three day /
+        // week sequence keeps going leftwards. The start passed the forward pair with it, and the
+        // finish does the same - see finishForward().
         if (leavesTheSequence) {
-            // Back out to the month, from somewhere inside the sequence: the reverse of the way in.
-            // Declared here because this screen is the one finishing, and a finishing screen that
-            // declares nothing gets the reverse of the animation it was entered with.
-            declareReturnSlide()
+            finish()
         } else {
-            // A step along the sequence. The calendar reads the extra above and comes in from the
-            // right, and this screen leaves to the left, so the movement keeps going the same way
-            // instead of reversing halfway. leaveForward, not declareForwardSlide: this activity
-            // is finishing, so it is its close transition that decides the pair - declaring only
-            // the open one left the platform to reverse the way in, which sent every step out of
-            // this screen back to the right.
-            leaveForward()
+            finishForward()
         }
-        finish()
         return true
     }
 
@@ -1140,10 +1284,11 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
      *
      * The movement follows the direction of travel. A push is a start, and a start plays the forward
      * slide declared in onResume: the new screen arrives from the right while this one leaves to the
-     * left. A replace is a finish *and* a start, so this screen declares the forward close pair with
-     * leaveForward() - declaring nothing would let the platform reverse the way in and send it out to
-     * the right. A reveal is a plain finish, and a finish plays the reverse of the way in: this
-     * screen leaves to the right and the one underneath comes back from the left.
+     * left. A replace is a finish *and* a start, so this screen hands over with finishForward() - the
+     * forward pair is part of its finish - because declaring nothing would let the platform reverse
+     * the way in and send it out to the right. A reveal is a plain finish, and every finish that is
+     * not a hand-over plays the reverse of the way in: this screen leaves to the right and the one
+     * underneath comes back from the left.
      *
      * It used to finish the landing screen whenever the month was asked for, which left the month
      * alone in the stack: back went to the launcher instead of to the default view.
@@ -1162,15 +1307,15 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         val step = calendarViewStep(
             isCalendarView = isCalendarViewScreen,
             hasOpener = hasOpener(),
-            targetIsOpener = opener != null && opener == target.name,
+            targetIsOpener = isOpenerScreen(target),
         )
         val begin = beginMillis ?: calendarViewDateMillis() ?: System.currentTimeMillis()
 
         when (step) {
             CalendarViewStep.REVEAL -> {
                 // The screen this one was opened over is still running underneath it; finish and
-                // let the platform reveal it exactly as it was left.
-                declareReturnSlide()
+                // let the platform reveal it exactly as it was left. The finish declares the return
+                // pair itself.
                 finish()
             }
 
@@ -1183,12 +1328,10 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
 
             CalendarViewStep.REPLACE -> {
                 // This screen finishes, so the view taking its place must inherit the screen this
-                // one was opened over - that is still the bottom of the stack.
+                // one was opened over - that is still the bottom of the stack. The view opens first,
+                // then the finish declares the forward pair as part of itself.
                 startActivity(calendarViewIntent(target, targetViewType, begin, opener))
-                // The close pair of the screen that is finishing is what decides the movement, and
-                // leaving forward keeps it going leftwards instead of reversing halfway.
-                leaveForward()
-                finish()
+                finishForward()
             }
         }
         return true
@@ -1226,6 +1369,21 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
     }
 
+    /**
+     * Marks this intent as opening a screen over [opener], which stays underneath.
+     *
+     * The screen is passed in rather than read as `javaClass` where the intent is built: inside an
+     * `apply` block the implicit receiver is the Intent, so a bare `javaClass` there names
+     * android.content.Intent. That slip gave every screen opened through [openScreen] the wrong
+     * opener, so none of them recognised the screen underneath and the month was pushed over them
+     * instead of being revealed - the two leftward slides reported from the year view, the agenda
+     * and the other tool screens.
+     */
+    private fun Intent.openingOver(opener: android.app.Activity): Intent = apply {
+        putExtra(ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true)
+        putExtra(ComposeCalendarViewActivity.EXTRA_OPENER_CLASS, opener.javaClass.name)
+    }
+
     /** True when this screen was opened over another one, which back should reveal. */
     private fun hasOpener(): Boolean =
         intent?.getBooleanExtra(ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, false) == true
@@ -1233,6 +1391,19 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     /** The class name of the screen this one was opened over, or null when it is not known. */
     private fun openerClass(): String? =
         intent?.getStringExtra(ComposeCalendarViewActivity.EXTRA_OPENER_CLASS)
+
+    /**
+     * True when [target] is the screen this one was opened over.
+     *
+     * An entry that names it is the back gesture made from the menu: finishing this screen reveals
+     * that one, so the request is a reveal rather than a start. The rule is the same for every kind
+     * of host screen - a tool screen's entry for the month it came from is a step back just as a
+     * calendar view's is - and it is only ever true when the opener was named: a screen that was not
+     * opened over anything, or was opened by a caller that did not know the class, has no entry that
+     * is a step back, and its menu entries all start something.
+     */
+    private fun isOpenerScreen(target: Class<out android.app.Activity>): Boolean =
+        hasOpener() && openerClass() == target.name
 
     /**
      * True for the screens that are themselves one of the calendar views in the drawer.
@@ -1273,12 +1444,51 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     }
 
     /**
-     * The screens that are activities of their own cross-fade when they close, so going back to the
-     * calendar looks the same as switching to it from the drawer.
+     * True once this screen has decided to finish by handing over to the screen it is opening.
+     *
+     * The direction is part of the finish, not a separate declaration: [finishForward] sets this,
+     * and [finish] reads it to pick the pair. It starts false on every screen, which is the return
+     * direction - the only way a screen may move left as it closes is a hand-over.
      */
+    private var finishingForward = false
+
+    /**
+     * Finishes this screen with its animation passed explicitly to the finish.
+     *
+     * `overridePendingTransition` is the mechanism that takes the pair with the operation, so it
+     * cannot be dropped later or read at a moment when the activity is in the wrong state - which is
+     * exactly what the per-activity override used to do. Every way a host screen closes comes through
+     * here: the back key, the menu entry that reveals the screen underneath, a hand-over, and the
+     * landing screen leaving the app.
+     *
+     * The pair is computed before `super.finish()` so nothing can run between the two calls, and
+     * `overridePendingTransition` is called immediately after `finish()` - the ordering the platform
+     * expects.
+     */
+    @Suppress("DEPRECATION")
     override fun finish() {
+        val pair = animationPairFor(finishOperation(finishingForward))
         super.finish()
-            }
+        overridePendingTransition(pair.enterAnim, pair.exitAnim)
+    }
+
+    override fun onDestroy() {
+        // A posted navigation step must not outlive the activity: if this instance is going away for
+        // another reason, the runnable would hold it and could navigate from the background.
+        uiHandler.removeCallbacksAndMessages(null)
+        super.onDestroy()
+    }
+
+    /**
+     * Finishes this screen because the screen it is opening takes its place.
+     *
+     * The direction is decided before the finish so [finish] can pass the forward pair with it: the
+     * replacement view keeps the movement going left instead of reversing halfway.
+     */
+    protected fun finishForward() {
+        finishingForward = true
+        finish()
+    }
 
     companion object {
         private const val KEY_THEME = "pref_theme"

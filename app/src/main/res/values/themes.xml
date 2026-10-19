@@ -32,7 +32,15 @@
           white on a white menu in the light appearance.
         -->
         <item name="actionOverflowMenuStyle">@style/Widget.Etar.PopupMenu</item>
-        <!-- Ripple over the surface colour, so the overflow entries respond to a tap. -->
+        <!--
+          The rows, drawn as separate rounded items.
+
+          A single drawable is what the platform's menu code asks for and all it can use - every row
+          of the popup is built by ListMenuItemView from this one attribute - so the shape lives in
+          the drawable, together with the two Material 3 roles it paints: colorSurfaceContainerHigh
+          for the tile, colorSurfaceContainer for the sheet behind it and colorControlHighlight for
+          the ripple. See drawable/m3e_popup_item_background.xml.
+        -->
         <item name="android:itemBackground">@drawable/m3e_popup_item_background</item>
 
         <!-- Material 3 Expressive shapes: noticeably rounder than the M3 defaults. -->
@@ -75,11 +83,17 @@
 
     <!-- Material 3 popup menu (the three-dot overflow in the title bar). -->
     <style name="Widget.Etar.PopupMenu" parent="Widget.Material3.PopupMenu.Overflow">
-        <!-- A rounded drawable rather than a flat colour: the platform draws a colour as a plain
+        <!-- Rounded drawables rather than flat colours: the platform draws a colour as a plain
              rectangle, which is what left the menu with square corners next to every other rounded
-             surface in the app. See the drawable. -->
+             surface in the app. Both drawables take their tones from the theme's Material 3 roles.
+             See the two drawables. -->
         <item name="android:popupBackground">@drawable/m3e_popup_background</item>
-        <item name="android:textColor">@color/m3e_popup_text</item>
+        <!-- The rows' own background, in the style as well as in the overlay: a popup opened by a
+             screen whose theme does not carry the overlay still gets the rounded rows. -->
+        <item name="android:itemBackground">@drawable/m3e_popup_item_background</item>
+        <!-- The theme's on-surface role, not a fixed pair: the app's palette is the wallpaper's on
+             Android 12+, and the menu's text has to follow it like every other text. -->
+        <item name="android:textColor">?attr/colorOnSurface</item>
         <item name="android:textAppearanceLargePopupMenu">@style/TextAppearance.Etar.PopupItem</item>
         <item name="textAppearanceLargePopupMenu">@style/TextAppearance.Etar.PopupItem</item>
         <item name="android:textAppearanceSmallPopupMenu">@style/TextAppearance.Etar.PopupItem</item>
@@ -88,24 +102,31 @@
 
     <style name="ThemeOverlay.Etar.PopupMenu" parent="ThemeOverlay.Material3">
         <!--
-          Fixed light/dark colours rather than theme roles.
+          The popup's colours, named as roles rather than replaced with a fixed pair.
 
-          This overlay is what the three dot menu is drawn with. Taking the roles from the theme left
-          its entries white in the light appearance, sitting on the light popup - invisible. The two
-          colours flip with the appearance through values-night.
+          This overlay is wrapped around the context the three dot menu is inflated in, so every
+          `?attr/...` here resolves against the activity's Material 3 theme - including the palette
+          DynamicColors installs on it from the wallpaper. That is what keeps the menu on the same
+          colours as the screen it drops over, in both appearances. The fixed pair these used to
+          carry followed only the light/dark switch, so on a monet palette the menu was drawn in
+          colours the rest of the app no longer used.
         -->
-        <item name="android:textColorPrimary">@color/m3e_popup_text</item>
-        <item name="android:textColorSecondary">@color/m3e_popup_text</item>
-        <item name="colorSurface">@color/m3e_popup_background</item>
-        <item name="android:colorBackground">@color/m3e_popup_background</item>
-        <item name="colorControlNormal">@color/m3e_popup_text</item>
+        <item name="android:textColorPrimary">?attr/colorOnSurface</item>
+        <item name="android:textColorSecondary">?attr/colorOnSurface</item>
+        <item name="colorControlNormal">?attr/colorOnSurface</item>
         <item name="android:popupBackground">@drawable/m3e_popup_background</item>
+        <!-- The row background again, in the overlay that is actually wrapped around the popup's
+             context. The platform reads android:itemBackground from the themed context it inflates
+             each row in, so the value has to be reachable from here - not only from the activity's
+             theme, which is underneath this overlay. -->
+        <item name="android:itemBackground">@drawable/m3e_popup_item_background</item>
         <!--
-          The entries themselves, pointed at a text appearance that names its colour outright.
+          The entries themselves, pointed at a text appearance that names its colour as a role.
 
-          Setting the theme's text roles was not enough: the popup's rows take their text appearance
-          from these attributes, and the one they resolved to left the text white in the light
-          appearance - white on a white menu. Naming the colour on the appearance is what settles it.
+          Setting the theme's text roles alone was not enough: the popup's rows take their text
+          appearance from these attributes, and the one they resolved to left the text white in the
+          light appearance - white on a light menu. The appearance below is what settles it, and it
+          names colorOnSurface rather than a fixed colour, so it follows the palette.
         -->
         <item name="android:textAppearanceLargePopupMenu">@style/TextAppearance.Etar.PopupItem</item>
         <item name="textAppearanceLargePopupMenu">@style/TextAppearance.Etar.PopupItem</item>
@@ -113,9 +134,9 @@
         <item name="textAppearanceSmallPopupMenu">@style/TextAppearance.Etar.PopupItem</item>
     </style>
 
-    <!-- The menu entries' own text: dark on the light menu, light on the dark one. -->
+    <!-- The menu entries' own text: the theme's on-surface colour, in either appearance. -->
     <style name="TextAppearance.Etar.PopupItem" parent="TextAppearance.Material3.BodyLarge">
-        <item name="android:textColor">@color/m3e_popup_text</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
     </style>
 
     <style name="ShapeAppearance.Etar.SmallComponent" parent="ShapeAppearance.Material3.SmallComponent">

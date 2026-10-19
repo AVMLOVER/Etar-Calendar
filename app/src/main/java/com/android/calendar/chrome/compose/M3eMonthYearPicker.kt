@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -32,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ws.xsoh.etar.R
@@ -57,65 +57,88 @@ fun M3eMonthYearPicker(
     modifier: Modifier = Modifier,
 ) {
     val years = remember(year) { (year - YEAR_SPAN..year + YEAR_SPAN).toList() }
-    val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = YEAR_SPAN.coerceAtLeast(0),
-    )
+
+    // One entry per month, not one per year.
+    //
+    // A year's twelve chips are several screens wide together, so a year-sized entry could only ever
+    // be positioned at its January: the list stopped at the start of the year and the month the
+    // picker was opened on sat off the right edge, which is the "it opens in January" the picker used
+    // to do. With the months as entries, scrolling to the selected month is exact - the list is told
+    // which entry to stop at instead of how far into a wide one to travel.
+    //
+    // The year label keeps its place above the year's first month, and every entry reserves the same
+    // label line, so the chips stay on one baseline and the row still reads
+    // "2026 / [1月][2月]...  2027 / [1月]...".
+    val months = remember(year) { years.flatMap { y -> (1..12).map { m -> y to m } } }
+    val selectedIndex = remember(year, month) { YEAR_SPAN * 12 + (month - 1) }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
+
+    // The height of the year-label line, from the style that draws it so it follows the font scale:
+    // every entry reserves exactly this much, which is what keeps the chips aligned across years.
+    val labelStyle = MaterialTheme.typography.titleSmall
+    val labelLineHeight = with(LocalDensity.current) {
+        if (labelStyle.lineHeight.isSp) labelStyle.lineHeight.toDp() else 20.dp
+    }
+    val labelSlotHeight = labelLineHeight + 6.dp
 
     LazyRow(
         state = listState,
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(years, key = { it }) { y ->
+        items(months, key = { it.first * 100 + it.second }) { (y, m) ->
+            val selected = y == year && m == month
             Column {
-                // The year is a heading above its months, so the row reads
-                // "2026 / [1月][2月]…  2027 / [1月]…" and the year is never ambiguous.
-                Text(
-                    text = y.toString(),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (m in 1..12) {
-                        val selected = y == year && m == month
-                        Box(
-                            modifier = Modifier
-                                .height(40.dp)
-                                .clip(RoundedCornerShape(percent = 50))
-                                .background(
-                                    if (selected) {
-                                        MaterialTheme.colorScheme.secondaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceContainerHigh
-                                    }
-                                )
-                                .clickable { onPick(y, m) }
-                                .padding(horizontal = 16.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = MONTH_LABEL.format(java.time.YearMonth.of(y, m).atDay(1)),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = if (selected) {
-                                    MaterialTheme.colorScheme.onSecondaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                },
-                            )
-                        }
+                Box(
+                    modifier = Modifier.height(labelSlotHeight),
+                    contentAlignment = Alignment.BottomStart,
+                ) {
+                    if (m == 1) {
+                        Text(
+                            text = y.toString(),
+                            style = labelStyle,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
+                        )
                     }
+                }
+                Box(
+                    modifier = Modifier
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(percent = 50))
+                        .background(
+                            if (selected) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                            }
+                        )
+                        .clickable { onPick(y, m) }
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = MONTH_LABEL.format(java.time.YearMonth.of(y, m).atDay(1)),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                    )
                 }
             }
         }
     }
 
-    // When the picker is reopened, bring the year it was opened on back into view.
-    LaunchedEffect(year, month) {
-        listState.animateScrollToItem(YEAR_SPAN.coerceAtLeast(0))
+    // When the picker is opened, bring the month it was opened on into view. The initial index
+    // already does that for the first frame; this is what moves the row if the picker is reused for
+    // another month while it is on screen.
+    LaunchedEffect(selectedIndex) {
+        listState.animateScrollToItem(selectedIndex)
     }
 }
 
@@ -167,9 +190,10 @@ fun M3eYearPicker(
     val selectedYear = year.coerceIn(PICKER_FIRST_YEAR, PICKER_LAST_YEAR)
     val years = remember { (PICKER_FIRST_YEAR..PICKER_LAST_YEAR).toList() }
     val selectedIndex = selectedYear - PICKER_FIRST_YEAR
-    val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = (selectedIndex - 2).coerceAtLeast(0),
-    )
+    // The selected year is the first entry on screen, not the third: the row is meant to open on the
+    // year it is showing, and the two years of context that used to be kept to its left are a scroll
+    // away in the direction the row can be dragged anyway.
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
 
     LazyRow(
         state = listState,
@@ -209,8 +233,8 @@ fun M3eYearPicker(
     }
 
     // When the picker is reopened, bring the year it was opened on back into view.
-    LaunchedEffect(year) {
-        listState.animateScrollToItem((selectedIndex - 2).coerceAtLeast(0))
+    LaunchedEffect(selectedIndex) {
+        listState.animateScrollToItem(selectedIndex)
     }
 }
 

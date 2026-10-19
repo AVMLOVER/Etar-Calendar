@@ -439,14 +439,14 @@
     </array>
 
     <!--
-      The three dot menu's own colours, fixed per appearance rather than taken from a theme role.
+      The three dot menu has no colours of its own.
 
-      The menu is drawn by the platform from a theme overlay, and the text it picks up there was
-      white in the light appearance - unreadable on the light popup it sits on. These two colours
-      are named for that menu alone so nothing else can shift them.
+      Its sheet, its rows, its text and its ripple are the theme's Material 3 roles -
+      colorSurfaceContainer, colorSurfaceContainerHigh, colorOnSurface and colorControlHighlight -
+      named in res/values/themes.xml and painted by the two m3e_popup_* drawables. They were once
+      fixed hex pairs here, which followed only the light/dark switch and not the palette
+      DynamicColors installs from the wallpaper; a value kept here would shadow the roles again.
     -->
-    <color name="m3e_popup_text">#1C1B1F</color>
-    <color name="m3e_popup_background">#F7F2FA</color>
 
     <!--
       The widgets' own colours.

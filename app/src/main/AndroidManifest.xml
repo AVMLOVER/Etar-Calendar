@@ -222,6 +222,14 @@
             android:parentActivityName="com.android.calendar.AllInOneActivity"
             android:theme="@style/Theme.Etar" />
 
+        <!-- Material 3 Expressive settings for one calendar, opened from the calendars list. -->
+        <activity
+            android:name="com.android.calendar.selectcalendars.compose.ComposeCalendarEditActivity"
+            android:exported="false"
+            android:label="@string/m3e_calendar_edit_title"
+            android:parentActivityName="com.android.calendar.AllInOneActivity"
+            android:theme="@style/Theme.Etar" />
+
         <!-- Material 3 Expressive read-only event details. -->
         <activity
             android:name="com.android.calendar.event.compose.ComposeEventDetailsActivity"

@@ -3,20 +3,27 @@
   Background of the three dot (overflow) menu: the rounded surface the rest of the Material 3
   Expressive screens are drawn on.
 
-  The popup theme named a flat colour for android:popupBackground, and the platform draws that as a
-  plain rectangle - so the menu came out with square corners next to cards, dialogs and sheets that
-  are all rounded. The colour stays the same one the theme uses (values-night flips it with the
-  appearance); only the shape is added.
+  The colour is the theme's own `colorSurfaceContainer` role, not a colour of this file's choosing.
+  The popup is inflated in a themed context built from the activity's theme, so the role resolves to
+  whichever Material 3 palette the app is using at that moment - the wallpaper-derived one on
+  Android 12+, the baseline one otherwise - in both appearances. A fixed colour here would shadow
+  all of that, which is exactly what the hand-picked `m3e_popup_background` used to do.
+
+  The shape is added because the platform draws `android:popupBackground` as given: with a flat
+  colour it is a plain rectangle, which is what left the menu with square corners next to cards,
+  dialogs and sheets that are all rounded.
 
   The inset is what keeps the menu's rows inside that shape: the popup window is still a rectangle,
   and the background's padding becomes the content inset, so the first and last row stop before the
-  corner instead of painting over it.
+  corner instead of painting over it. The corners are a size up from the rows' 18dp
+  (m3e_popup_item_background.xml): the sheet is the outer edge of the stack, and a corner that was
+  rounder on the inside than on the outside would read as the rows bulging out of it.
 -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:insetTop="6dp"
     android:insetBottom="6dp">
     <shape android:shape="rectangle">
-        <solid android:color="@color/m3e_popup_background" />
-        <corners android:radius="16dp" />
+        <solid android:color="?attr/colorSurfaceContainer" />
+        <corners android:radius="20dp" />
     </shape>
 </inset>

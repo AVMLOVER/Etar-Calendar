@@ -18,6 +18,7 @@ this app would be just a dream. So thanks to them!
 - Redesigned widgets.
 - Redesigned Day, Week and Month view. Now Month view scroll horizontally like Google Calendar. 
 - Month view now have widgets.
+- Redesigned Calendar Editor.
 - Date calcuator and high degree of Countdown customization.
 - Countdown and event collaboration.
 - Lunar calendar integrate.

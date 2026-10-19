@@ -22,8 +22,8 @@ android {
 		// is effectively extinct, so requiring 7.0 is a cheaper trade than forking the ripple lib.
 		minSdk = 24
 		targetSdk = 37
-		versionCode = 58
-		versionName = "2.0"
+		versionCode = 59
+		versionName = "2.0.1"
 		applicationId = "ws.xsoh.etar"
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 	}

@@ -5,8 +5,6 @@
  */
 package com.android.calendar.settings.compose
 
-import com.android.calendar.chrome.declareReturnSlide
-import com.android.calendar.chrome.declareForwardSlide
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
@@ -16,18 +14,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.remember
 
 class ComposeQuickResponsesActivity : ComponentActivity() {
-
-    /**
-     * Declares the slide this screen plays when it is covered, and the reverse when it is revealed.
-     *
-     * Like the settings screen it is opened from, this is a plain ComponentActivity and so does not
-     * inherit the declarations M3eHostActivity makes.
-     */
-    override fun onResume() {
-        super.onResume()
-        declareForwardSlide()
-        declareReturnSlide()
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

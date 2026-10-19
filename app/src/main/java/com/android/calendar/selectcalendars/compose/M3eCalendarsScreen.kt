@@ -12,7 +12,6 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -59,13 +58,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.google.android.material.color.MaterialColors
 import com.android.calendar.persistence.CalendarRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -73,19 +70,26 @@ import kotlinx.coroutines.withContext
 import ws.xsoh.etar.R
 
 /**
- * A palette that reads well in both light and dark themes. Content is free to pick any colour;
- * these are just convenient starting points.
+ * The list of calendars the user can show, and the way into each one's own settings.
+ *
+ * A row is no longer only a switch and a colour dot: tapping it opens the per-calendar screen, which
+ * is where the calendar is renamed, its colour changed through the same picker, and - when this app
+ * owns it - where it is deleted.
  */
-private val COLOR_PALETTE = listOf(
-    0xFFD32F2F.toInt(), 0xFFE64A19.toInt(), 0xFFF57C00.toInt(), 0xFFFBC02D.toInt(),
-    0xFF689F38.toInt(), 0xFF388E3C.toInt(), 0xFF00796B.toInt(), 0xFF0097A7.toInt(),
-    0xFF1976D2.toInt(), 0xFF303F9F.toInt(), 0xFF7B1FA2.toInt(), 0xFFC2185B.toInt(),
-    0xFF5D4037.toInt(), 0xFF455A64.toInt(),
-)
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun M3eCalendarsScreen(onBack: () -> Unit) {
+fun M3eCalendarsScreen(
+    onBack: () -> Unit,
+    /**
+     * Bumped by the host on every resume.
+     *
+     * The per-calendar screen this list opens edits the same rows - a name, a colour, the visible
+     * flag, or the calendar itself when it is deleted - so the list has to re-read them when it
+     * comes back to the front. Without this it kept the values it had loaded when it was opened,
+     * and a calendar renamed or deleted on the screen above it came back unchanged.
+     */
+    externalReloadKey: Int = 0,
+) {
     val context = LocalContext.current
     val repo = remember { CalendarsRepository(context.applicationContext) }
     val scope = rememberCoroutineScope()
@@ -99,7 +103,7 @@ fun M3eCalendarsScreen(onBack: () -> Unit) {
     // Bumped after a calendar is created so the list picks it up.
     var reloadKey by remember { mutableStateOf(0) }
 
-    LaunchedEffect(reloadKey) {
+    LaunchedEffect(reloadKey, externalReloadKey) {
         calendars = withContext(Dispatchers.IO) { repo.load() }
         loading = false
     }
@@ -180,6 +184,11 @@ fun M3eCalendarsScreen(onBack: () -> Unit) {
             items(calendars, key = { it.id }) { entry ->
                 CalendarRow(
                     entry = entry,
+                    onOpen = {
+                        context.startActivity(
+                            ComposeCalendarEditActivity.intent(context, entry.id)
+                        )
+                    },
                     onToggle = { checked ->
                         calendars = calendars.map {
                             if (it.id == entry.id) it.copy(visible = checked) else it
@@ -188,12 +197,10 @@ fun M3eCalendarsScreen(onBack: () -> Unit) {
                     },
                     onPickColor = { colorTarget = entry },
                     // Only calendars this app created can be deleted; every other calendar is
-                    // owned by its account and stays. The to-do calendar is one of the app's own
-                    // but is not offered: every to-do lives in it, so deleting it would take them
-                    // all with it, and there is nothing in this list that says so.
-                    onDelete = if (entry.isOffline &&
-                        entry.accountName != com.android.calendar.todo.TodoStore.ACCOUNT_NAME
-                    ) {
+                    // owned by its account and stays. The to-do calendar is excluded too, and that
+                    // rule lives in CalendarEntry.canBeDeleted so this screen and the per-calendar
+                    // one cannot disagree about it.
+                    onDelete = if (entry.canBeDeleted) {
                         { deleteTarget = entry }
                     } else {
                         null
@@ -224,7 +231,7 @@ fun M3eCalendarsScreen(onBack: () -> Unit) {
     }
 
     colorTarget?.let { target ->
-        ColorPickerDialog(
+        CalendarColorDialog(
             initial = target.color,
             onDismiss = { colorTarget = null },
             onPick = { color ->
@@ -237,42 +244,32 @@ fun M3eCalendarsScreen(onBack: () -> Unit) {
         )
     }
 
-    // The confirmation for a swiped offline calendar. Deleting the row removes the calendar and,
-    // with it, its events - which the message says plainly.
+    // The confirmation for a swiped calendar. Deleting it removes the calendar and, with it, its
+    // events - which the dialog says plainly, and which the checkbox has to be ticked for. The same
+    // dialog is what the per-calendar screen opens for its delete row.
     deleteTarget?.let { target ->
-        AlertDialog(
-            onDismissRequest = { deleteTarget = null },
-            shape = MaterialTheme.shapes.extraLarge,
-            title = { Text(stringResource(R.string.m3e_calendar_delete_title)) },
-            text = {
-                Text(stringResource(R.string.m3e_calendar_delete_message, target.displayName))
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val app = context.applicationContext as Application
-                    val calendarId = target.id
-                    val account = target.accountName.orEmpty()
-                    deleteTarget = null
-                    scope.launch {
-                        val deleted = withContext(Dispatchers.IO) {
-                            runCatching {
-                                CalendarRepository(app).deleteLocalCalendar(account, calendarId)
-                            }.getOrDefault(false)
-                        }
-                        if (deleted) {
-                            calendars = calendars.filterNot { it.id == calendarId }
-                        } else {
-                            Toast.makeText(
-                                context, R.string.m3e_calendar_delete_failed, Toast.LENGTH_SHORT
-                            ).show()
-                            reloadKey++
-                        }
+        CalendarDeleteDialog(
+            name = target.displayName,
+            onDismiss = { deleteTarget = null },
+            onDelete = {
+                val app = context.applicationContext as Application
+                val calendarId = target.id
+                val account = target.accountName.orEmpty()
+                deleteTarget = null
+                scope.launch {
+                    val deleted = withContext(Dispatchers.IO) {
+                        runCatching {
+                            CalendarRepository(app).deleteLocalCalendar(account, calendarId)
+                        }.getOrDefault(false)
                     }
-                }) { Text(stringResource(R.string.m3e_event_delete)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) {
-                    Text(stringResource(R.string.m3e_cancel))
+                    if (deleted) {
+                        calendars = calendars.filterNot { it.id == calendarId }
+                    } else {
+                        Toast.makeText(
+                            context, R.string.m3e_calendar_delete_failed, Toast.LENGTH_SHORT
+                        ).show()
+                        reloadKey++
+                    }
                 }
             },
         )
@@ -302,7 +299,7 @@ private fun OfflineCalendarDialog(onDismiss: () -> Unit, onCreated: () -> Unit) 
 
     // The colour the new calendar is created with. It starts on the first palette entry and can be
     // set to anything through the picker, the same one the colour dialog on this screen uses.
-    var color by remember { mutableStateOf(COLOR_PALETTE.first()) }
+    var color by remember { mutableStateOf(CALENDAR_COLOR_PALETTE.first()) }
     var custom by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -353,7 +350,7 @@ private fun OfflineCalendarDialog(onDismiss: () -> Unit, onCreated: () -> Unit) 
                 } else {
                     // The palette, with the current choice ringed. Six to a row, as the colour dialog
                     // on this screen lays them out.
-                    COLOR_PALETTE.chunked(6).forEach { row ->
+                    CALENDAR_COLOR_PALETTE.chunked(6).forEach { row ->
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.padding(bottom = 10.dp),
@@ -464,6 +461,8 @@ private fun openStore(context: Context, packageName: String) {
 @Composable
 private fun CalendarRow(
     entry: CalendarEntry,
+    /** Opens the per-calendar screen for this row; the whole row is the tap target. */
+    onOpen: () -> Unit,
     onToggle: (Boolean) -> Unit,
     onPickColor: () -> Unit,
     /** Swiping left asks for the calendar's deletion; null when it is not this app's own. */
@@ -477,20 +476,16 @@ private fun CalendarRow(
             contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
             Row(
-                modifier = Modifier.padding(12.dp),
+                modifier = Modifier
+                    .clickable(onClick = onOpen)
+                    .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Tapping the swatch opens the colour picker.
-                Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .background(color = swatchColor(entry.color), shape = CircleShape)
-                        .border(
-                            width = 1.5.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                            shape = CircleShape,
-                        )
-                        .clickable(onClick = onPickColor),
+                // Tapping the swatch opens the colour picker; tapping the rest of the row opens the
+                // calendar's own screen. The swatch is a child target, so it takes its own taps.
+                CalendarColorSwatch(
+                    color = entry.color,
+                    modifier = Modifier.clickable(onClick = onPickColor),
                 )
                 Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -593,90 +588,3 @@ private class HapticFeedbackCompat(private val context: android.content.Context)
     }
 }
 
-@Composable
-private fun ColorPickerDialog(
-    initial: Int,
-    onDismiss: () -> Unit,
-    onPick: (Int) -> Unit,
-) {
-    // The palette is a set of starting points; anything the user actually wants is available through
-    // the picker behind this switch, which covers the whole range rather than fourteen colours.
-    var custom by remember { mutableStateOf(false) }
-    var customColor by remember { mutableStateOf(initial) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.extraLarge,
-        title = {
-            Text(
-                stringResource(
-                    if (custom) R.string.m3e_event_color_custom
-                    else R.string.m3e_calendars_color_title
-                )
-            )
-        },
-        text = {
-            if (custom) {
-                com.android.calendar.chrome.compose.HsvColorPicker(
-                    initial = initial,
-                    onColor = { customColor = it },
-                )
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Rows of six swatches.
-                    COLOR_PALETTE.chunked(6).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            row.forEach { color ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .background(color = Color(color), shape = CircleShape)
-                                        .border(
-                                            width = if (color == initial) 2.5.dp else 0.dp,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            shape = CircleShape,
-                                        )
-                                        .clickable { onPick(color) },
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            if (custom) {
-                TextButton(onClick = { onPick(customColor) }) {
-                    Text(stringResource(R.string.create_event_dialog_save))
-                }
-            } else {
-                TextButton(onClick = { custom = true }) {
-                    Text(stringResource(R.string.m3e_event_color_custom))
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = { if (custom) custom = false else onDismiss() }
-            ) {
-                Text(stringResource(R.string.m3e_back))
-            }
-        },
-    )
-}
-
-/**
- * Harmonises a calendar colour towards the wallpaper-derived primary so the swatches match the
- * event colours shown in the month / week / day / agenda views.
- */
-@Composable
-private fun swatchColor(calendarColor: Int): Color {
-    val primary = MaterialTheme.colorScheme.primary.toArgb()
-    return remember(calendarColor, primary) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Color(MaterialColors.harmonize(calendarColor, primary))
-        } else {
-            Color(calendarColor)
-        }
-    }
-}

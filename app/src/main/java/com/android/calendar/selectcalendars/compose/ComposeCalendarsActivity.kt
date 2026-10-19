@@ -5,14 +5,15 @@
  */
 package com.android.calendar.selectcalendars.compose
 
-import com.android.calendar.chrome.declareReturnSlide
-import com.android.calendar.chrome.declareForwardSlide
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.android.calendar.settings.compose.EtarM3ETheme
 import com.android.calendar.settings.compose.SettingsRepository
 
@@ -26,17 +27,29 @@ import com.android.calendar.settings.compose.SettingsRepository
 class ComposeCalendarsActivity : ComponentActivity() {
 
     /**
-     * Declares the slide this screen plays when it is covered, and the reverse when it is revealed.
+     * Bumped on every resume, and read by the screen so it re-reads the calendars.
      *
-     * Like the settings screen, this one is a plain ComponentActivity rather than an
-     * M3eHostActivity - it brings its own Compose TopAppBar - so it does not inherit the
-     * declarations the host makes, and without them it was the only screen still arriving over the
-     * calendar and going back with the platform's animation.
+     * This list now opens a screen of its own for a calendar, and that screen writes the very rows
+     * this one draws: it can rename the calendar, recolour it, hide its events or delete it. Coming
+     * back from it is a resume of this activity, and without this key the list was still the one it
+     * had loaded before - the renamed calendar came back with its old name, and a deleted one was
+     * still in the list until the screen was reopened.
+     */
+    private var reloadKey by mutableStateOf(0)
+
+    /**
+     * Re-reads the list on every resume.
+     *
+     * This list opens a screen of its own for a calendar, and that screen writes the very rows this
+     * one draws: it can rename the calendar, recolour it, hide its events or delete it. Coming back
+     * from it is a resume of this activity, and without this key the list was still the one it had
+     * loaded before - the renamed calendar came back with its old name, and a deleted one was still
+     * in the list until the screen was reopened. The animation itself is carried by the operations
+     * that open and close screens now, so nothing is declared here.
      */
     override fun onResume() {
         super.onResume()
-        declareForwardSlide()
-        declareReturnSlide()
+        reloadKey++
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,7 +68,10 @@ class ComposeCalendarsActivity : ComponentActivity() {
             
 
             EtarM3ETheme(darkTheme = dark) {
-                M3eCalendarsScreen(onBack = { finish() })
+                M3eCalendarsScreen(
+                    onBack = { finish() },
+                    externalReloadKey = reloadKey,
+                )
             }
         }
     }

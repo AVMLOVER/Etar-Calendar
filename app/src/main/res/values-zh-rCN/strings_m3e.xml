@@ -30,13 +30,33 @@
     <string name="m3e_agenda_today">今天</string>
     <string name="m3e_agenda_menu_title">日程</string>
 
-    <string name="m3e_calendars_title">日历显示设置</string>
-    <string name="m3e_calendars_menu_title">日历添加&amp;显示设置</string>
+    <!-- 此页面的标题，以及打开它的设置项。 -->
+    <string name="m3e_calendars_title">日历设置</string>
+    <string name="m3e_calendars_menu_title">日历设置</string>
     <string name="m3e_calendars_hint">打开开关即可显示该日历中的事件。点击彩色圆点可更改颜色。</string>
     <string name="m3e_calendars_color_title">日历颜色</string>
-    <string name="m3e_calendar_delete_title">删除日历</string>
-    <string name="m3e_calendar_delete_message">删除“%1$s”？其中的所有日程也会被删除。</string>
     <string name="m3e_calendar_delete_failed">无法删除日历</string>
+
+    <!-- 单个日历的设置页，在日历列表中点击该日历后打开。 -->
+    <string name="m3e_calendar_edit_title">日历设置</string>
+    <string name="m3e_calendar_show_events">显示日程</string>
+    <string name="m3e_calendar_manage_notifications">管理通知</string>
+    <string name="m3e_calendar_color">颜色</string>
+    <string name="m3e_calendar_rename">重命名</string>
+    <string name="m3e_calendar_delete">删除日历</string>
+    <string name="m3e_calendar_info">日历信息</string>
+    <string name="m3e_calendar_offline">离线日历</string>
+    <string name="m3e_calendar_synced">同步日历 · %1$s</string>
+    <string name="m3e_calendar_rename_title">重命名日历</string>
+    <string name="m3e_calendar_name_label">日历名称</string>
+    <string name="m3e_calendar_rename_confirm">重命名</string>
+    <string name="m3e_calendar_rename_failed">无法重命名日历</string>
+    <string name="m3e_calendar_delete_confirm_title">删除此日历？</string>
+    <string name="m3e_calendar_delete_confirm_message">删除“%1$s”？其中的所有日程也会被删除。</string>
+    <string name="m3e_calendar_delete_checkbox">我确认删除此日历及其所有日程</string>
+    <plurals name="m3e_calendar_event_count">
+        <item quantity="other">%1$d 个日程</item>
+    </plurals>
 
     <string name="m3e_event_edit">编辑</string>
     <string name="m3e_event_missing">该日程已不存在</string>

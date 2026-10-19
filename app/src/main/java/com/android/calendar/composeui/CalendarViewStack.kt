@@ -16,6 +16,12 @@
  * showing is one of the calendar views at all, whether it was opened over another screen, and
  * whether the view being asked for is that screen underneath - and is checked without a device in
  * CalendarViewStackTest.
+ *
+ * One rule holds for every kind of screen, not only the calendar views: the entry that names the
+ * screen this one was opened over is the same move as back. Tapping the month in the year view's
+ * drawer therefore finishes the year view and reveals the month, exactly as the back gesture does.
+ * It used to be a push - the month was started *over* the year view - which left two screens stacked
+ * and played the entry slide instead of the return one.
  */
 package com.android.calendar.composeui
 
@@ -24,9 +30,9 @@ enum class CalendarViewStep {
     /**
      * The view opens over this screen, and this screen stays underneath it.
      *
-     * This is the landing screen (it is what back must return to before the app is left) and, as it
-     * happens, every tool screen: the year view, the agenda and the rest have never been peers of
-     * the calendar views, and what they open goes on top of them.
+     * This is what a screen asks for when the view it names is not the one it was opened over: the
+     * landing screen, which has nothing underneath it, and a tool screen - the year view, the agenda,
+     * the date calculator - which keeps its own place under whatever it opens.
      */
     PUSH,
 
@@ -34,7 +40,9 @@ enum class CalendarViewStep {
      * This screen is finished and the view takes its place.
      *
      * This screen was itself opened over the landing one, and the stack must not grow past those
-     * two: the landing screen stays underneath, and back from the new view returns to it.
+     * two: the landing screen stays underneath, and back from the new view returns to it. It is the
+     * one step that both starts the requested screen and finishes this one, and it exists only
+     * between the calendar views, which are peers of one another.
      */
     REPLACE,
 
@@ -42,8 +50,9 @@ enum class CalendarViewStep {
      * This screen is finished and the view underneath it is revealed.
      *
      * The view asked for is the screen this one was opened over, so choosing it is a step back, not
-     * a second copy of it. Starting it would put the same screen in the stack twice and re-intent
-     * the landing one, which is how the drawer used to lose the screen back should return to.
+     * a second copy of it - it is the back gesture made from the menu, and plays the same return
+     * slide. This holds for a tool screen exactly as it does for a calendar view: the year view's
+     * month entry reveals the month it was opened from.
      */
     REVEAL,
 }
@@ -52,27 +61,33 @@ enum class CalendarViewStep {
 val CalendarViewStep.finishesCurrentScreen: Boolean
     get() = this != CalendarViewStep.PUSH
 
+/** True when the step opens the requested screen. */
+val CalendarViewStep.startsScreen: Boolean
+    get() = this != CalendarViewStep.REVEAL
+
 /**
- * The step to take when another calendar view is opened from the screen that is showing.
+ * The step to take when another view is opened from the screen that is showing.
  *
  * @param isCalendarView true when the screen showing is itself one of the drawer's calendar views -
- *   the day, three day, week or month screen. Those are peers of the view being asked for, so the
- *   choice is made without adding to the stack. A tool screen - the year view, the agenda, the to-do
- *   list - is not a peer: what it opens goes on top of it and back returns to it, as it always has.
+ *   the day, three day, week or month screen. Those are peers of the view being asked for, so a
+ *   choice that is neither a step back nor the landing screen's push replaces it.
  * @param hasOpener true when the screen was opened over another one - it carries
  *   [ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER] - and so is not the landing screen.
- * @param targetIsOpener true when the view being asked for is the screen this one was opened over.
+ * @param targetIsOpener true when the view being asked for is the screen this one was opened over,
+ *   by class; see [ComposeCalendarViewActivity.EXTRA_OPENER_CLASS].
  */
 fun calendarViewStep(
     isCalendarView: Boolean,
     hasOpener: Boolean,
     targetIsOpener: Boolean,
 ): CalendarViewStep = when {
+    // Asking for the screen underneath is the same move as back, made from the menu. Checked first,
+    // and whatever kind of screen this is: a tool screen's entry for the month it was opened from is
+    // a step back too, and pushing the month over the tool screen was the stacked transition.
+    hasOpener && targetIsOpener -> CalendarViewStep.REVEAL
     // The landing screen has nothing underneath it, so it can only push the view over itself. And a
-    // tool screen is never a peer of the calendar views, whatever it was opened over.
+    // tool screen is not a peer of the calendar views: what it opens goes on top of it.
     !isCalendarView || !hasOpener -> CalendarViewStep.PUSH
-    // Asking for the screen underneath is the same move as back, made from the drawer.
-    targetIsOpener -> CalendarViewStep.REVEAL
     // Any other view replaces this one, so the landing screen stays the bottom of the stack.
     else -> CalendarViewStep.REPLACE
 }

@@ -5,8 +5,6 @@
  */
 package com.android.calendar.event.compose
 
-import com.android.calendar.chrome.declareReturnSlide
-import com.android.calendar.chrome.declareForwardSlide
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -30,20 +28,6 @@ class ComposeEventDetailsActivity : ComponentActivity() {
 
     /** Kept as a field because the reminder and delete writes need it after onCreate returns. */
     private var eventId: Long = -1L
-
-    /**
-     * Declares the slide this screen plays when it is covered, and the reverse when it is
-     * revealed.
-     *
-     * Declared on every screen that opens over the calendar, dialogs included, so that the
-     * movement is the same everywhere. It is a plain ComponentActivity, so it does not inherit
-     * the declarations M3eHostActivity makes.
-     */
-    override fun onResume() {
-        super.onResume()
-        declareForwardSlide()
-        declareReturnSlide()
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

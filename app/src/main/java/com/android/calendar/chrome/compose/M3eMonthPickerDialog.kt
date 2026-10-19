@@ -23,12 +23,17 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
@@ -132,9 +137,31 @@ object M3eMonthPickerDialog {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
             setContent {
                 EtarM3ETheme(darkTheme = dark) {
-                    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
-                        Column {
-                            content(dismiss)
+                    // The rounded sheet the picker is drawn on.
+                    //
+                    // A dialog window is a rectangle, and a surface that filled it would touch the
+                    // window's edges - so the corners were there but never visible, and the picker
+                    // dropped down as a square slab under the toolbar. The padding is what leaves the
+                    // window's rectangle around the sheet, so the rounded corners are drawn inside it
+                    // with the screen showing through the gap.
+                    //
+                    // The shape and the colour are the dialog pair the rest of the Material 3
+                    // Expressive screens use: the large corner token and the high container surface,
+                    // which is what an AlertDialog sits on here.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            tonalElevation = 3.dp,
+                        ) {
+                            Column {
+                                content(dismiss)
+                            }
                         }
                     }
                 }

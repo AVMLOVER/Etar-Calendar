@@ -30,13 +30,33 @@
     <string name="m3e_agenda_today">今天</string>
     <string name="m3e_agenda_menu_title">活動</string>
 
-    <string name="m3e_calendars_title">行事曆顯示設定</string>
-    <string name="m3e_calendars_menu_title">行事曆新增與顯示設定</string>
+    <!-- 此頁面的標題，以及開啟它的設定項目。 -->
+    <string name="m3e_calendars_title">日曆設定</string>
+    <string name="m3e_calendars_menu_title">日曆設定</string>
     <string name="m3e_calendars_hint">開啟開關即可顯示該行事曆的活動。點彩色圓點可變更顏色。</string>
     <string name="m3e_calendars_color_title">行事曆顏色</string>
-    <string name="m3e_calendar_delete_title">刪除行事曆</string>
-    <string name="m3e_calendar_delete_message">刪除「%1$s」？其中的所有行程也會被刪除。</string>
     <string name="m3e_calendar_delete_failed">無法刪除行事曆</string>
+
+    <!-- 單一行事曆的設定頁，在行事曆清單中點選該行事曆後開啟。 -->
+    <string name="m3e_calendar_edit_title">日曆設定</string>
+    <string name="m3e_calendar_show_events">顯示活動</string>
+    <string name="m3e_calendar_manage_notifications">管理通知</string>
+    <string name="m3e_calendar_color">顏色</string>
+    <string name="m3e_calendar_rename">重新命名</string>
+    <string name="m3e_calendar_delete">刪除行事曆</string>
+    <string name="m3e_calendar_info">行事曆資訊</string>
+    <string name="m3e_calendar_offline">離線行事曆</string>
+    <string name="m3e_calendar_synced">同步行事曆 · %1$s</string>
+    <string name="m3e_calendar_rename_title">重新命名行事曆</string>
+    <string name="m3e_calendar_name_label">行事曆名稱</string>
+    <string name="m3e_calendar_rename_confirm">重新命名</string>
+    <string name="m3e_calendar_rename_failed">無法重新命名行事曆</string>
+    <string name="m3e_calendar_delete_confirm_title">刪除此行事曆？</string>
+    <string name="m3e_calendar_delete_confirm_message">刪除「%1$s」？其中的所有活動也會被刪除。</string>
+    <string name="m3e_calendar_delete_checkbox">我確認刪除此行事曆及其所有活動</string>
+    <plurals name="m3e_calendar_event_count">
+        <item quantity="other">%1$d 個活動</item>
+    </plurals>
 
     <string name="m3e_event_edit">編輯</string>
     <string name="m3e_event_missing">該活動已不存在</string>

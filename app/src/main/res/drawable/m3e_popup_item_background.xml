@@ -1,21 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The background for the overflow menu's entries.
+  The background of one row of the three dot (overflow) menu.
 
-  They had android:itemBackground set to a flat colour, which replaces the ripple rather than sitting
-  under it - so an entry in the three dot menu could be tapped with nothing to show for it. This
-  keeps the colour as the content and adds the ripple over it, which is the two together rather than
-  one instead of the other.
+  The rows used to be drawn as one flat sheet: android:itemBackground was a single rectangle filled
+  with the popup's own colour, so nothing separated an entry from the entry above it or from the
+  menu's surface. Each row is now its own rounded item, using the Material 3 container step between
+  the two: `colorSurfaceContainerHigh` for the tile and `colorSurfaceContainer` for the sheet behind
+  it (m3e_popup_background.xml). Both are roles resolved from the popup's themed context, so the
+  pair follows the palette - monet on Android 12+ - in the light and the dark appearance alike, and
+  text in `colorOnSurface` keeps its contrast on the tile in both.
 
-  ?attr/colorControlHighlight is the theme's own ripple colour, so it follows the palette including
-  the monet one taken from the wallpaper.
+  Two things make that shape behave like a row and not like a painted rectangle:
+
+  * The inset. The popup window is still a rectangle; the gap this leaves on every side is what lets
+    the popup's own rounded background show between rows, which is what makes each row a separate
+    item rather than one block of colour.
+  * The ripple. It is inside the same inset, and its mask is the row's rounded shape, so a tap fills
+    the rounded row instead of spreading a square of colour past its corners. The mask is an explicit
+    item rather than the content shape because a ripple's mask is drawn to the drawable's bounds -
+    without it the pressed colour covered the whole rectangle and squared off the corners again.
+    The colour is the theme's `colorControlHighlight` - Material's standard state layer over the
+    surface, at the 12% the rest of the app's controls use - so the pressed state is the same tint
+    every other control on the screen uses, again in either appearance.
 -->
-<ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="?android:attr/colorControlHighlight">
-    <item>
-        <shape android:shape="rectangle">
-            <solid android:color="?attr/colorSurfaceContainer" />
-            <corners android:radius="12dp" />
-        </shape>
-    </item>
-</ripple>
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="4dp"
+    android:insetRight="4dp"
+    android:insetTop="2dp"
+    android:insetBottom="2dp">
+    <ripple android:color="?attr/colorControlHighlight">
+        <item android:id="@android:id/mask">
+            <shape android:shape="rectangle">
+                <solid android:color="@android:color/white" />
+                <!-- The app's large corner token (values/themes.xml), at the size a 46dp row
+                     needs: a full 28dp token would round the row into a pill. -->
+                <corners android:radius="18dp" />
+            </shape>
+        </item>
+        <item>
+            <shape android:shape="rectangle">
+                <solid android:color="?attr/colorSurfaceContainerHigh" />
+                <corners android:radius="18dp" />
+            </shape>
+        </item>
+    </ripple>
+</inset>

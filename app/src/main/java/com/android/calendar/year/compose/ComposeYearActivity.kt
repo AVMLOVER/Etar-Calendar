@@ -8,6 +8,7 @@
  */
 package com.android.calendar.year.compose
 
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
@@ -48,8 +49,9 @@ class ComposeYearActivity : M3eHostActivity() {
     private var visibleYear = 0
 
     /**
-     * The year the list is built on. Picking a year from the heading's picker sets it and bumps
-     * refreshKey: the list is keyed on refreshKey, so that re-key is what moves it to that year.
+     * The year the list is built on. Picking a year from the heading's picker sets it, and the list
+     * is keyed on it, so the re-key is what moves the list to that year. It is deliberately not
+     * keyed on [refreshKey]: a resume must not rebuild the list, or its scroll position would jump.
      */
     private var initialYear by androidx.compose.runtime.mutableStateOf(LocalDate.now().year)
 
@@ -94,16 +96,18 @@ class ComposeYearActivity : M3eHostActivity() {
             //
             // It used to be read once in onCreate, so changing it in the settings and coming back
             // left the year view scrolling the old way until it was left and opened again. The
-            // preference is a plain value with no change notification, so the refresh key is what
-            // makes the screen notice: bumping it recomposes this block and the new mode is read.
+            // preference is a plain value with no change notification, so the resume counter is
+            // what makes the screen notice: remember(refreshKey) re-reads the mode when it bumps.
+            // The list itself is not keyed on the resume count - only on the mode and the year it
+            // shows - so its scroll position survives a resume. See M3eYearScreen.
+            val horizontal = remember(refreshKey) {
+                yearScrollMode(SettingsRepository(context)) != YEAR_SCROLL_VERTICAL
+            }
             M3eYearScreen(
                 initialYear = initialYear,
                 firstDayOfWeek = firstDayOfWeek,
                 showLunar = showLunar,
-                horizontal = yearScrollMode(SettingsRepository(context)) != YEAR_SCROLL_VERTICAL,
-                // Bumped on resume, and by a year picked from the heading's picker, which is what
-                // re-reads the mode after the settings screen and rebuilds the list at that year.
-                screenKey = refreshKey,
+                horizontal = horizontal,
                 // The year with its unit, as each language writes it: the unit follows the number in
                 // Chinese and leads it in German and English, and the string carries the spacing so
                 // that "2026年" has none and "Jahr 2026" does.
@@ -207,7 +211,8 @@ class ComposeYearActivity : M3eHostActivity() {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
         )
-        finish()
+        // The month takes this screen's place, so the finish is a hand-over and keeps moving left.
+        finishForward()
     }
 
     private companion object {

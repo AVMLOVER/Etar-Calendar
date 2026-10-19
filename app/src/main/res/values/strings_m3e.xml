@@ -30,13 +30,34 @@
     <string name="m3e_agenda_today">Today</string>
     <string name="m3e_agenda_menu_title">Agenda</string>
 
-    <string name="m3e_calendars_title">Calendar display settings</string>
-    <string name="m3e_calendars_menu_title">Calendars: add and display</string>
+    <!-- Both this screen's title and the settings row that opens it: one name for one place. -->
+    <string name="m3e_calendars_title">Calendar settings</string>
+    <string name="m3e_calendars_menu_title">Calendar settings</string>
     <string name="m3e_calendars_hint">Turn a calendar on to show its events. Tap the colour dot to change its colour.</string>
     <string name="m3e_calendars_color_title">Calendar colour</string>
-    <string name="m3e_calendar_delete_title">Delete calendar</string>
-    <string name="m3e_calendar_delete_message">Delete \"%1$s\"? All its events will be removed too.</string>
     <string name="m3e_calendar_delete_failed">Could not delete the calendar</string>
+
+    <!-- The screen for one calendar, opened by tapping it in the calendars list. -->
+    <string name="m3e_calendar_edit_title">Calendar settings</string>
+    <string name="m3e_calendar_show_events">Show events</string>
+    <string name="m3e_calendar_manage_notifications">Manage notifications</string>
+    <string name="m3e_calendar_color">Colour</string>
+    <string name="m3e_calendar_rename">Rename</string>
+    <string name="m3e_calendar_delete">Delete calendar</string>
+    <string name="m3e_calendar_info">Calendar information</string>
+    <string name="m3e_calendar_offline">Offline calendar</string>
+    <string name="m3e_calendar_synced">Synced calendar · %1$s</string>
+    <string name="m3e_calendar_rename_title">Rename calendar</string>
+    <string name="m3e_calendar_name_label">Calendar name</string>
+    <string name="m3e_calendar_rename_confirm">Rename</string>
+    <string name="m3e_calendar_rename_failed">Could not rename the calendar</string>
+    <string name="m3e_calendar_delete_confirm_title">Delete this calendar?</string>
+    <string name="m3e_calendar_delete_confirm_message">Delete \"%1$s\"? All of its events will be removed too.</string>
+    <string name="m3e_calendar_delete_checkbox">I understand that this calendar and all of its events will be deleted</string>
+    <plurals name="m3e_calendar_event_count">
+        <item quantity="one">%1$d event</item>
+        <item quantity="other">%1$d events</item>
+    </plurals>
 
     <string name="m3e_event_edit">Edit</string>
     <string name="m3e_event_missing">This event no longer exists</string>

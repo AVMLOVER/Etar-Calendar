@@ -127,16 +127,22 @@ fun M3eYearScreen(
     horizontal: Boolean,
     onVisibleYearChanged: (Int) -> Unit,
     onOpenMonth: (year: Int, month: Int) -> Unit,
-    screenKey: Int = 0,
     onCreateEvent: () -> Unit = {},
 ) {
     // The add button floats over both modes, so it sits outside whichever one is composed.
     androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
-        // Keyed on the mode as well as the resume count, so switching between sideways and up-and-down
-        // builds the other one from scratch. Without the key the two share a composition slot and the
-        // pager's remembered state survives the switch, which leaves the new mode looking half applied
-        // until the view is left and opened again.
-        key(horizontal, screenKey) {
+        // Keyed on the mode and the year it is asked to show, not on the resume count.
+        //
+        // The mode is part of the key so switching between sideways and up-and-down builds the
+        // other one from scratch: without it the two share a composition slot and the pager's
+        // remembered state survives the switch, leaving the new mode looking half applied.
+        //
+        // The year is part of the key so a year picked from the heading rebuilds the list at that
+        // year. The resume count used to be a third key, and that was the scroll bug: every resume
+        // - coming back from a month, from an event, from anywhere - disposed the list and built it
+        // again at its initial year, so the year view jumped back instead of staying where the user
+        // had scrolled to.
+        key(horizontal, initialYear) {
             if (horizontal) {
                 HorizontalYearPager(
                     initialYear = initialYear,

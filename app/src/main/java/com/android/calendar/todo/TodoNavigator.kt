@@ -21,6 +21,10 @@ import com.android.calendar.todo.compose.ComposeTodoActivity
  */
 fun openTodoForEvent(context: Context, eventId: Long): Boolean {
     val date = TodoStore.todoDateForEvent(context, eventId) ?: return false
+    // The screen that showed the to-do, when the caller is one: named along with the flag so the
+    // to-do screen's own menu entry for it is a step back - the same finish and return slide as the
+    // back gesture - rather than a fresh push of that screen over the to-do list.
+    val openerClass = (context as? android.app.Activity)?.javaClass?.name
     context.startActivity(
         ComposeTodoActivity.intent(context, date)
             // Opened from the screen that showed the to-do, so back returns to that screen -
@@ -28,6 +32,11 @@ fun openTodoForEvent(context: Context, eventId: Long): Boolean {
             // this, back stepped to a freshly started month view, which plays the forward slide, so
             // the return went left a second time.
             .putExtra(ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true)
+            .apply {
+                if (openerClass != null) {
+                    putExtra(ComposeCalendarViewActivity.EXTRA_OPENER_CLASS, openerClass)
+                }
+            }
     )
     return true
 }

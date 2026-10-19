@@ -4,14 +4,10 @@
     <color name="colorSecondaryContainer">#388d7f</color>
 
     <!--
-      The three dot menu's own colours, fixed per appearance rather than taken from a theme role.
-
-      The menu is drawn by the platform from a theme overlay, and the text it picks up there was
-      white in the light appearance - unreadable on the light popup it sits on. These two colours
-      are named for that menu alone so nothing else can shift them.
+      The three dot menu has no colours of its own. Its sheet, rows, text and ripple are the theme's
+      Material 3 roles, which values-night already supplies through the night palette - so there is
+      nothing to flip here, and anything put here would shadow the roles. See values/colors.xml.
     -->
-    <color name="m3e_popup_text">#E6E1E5</color>
-    <color name="m3e_popup_background">#211F26</color>
 
     <!--
       The widgets' colours in the dark appearance: the same roles as values/colors.xml, written for a

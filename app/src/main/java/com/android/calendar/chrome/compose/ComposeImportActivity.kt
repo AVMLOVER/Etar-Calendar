@@ -18,26 +18,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.android.calendar.chrome.declareForwardSlide
-import com.android.calendar.chrome.declareReturnSlide
 import com.android.calendar.settings.compose.EtarM3ETheme
 import com.android.calendar.settings.compose.SettingsRepository
 
 class ComposeImportActivity : ComponentActivity() {
-
-    /**
-     * Declares the slide this screen plays when it is covered, and the reverse when it is
-     * revealed.
-     *
-     * Declared on every screen that opens over the calendar, dialogs included, so that the
-     * movement is the same everywhere. It is a plain ComponentActivity, so it does not inherit
-     * the declarations M3eHostActivity makes.
-     */
-    override fun onResume() {
-        super.onResume()
-        declareForwardSlide()
-        declareReturnSlide()
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

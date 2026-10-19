@@ -5,8 +5,6 @@
  */
 package com.android.calendar.settings.compose
 
-import com.android.calendar.chrome.declareReturnSlide
-import com.android.calendar.chrome.declareForwardSlide
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
@@ -25,24 +23,6 @@ import com.android.calendar.theme.applyApplicationNightMode
  * PreferenceFragmentCompat screens have been removed.
  */
 class ComposeSettingsActivity : ComponentActivity() {
-
-    /**
-     * Declares the slide this screen plays when it is covered, and the reverse when it is revealed.
-     *
-     * Every other Material 3 screen gets this from M3eHostActivity, which they all extend. This one
-     * does not: it is a plain ComponentActivity, because its heading is a Compose TopAppBar rather
-     * than the shared toolbar the host provides. That left it the only screen arriving over the
-     * calendar and going back with the platform's own animation instead of the app's.
-     *
-     * After super.onResume, and on every resume: overrideActivityTransition is only accepted while
-     * the activity is resumed, and the transition used by the next launch is taken from whatever
-     * this activity last set.
-     */
-    override fun onResume() {
-        super.onResume()
-        declareForwardSlide()
-        declareReturnSlide()
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
