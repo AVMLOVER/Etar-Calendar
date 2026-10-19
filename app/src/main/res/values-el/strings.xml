@@ -313,7 +313,6 @@
     <string name="authors">Δημιουργοί</string>
     <string name="preferences_days_per_week_dialog">Ημέρες ανά εβδομάδα</string>
     <string name="preferences_days_per_week_title">Ημέρες ανά εβδομάδα</string>
-    <string name="default_start_last">Προηγούμενη προβολή</string>
     <string name="display_location">Προβολή τοποθεσίας</string>
     <string name="display_time">Προβολή ώρας</string>
     <string name="display_options">Επιλογές εμφάνισης</string>

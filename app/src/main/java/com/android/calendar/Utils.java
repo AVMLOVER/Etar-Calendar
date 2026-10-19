@@ -283,6 +283,16 @@ public class Utils {
         return true;
     }
 
+    /**
+     * The view type a request means: what its intent names, or else the view the settings name as
+     * the app's default.
+     *
+     * The default is stored as a string because the settings screen writes it, and its value is one
+     * of the {@link ViewType} numbers. There is no "the view I last used" answer any more: the app
+     * never recorded the last view it was on, so that option could only ever hold a stale value and
+     * it was removed from the settings. A device that still stores it - or any value this build does
+     * not recognise - opens on the default view rather than failing.
+     */
     public static int getViewTypeFromIntentAndSharedPref(Activity activity) {
         Intent intent = activity.getIntent();
         Bundle extras = intent.getExtras();
@@ -306,24 +316,23 @@ public class Utils {
             }
         }
 
-        // Check if the user wants the last view or the default startup view
-        int defaultStart = Integer.parseInt(prefs.getString(GeneralPreferences.KEY_DEFAULT_START,
-                GeneralPreferences.DEFAULT_DEFAULT_START));
-        if (defaultStart == -2) {
-            // The view the user chose, or the app's own default when they have not chosen one.
-            //
-            // The stored value used to be written on every pause, so it held "the last view looked
-            // at" whether or not the user had ever chosen. The flag beside it says which of the two
-            // it is - and without the flag the month is the answer, so an install that has never
-            // been near the settings opens on the month instead of on whatever it showed first.
-            if (!prefs.getBoolean(GeneralPreferences.KEY_START_VIEW_CHOSEN, false)) {
+        String stored = prefs.getString(GeneralPreferences.KEY_DEFAULT_START,
+                GeneralPreferences.DEFAULT_DEFAULT_START);
+        int defaultStart = -1;
+        try {
+            defaultStart = Integer.parseInt(stored);
+        } catch (NumberFormatException e) {
+            // An unreadable value is the default view, which the switch below returns.
+        }
+        switch (defaultStart) {
+            case ViewType.AGENDA:
+            case ViewType.DAY:
+            case ViewType.WEEK:
+            case ViewType.MONTH:
+            case ViewType.THREE_DAY:
+                return defaultStart;
+            default:
                 return GeneralPreferences.DEFAULT_START_VIEW;
-            }
-            return prefs.getInt(
-                    GeneralPreferences.KEY_START_VIEW, GeneralPreferences.DEFAULT_START_VIEW);
-        } else {
-            // Return the default view
-            return defaultStart;
         }
     }
 

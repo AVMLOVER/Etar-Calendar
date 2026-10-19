@@ -296,7 +296,6 @@
     <string name="display_time">Wyświetl czas</string>
     <string name="display_location">Wyświetl lokalizację</string>
     <string name="maximum_number_of_lines">Maksymalna ilość linii w wydarzeniu</string>
-    <string name="default_start_last">Poprzednio używany widok</string>
     <string name="error_generating_ics">Podczas udostępniania wydarzenia wystąpiły problemy</string>
     <string name="cal_share_intent_title">Wyślij wydarzenie do:</string>
     <string name="cal_export_event_title">Eksportuj na kartę SD</string>

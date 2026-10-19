@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The today icon in the size the drawer's rows use, with today's day number drawn into it later.
+
+  today_icon is 28dp because the title bar's today button is. The drawer's to-do entry is a list row
+  instead, and next to the 24dp view icons the 28dp form read as a mis-sized icon rather than as a
+  deliberate difference - so the drawer gets this variant while the title bar keeps today_icon.
+
+  The layer ids are the same as today_icon's on purpose: Utils.setTodayIcon finds the day layer by
+  id and replaces it with a drawable painting the day of the month, so both sizes keep showing the
+  date without a second implementation.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/today_icon_background"
+        android:drawable="@drawable/ic_baseline_calendar_dayofmonth_24"
+        android:gravity="center"/>
+    <item
+        android:id="@+id/today_icon_day"
+        android:drawable="@drawable/ic_baseline_calendar_dayofmonth_24"
+        android:gravity="center"/>
+</layer-list>

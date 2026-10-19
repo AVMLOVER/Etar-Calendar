@@ -389,7 +389,6 @@
     <string name="preferences_default_snooze_delay_dialog">التأخير الافتراضي للغفوة</string>
     <string name="preferences_alerts_custom_snooze_delay_summary_on">اطلب وقت تأخير الغفوة كلما أغفيت التذكيرات</string>
     <string name="preferences_alerts_custom_snooze_delay_title">اسال عن وقت تاخير الغفوة</string>
-    <string name="default_start_last">عرض مستخم سابقا</string>
     <string name="maximum_number_of_lines">أقصى عدد أسطر للحدث</string>
     <string name="preferences_pure_black_night_mode">وضع الليلي النقي الداكن</string>
     <string name="preferences_system_theme">إعدادات النظام</string>

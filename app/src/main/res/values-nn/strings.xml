@@ -51,7 +51,6 @@
     <string name="display_options">Visingsval</string>
     <string name="display_location">Vis stad</string>
     <string name="maximum_number_of_lines">Grense for mengd liner i eit hende</string>
-    <string name="default_start_last">Førre nytta vising</string>
     <string name="preferences_days_per_week_title">Dagar i veka</string>
     <string name="preferences_days_per_week_dialog">Dagar i veka</string>
     <string name="preferences_clear_search_history_title">Slett søk</string>

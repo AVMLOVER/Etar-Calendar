@@ -305,7 +305,6 @@
     <string name="preferences_default_event_duration_title">Default event duration</string>
     <string name="preferences_days_per_week_dialog">Days per week</string>
     <string name="preferences_days_per_week_title">Days per week</string>
-    <string name="default_start_last">Previously used view</string>
     <string name="maximum_number_of_lines">Max number of lines in event</string>
     <string name="display_location">Display location</string>
     <string name="display_time">Display time</string>

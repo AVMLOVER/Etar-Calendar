@@ -139,6 +139,11 @@ class ComposeTodoActivity : M3eHostActivity() {
         setDayHeading(LocalDate.now())
     }
 
+    /** Re-reads the day's to-do now, as a resume does, when the title bar's refresh is used. */
+    override fun onRefresh() {
+        refreshKey++
+    }
+
     /** The day the calendar views open on when the drawer sends the user to one of them. */
     override fun calendarViewDateMillis(): Long? =
         LocalDate.ofEpochDay(day).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()

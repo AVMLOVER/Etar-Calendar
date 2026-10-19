@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.android.calendar.CalendarController
 import com.android.calendar.chrome.compose.M3eScreen
 import com.android.calendar.threeday.compose.rangeTitleOf
 import java.time.LocalDate
@@ -27,6 +28,13 @@ class ComposeWeekActivity : ComposeCalendarViewActivity() {
 
     override val checkedMenuItemId: Int = R.id.week_menu_item
     override val currentScreenName: String = "WEEK"
+
+    /**
+     * The week view is one of the views the "Default view" setting names, so a landing week screen
+     * checks on resume whether that setting has changed and hands over if it has. See
+     * M3eHostActivity.applyConfiguredLandingView.
+     */
+    override val landingViewType: Int = CalendarController.ViewType.WEEK
 
     /** The heading is a range of days, so the picker under it chooses a day. */
     override val pickerChoosesDate: Boolean = true
@@ -82,7 +90,12 @@ class ComposeWeekActivity : ComposeCalendarViewActivity() {
         refreshKey++
     }
 
-    /** A day named by a new intent, for a copy that is brought forward instead of started afresh. */
+    /**
+     * A day named by a new intent, when this screen is reused rather than started afresh.
+     *
+     * The launcher is what reuses it: tapping the icon brings the running task forward with today,
+     * and the week has to be read from that intent rather than staying where it was left.
+     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -105,6 +118,11 @@ class ComposeWeekActivity : ComposeCalendarViewActivity() {
 
     override fun onToday() {
         scrollToTodayKey++
+    }
+
+    /** Re-reads the week's events now, as a resume does, when the title bar's refresh is used. */
+    override fun onRefresh() {
+        refreshKey++
     }
 
     /**

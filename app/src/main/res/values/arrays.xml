@@ -107,10 +107,16 @@
         <item>"720"</item>
     </string-array>
 
-    <!-- Labels for the default startup page preference. -->
+    <!--
+      Labels for the default startup page preference: day, three day, week, month and agenda.
+
+      "Previously used view" used to be the first entry. The app never recorded the last view, so
+      that option could only store a stale one; it was removed from the setting, and a device that
+      still holds its value (-2) opens on the month. See Utils.getViewTypeFromIntentAndSharedPref.
+    -->
     <string-array name="default_start_entries" translatable="false">
-        <item>@string/default_start_last</item>
         <item>@string/day_view</item>
+        <item>@string/threeday_view</item>
         <item>@string/week_view</item>
         <item>@string/month_view</item>
         <item>@string/agenda_view</item>
@@ -118,8 +124,8 @@
 
     <!-- Values for the default startup page preference. See CalendarController.ViewType.  -->
     <string-array name="default_start_values" translatable="false">
-        <item>-2</item>
         <item>2</item>
+        <item>6</item>
         <item>3</item>
         <item>4</item>
         <item>1</item>

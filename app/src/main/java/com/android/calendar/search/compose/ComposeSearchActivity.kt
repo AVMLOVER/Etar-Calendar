@@ -40,6 +40,9 @@ class ComposeSearchActivity : M3eHostActivity() {
 
     private var query by mutableStateOf("")
 
+    /** Bumped by the title bar's refresh action, which makes the result list run its search again. */
+    private var refreshKey by mutableStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // A query can arrive from the calendar's title bar field, which sends ACTION_SEARCH.
@@ -51,8 +54,14 @@ class ComposeSearchActivity : M3eHostActivity() {
                 onDeleteEvent = { event -> deleteEvent(event) },
                 searchQuery = query,
                 onSearchQueryChange = { updated -> query = updated.orEmpty() },
+                refreshKey = refreshKey,
             )
         }
+    }
+
+    /** Re-reads the results now, as changing the query does, when the title bar's refresh is used. */
+    override fun onRefresh() {
+        refreshKey++
     }
 
     /**

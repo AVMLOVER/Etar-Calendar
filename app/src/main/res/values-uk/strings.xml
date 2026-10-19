@@ -282,7 +282,6 @@
     <string name="share_label">Поділитися</string>
     <string name="no_map">Застосунки з карами не встановлені</string>
     <string name="default_start_title">Типовий вигляд</string>
-    <string name="default_start_last">Вигляд, що використовувався раніше</string>
     <string name="preferences_alerts_custom_snooze_delay_title">Запитувати про інтервал повторного нагадування</string>
     <string name="preferences_alerts_custom_snooze_delay_summary_on">Запитувати про інтервал повторного нагадування при кожному відкладанні</string>
     <string name="preferences_alerts_custom_snooze_delay_summary_off">Завжди використовувати типовий інтервал повторного нагадування</string>

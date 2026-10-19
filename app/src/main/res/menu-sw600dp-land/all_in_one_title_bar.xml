@@ -15,22 +15,30 @@
      limitations under the License.
 -->
 
+<!--
+  The tablet, landscape title bar - the same menu as res/menu-sw600dp, since a tablet on its side
+  needs neither a different set of destinations nor a different order. See the note in
+  res/menu-land; the controls entry is the classic chrome's and the Compose host hides it.
+-->
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
         android:id="@+id/action_today"
         android:alphabeticShortcut="t"
         android:icon="@drawable/today_icon"
+        android:orderInCategory="2"
         android:title="@string/goto_today"
         app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_goto"
         android:alphabeticShortcut="g"
+        android:orderInCategory="3"
         android:title="@string/goto_date"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_refresh"
         android:alphabeticShortcut="r"
+        android:orderInCategory="4"
         android:title="@string/calendar_refresh"
         app:showAsAction="never" />
     <item
@@ -42,18 +50,49 @@
         app:actionViewClass="androidx.appcompat.widget.SearchView"
         app:showAsAction="collapseActionView" />
     <item
-        android:id="@+id/action_hide_controls"
-        android:alphabeticShortcut="h"
-        android:title="@string/hide_controls" />
+        android:id="@+id/action_m3e_calendars"
+        android:alphabeticShortcut="c"
+        android:orderInCategory="6"
+        android:title="@string/m3e_calendars_menu_title"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_m3e_agenda"
+        android:alphabeticShortcut="a"
+        android:orderInCategory="6"
+        android:title="@string/m3e_agenda_menu_title"
+        app:showAsAction="never" />
+    <!-- The to-do screen, as in the portrait menu. -->
+    <item
+        android:id="@+id/action_todo"
+        android:alphabeticShortcut="d"
+        android:icon="@drawable/today_icon"
+        android:orderInCategory="6"
+        android:title="@string/m3e_todo_title"
+        app:showAsAction="never" />
+    <!-- Shown by the to-do screen, and only while the day on screen has a to-do to edit. -->
+    <item
+        android:id="@+id/action_todo_edit"
+        android:icon="@drawable/ic_m3e_event_edit"
+        android:orderInCategory="1"
+        android:title="@string/m3e_todo_edit_action"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_import"
         android:alphabeticShortcut="i"
+        android:orderInCategory="7"
         android:title="@string/cal_import_menu_title"
         app:showAsAction="never" />
+    <!-- Belongs to the classic tablet chrome; hidden by the Compose host. -->
+    <item
+        android:id="@+id/action_hide_controls"
+        android:alphabeticShortcut="h"
+        android:orderInCategory="5"
+        android:title="@string/hide_controls" />
     <item
         android:id="@+id/action_view_settings"
         android:alphabeticShortcut="v"
-        android:title="@string/view_settings"
         android:orderInCategory="8"
+        android:title="@string/view_settings"
         app:showAsAction="never" />
 </menu>

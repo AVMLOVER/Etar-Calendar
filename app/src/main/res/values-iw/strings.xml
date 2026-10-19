@@ -288,7 +288,6 @@
     <string name="share_label">שתף</string>
     <string name="no_map">לא מותקן יישומון מפות</string>
     <string name="default_start_title">תצוגת בררת מחדל</string>
-    <string name="default_start_last">תצוגה שהשתמשו בה בעבר</string>
     <string name="preferences_alerts_custom_snooze_delay_title">לשאול מה ההפרש בין התזכורות</string>
     <string name="preferences_alerts_custom_snooze_delay_summary_on">לשאול מה ההפרש בין הנודניק של התזכורות בעת בחירה בנודניק</string>
     <string name="preferences_alerts_custom_snooze_delay_summary_off">תמיד להשתמש בהפרש בררת המחדל בין נודניקים</string>

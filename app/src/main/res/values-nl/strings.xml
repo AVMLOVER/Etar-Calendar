@@ -265,7 +265,6 @@
     <string name="share_label">Delen</string>
     <string name="no_map">Geen kaarten-app</string>
     <string name="default_start_title">Standaardweergave</string>
-    <string name="default_start_last">Eerder gebruikte weergave</string>
     <string name="error_generating_ics">Het delen van de gebeurtenis is mislukt</string>
     <string name="cal_share_intent_title">Gebeurtenis delen met:</string>
     <string name="cal_export_event_title">Gebeurtenis exporteren</string>

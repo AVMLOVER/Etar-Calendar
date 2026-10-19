@@ -250,7 +250,6 @@
     <string name="share_label">Compartir</string>
     <string name="no_map">No hay aplicación de mapas instalada</string>
     <string name="default_start_title">Vista por defecto</string>
-    <string name="default_start_last">Vista usada previamente</string>
     <string name="view_settings">Ver ajustes</string>
     <string name="preferences_month_view_portrait">Vista de mes (Vertical)</string>
     <string name="preferences_month_view_landscape">Vista de mes (Apaisado)</string>

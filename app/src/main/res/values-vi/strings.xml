@@ -299,7 +299,6 @@
     <string name="preferences_default_event_duration_title">Thời hạn sự kiện mặc định</string>
     <string name="preferences_days_per_week_dialog">Số ngày trong tuần</string>
     <string name="preferences_days_per_week_title">Số ngày trong tuần</string>
-    <string name="default_start_last">Mục hiển thị được sử dụng trước đó</string>
     <string name="maximum_number_of_lines">Số dòng tối đa trong sự kiện</string>
     <string name="display_location">Hiển thị vị trí</string>
     <string name="display_time">Hiển thị thời gian</string>

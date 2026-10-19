@@ -33,7 +33,7 @@
             app:title="@string/preferences_real_event_colors" />
         <ListPreference
             app:key="preferences_default_start"
-            app:defaultValue="-2"
+            app:defaultValue="4"
             app:title="@string/default_start_title"
             app:entries="@array/default_start_entries"
             app:entryValues="@array/default_start_values" />

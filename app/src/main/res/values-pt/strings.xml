@@ -273,7 +273,6 @@
     <string name="display_options">Opções de exibição</string>
     <string name="display_time">Mostrar hora</string>
     <string name="display_location">Mostrar localização</string>
-    <string name="default_start_last">Vista utilizada anteriormente</string>
     <string name="preferences_days_per_week_title">Dias por semana</string>
     <string name="preferences_days_per_week_dialog">Dias por semana</string>
     <string name="preferences_default_event_duration_title">Duração padrão dos eventos</string>

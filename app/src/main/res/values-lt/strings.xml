@@ -328,7 +328,6 @@
     <string name="preferences_default_event_duration_title">Numatytoji įvykio trukmė</string>
     <string name="preferences_days_per_week_dialog">Dienos per savaitę</string>
     <string name="preferences_days_per_week_title">Dienos per savaitę</string>
-    <string name="default_start_last">Anksčiau naudotas vaizdas</string>
     <string name="maximum_number_of_lines">Didžiausias eilučių skaičius įvykyje</string>
     <string name="display_location">Rodyti vietą</string>
     <string name="display_time">Rodymo laikas</string>

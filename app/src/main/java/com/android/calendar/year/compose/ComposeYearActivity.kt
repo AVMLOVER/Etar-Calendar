@@ -15,9 +15,11 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.CalendarContract
 import com.android.calendar.AllInOneActivity
+import com.android.calendar.CalendarController
 import com.android.calendar.LunarUtils
 import com.android.calendar.Utils
 import com.android.calendar.chrome.M3eHostActivity
+import com.android.calendar.composeui.ComposeCalendarViewActivity
 import com.android.calendar.composeui.ComposeMonthActivity
 import com.android.calendar.composeui.ExperimentalCalendarUi
 import com.android.calendar.settings.compose.SettingsRepository
@@ -136,7 +138,19 @@ class ComposeYearActivity : M3eHostActivity() {
         refreshKey++
     }
 
-    /** Opens the month view on the given month, reusing the running calendar screen. */
+    /** Re-reads the year's event markers now, as a resume does, when the title bar's refresh is used. */
+    override fun onRefresh() {
+        refreshKey++
+    }
+
+    /**
+     * Opens the month view on the given month.
+     *
+     * This screen stays underneath, so the month is opened *over* it and back returns here. The one
+     * exception is when the month is the configured default view: it is then the landing screen
+     * wherever it is opened, so it is started without the opener extras and its back leaves the app
+     * rather than walking into the year view.
+     */
     private fun openMonth(year: Int, month: Int) {
         val millis = LocalDate.of(year, month, 1)
             .atStartOfDay(ZoneId.systemDefault())
@@ -147,11 +161,26 @@ class ComposeYearActivity : M3eHostActivity() {
         // classic one here left a month pick from this screen on the old View-based grid while every
         // other way into the month view - the drawer, the start view - went to the new one.
         if (ExperimentalCalendarUi.enabled(this)) {
+            val opensOverThisScreen = !ExperimentalCalendarUi.isConfiguredDefault(
+                this,
+                CalendarController.ViewType.MONTH,
+            )
             startActivity(
                 Intent(this, ComposeMonthActivity::class.java)
                     // The month that contains this day is the month opened, the same extra the
                     // classic intent below carries.
                     .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, millis)
+                    .apply {
+                        // This screen stays underneath, so the month view is opened *over* it: back
+                        // returns here, and the month's own drawer keeps the two-screen shape.
+                        // Without these the month read itself as a landing screen, which also made
+                        // it hand over to the default view as soon as it resumed if that was not the
+                        // month.
+                        if (opensOverThisScreen) {
+                            putExtra(ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true)
+                            putExtra(ComposeCalendarViewActivity.EXTRA_OPENER_CLASS, this@ComposeYearActivity::class.java.name)
+                        }
+                    }
                     .addFlags(
                         Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     )

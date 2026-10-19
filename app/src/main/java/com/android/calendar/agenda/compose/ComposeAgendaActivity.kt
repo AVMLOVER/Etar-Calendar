@@ -11,6 +11,7 @@ package com.android.calendar.agenda.compose
 import android.content.Intent
 import android.os.Bundle
 import android.provider.CalendarContract
+import com.android.calendar.CalendarController
 import com.android.calendar.chrome.M3eHostActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,11 +26,41 @@ class ComposeAgendaActivity : M3eHostActivity() {
     override val currentScreenName: String = "AGENDA"
 
     /**
+     * The agenda is one of the views the "Default view" setting names, so a landing agenda screen
+     * checks on resume whether that setting has changed and hands over if it has. See
+     * M3eHostActivity.applyConfiguredLandingView.
+     *
+     * This says nothing about how the screen stacks: it is still a tool screen rather than one of
+     * the drawer's calendar views, so nothing is ever revealed over it and it keeps its own place
+     * under whatever it opens. When it is the landing screen and the setting still names Agenda the
+     * comparison matches, so it never routes to itself.
+     */
+    override val landingViewType: Int = CalendarController.ViewType.AGENDA
+
+    /**
      * Bumped every time the screen is resumed, which is what makes the list re-read itself after
      * coming back from the editor or the details screen. Relying on the provider's change
      * notification alone left an edited event showing its old text until the screen was reopened.
      */
     private var refreshKey by mutableStateOf(0)
+
+    /**
+     * The heading and "go to" choose a day, so the loaded window moves to it.
+     *
+     * The screen is not a pager: it loads a window of days starting at one date, so a chosen date is
+     * the start of the window - the same thing the previous/next 90 days buttons change. A month
+     * picker, which the host would otherwise give this screen, could not do that: its answer was a
+     * month, and the only way to show one is to leave for the month view.
+     */
+    override val pickerChoosesDate: Boolean = true
+
+    /** The day chosen from the picker, in epoch days, or 0 before one has been. */
+    private var jumpedDay by mutableStateOf(0L)
+
+    override fun onDatePicked(date: java.time.LocalDate) {
+        // Nothing is started: this screen is already the one showing the events.
+        jumpedDay = date.toEpochDay()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,12 +79,18 @@ class ComposeAgendaActivity : M3eHostActivity() {
                 onDeleteEvent = { event -> deleteEvent(event) },
                 onReminderChanged = { event, minutes -> setReminder(event, minutes) },
                 refreshKey = refreshKey,
+                jumpToDayKey = jumpedDay,
             )
         }
     }
 
     override fun onResume() {
         super.onResume()
+        refreshKey++
+    }
+
+    /** Re-reads the loaded window now, as a resume does, when the title bar's refresh is used. */
+    override fun onRefresh() {
         refreshKey++
     }
 

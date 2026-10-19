@@ -266,7 +266,6 @@
     <string name="preferences_default_snooze_delay_title">Standard-slumretid</string>
     <string name="preferences_default_snooze_delay_dialog">Standard-slumretid</string>
     <string name="default_start_title">Standardvisningen</string>
-    <string name="default_start_last">Forrige valgte visning</string>
     <string name="cal_share_intent_title">Send aktiviteten til:</string>
     <string name="cal_export_event_title">Eksporter til SD-kortet</string>
     <string name="cal_export_succ_msg">Eksporteringen av aktiviteten var vellykket: %1$s</string>

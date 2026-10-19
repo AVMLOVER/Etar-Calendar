@@ -533,8 +533,10 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         mDrawerLayout = binding.drawerLayout;
         mNavigationView = binding.navigationView;
 
-        // The to-do entry's icon is the title bar's today icon with today's day number drawn into
-        // it, the same treatment the toolbar's own today button gets.
+        // The to-do entry's icon is the today icon in the drawer's 24dp size - the variant the drawer
+        // menu resource names, so that this row lines up with the 24dp view icons beside it while the
+        // title bar keeps the larger 28dp today button - with today's day number drawn into it, the
+        // same treatment the toolbar's own today button gets.
         android.view.MenuItem todoItem = mNavigationView.getMenu().findItem(R.id.action_todo);
         if (todoItem != null && todoItem.getIcon() instanceof android.graphics.drawable.LayerDrawable) {
             Utils.setTodayIcon((android.graphics.drawable.LayerDrawable) todoItem.getIcon(),
@@ -587,9 +589,14 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
                     int defaultStartView = Utils.getViewTypeFromIntentAndSharedPref(mActivity);
 
                     // If the current view is the default one, quit app. If not, go back to default view.
+                    //
+                    // The three day view is a default the classic controller cannot show: it opens its
+                    // own Compose screen, so there is no pane to go back to here and back leaves the
+                    // app instead of asking for a view this activity has no fragment for.
                     if (mCurrentView == defaultStartView
                             || defaultStartView == com.android.calendar.CalendarController.ViewType.AGENDA
-                            || defaultStartView == com.android.calendar.CalendarController.ViewType.DAY ) {
+                            || defaultStartView == com.android.calendar.CalendarController.ViewType.DAY
+                            || defaultStartView == com.android.calendar.CalendarController.ViewType.THREE_DAY ) {
                        finish();
                     } else {
                         mController.sendEvent(this, EventType.GO_TO, null, null, -1, defaultStartView);
@@ -622,7 +629,8 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             int defaultStartView = Utils.getViewTypeFromIntentAndSharedPref(mActivity);
             wouldExit = mCurrentView == defaultStartView
                     || defaultStartView == com.android.calendar.CalendarController.ViewType.AGENDA
-                    || defaultStartView == com.android.calendar.CalendarController.ViewType.DAY;
+                    || defaultStartView == com.android.calendar.CalendarController.ViewType.DAY
+                    || defaultStartView == com.android.calendar.CalendarController.ViewType.THREE_DAY;
         }
         mBackCallback.setEnabled(!wouldExit);
     }
@@ -1090,6 +1098,33 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
         if (!themeMode.equals(mAppliedThemeMode)) {
             recreate();
             return;
+        }
+
+        // Re-applies the launcher redirect on the way back.
+        //
+        // The "Default view" setting can be changed while this activity is stopped behind the
+        // settings screen, and the redirect used to run only in onCreate and onNewIntent - so the
+        // change took effect after a relaunch. A landing Compose screen checks the same setting
+        // when it resumes; this is the classic host's half of that rule, so returning from the
+        // settings screen on either kind of host shows the view the settings name.
+        //
+        // Only for the launcher's own intent: a VIEW or EDIT request, or a screen opened over this
+        // one, is a destination of its own and is left where it is.
+        if (experimentalCalendarUi() && isLauncherIntent(getIntent())
+                && hasCalendarPermissions()) {
+            Class<? extends android.app.Activity> landing = experimentalLandingScreen();
+            if (landing != null) {
+                startActivity(new Intent(this, landing)
+                        .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME,
+                                System.currentTimeMillis())
+                        .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+                // A switch between the two kinds of host is a forward step: this activity leaves to
+                // the left while the screen it opens arrives from the right.
+                com.android.calendar.chrome.M3eViewTransitionsKt.leaveForward(this);
+                finish();
+                return;
+            }
         }
 
         // Check if the upgrade code has ever been run. If not, force a sync just this one time.
@@ -1617,9 +1652,14 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
                     com.android.calendar.selectcalendars.compose.ComposeCalendarsActivity.class));
         } else if (itemId == R.id.action_m3e_agenda) {
             // Material 3 Expressive agenda screen, opened around the day this view is on.
+            //
+            // Marked as opened over this activity, which stays underneath: without that the agenda
+            // read itself as a landing screen and handed over to the configured default view as soon
+            // as it resumed, and back from it was the wrong kind of finish.
             startActivity(new Intent(this,
                     com.android.calendar.agenda.compose.ComposeAgendaActivity.class)
-                    .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, currentViewDateMillis()));
+                    .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, currentViewDateMillis())
+                    .putExtra(com.android.calendar.composeui.ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true));
         } else if (itemId == R.id.action_view_settings) {
             // "View details" now opens the Material 3 Expressive settings screen, which hosts
             // the month-view layout options that used to live on the old preference page.
@@ -1704,9 +1744,14 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
             // The agenda is the Material 3 Expressive screen now. It is its own activity, so this
             // activity keeps whatever view it was showing underneath, like the year view does. It
             // opens around the day this view is on, not today.
+            //
+            // Marked as opened over this activity for the same reason as the title bar's agenda
+            // entry: it is not a landing screen, so it must not hand over to the configured default
+            // view when it resumes, and back must reveal this activity.
             startActivity(new Intent(this,
                     com.android.calendar.agenda.compose.ComposeAgendaActivity.class)
-                    .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, currentViewDateMillis()));
+                    .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, currentViewDateMillis())
+                    .putExtra(com.android.calendar.composeui.ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true));
             syncNavigationCheckedItem();
         } else if (itemId == R.id.year_menu_item) {
             // The year view is its own Compose screen, so this activity stays on its current
@@ -1760,27 +1805,17 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
      *
      * The start view comes from the settings ("Default view"), resolved through
      * Utils.getViewTypeFromIntentAndSharedPref - the same call this activity makes for its own
-     * view - so "Day", "Week", "Month" and "Agenda" each open the screen they name. The redirect
-     * used to start the week view unconditionally, which is why choosing a start view had no effect
-     * while the Experimental calendar UI switch was on.
+     * view - so "Day", "Week", "Month" and "Agenda" each open the screen they name.
      *
-     * Agenda is in the list because it is already an all-Compose screen in this app, the one the
-     * drawer's agenda entry opens. A view type with no Compose screen is left to the classic
-     * activity: returning null here is what keeps EDIT and any other unmatched request working.
+     * The mapping from a view type to a screen lives in ExperimentalCalendarUi.screenForViewType, so
+     * it is the same one a running landing screen uses when it hands over after the setting changed.
+     * Agenda is in the list because it is already an all-Compose screen in this app; a view type with
+     * no Compose screen is left to this activity: returning null is what keeps EDIT and any other
+     * unmatched request working.
      */
     private Class<? extends android.app.Activity> experimentalLandingScreen() {
-        switch (Utils.getViewTypeFromIntentAndSharedPref(this)) {
-            case ViewType.DAY:
-                return com.android.calendar.composeui.ComposeDayActivity.class;
-            case ViewType.WEEK:
-                return com.android.calendar.composeui.ComposeWeekActivity.class;
-            case ViewType.MONTH:
-                return com.android.calendar.composeui.ComposeMonthActivity.class;
-            case ViewType.AGENDA:
-                return com.android.calendar.agenda.compose.ComposeAgendaActivity.class;
-            default:
-                return null;
-        }
+        return com.android.calendar.composeui.ExperimentalCalendarUi.screenForViewType(
+                Utils.getViewTypeFromIntentAndSharedPref(this));
     }
 
     /**
@@ -1791,19 +1826,39 @@ public class AllInOneActivity extends AbstractCalendarActivity implements EventH
      * type this activity can switch to. The check mark the drawer just moved onto the tapped entry
      * is therefore put back, so the drawer goes on describing the view that is still underneath.
      *
+     * This activity is the landing screen of that stack - it is what the launcher opened - so the
+     * intent names it as the opener. The Compose view's own drawer then keeps the stack at those two
+     * screens: a view chosen from it replaces that view instead of opening over it, and one of them
+     * asking for this activity's view back is not a case - this activity is not a drawer entry.
+     *
+     * The exception is the view that the settings name as the default: that screen is the landing
+     * screen wherever it is opened, so it is started without the opener extras and its back leaves
+     * the app instead of returning here.
+     *
      * The date this activity is on travels with the intent. A new screen otherwise starts on today,
      * so a calendar paged away from today would open the Compose view back on today's month;
      * currentViewDateMillis() is the same day the other screens are handed.
      */
     private void openExperimentalView(Class<? extends android.app.Activity> target) {
-        startActivity(new Intent(this, target)
+        Integer targetViewType = com.android.calendar.composeui.ExperimentalCalendarUi
+                .viewTypeForScreen(target);
+        Intent intent = new Intent(this, target)
                 .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, currentViewDateMillis())
-                // Back from that screen returns to this one, which is still underneath, rather than
-                // starting the month view afresh. A start plays the forward slide, so the return
-                // would go left a second time instead of back to the right.
-                .putExtra(com.android.calendar.composeui.ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER, true)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+                        | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        if (targetViewType == null || !com.android.calendar.composeui.ExperimentalCalendarUi
+                .isConfiguredDefault(this, targetViewType)) {
+            // Back from that screen returns to this one, which is still underneath, rather than
+            // starting the month view afresh. A start plays the forward slide, so the return would
+            // go left a second time instead of back to the right.
+            intent.putExtra(
+                    com.android.calendar.composeui.ComposeCalendarViewActivity.EXTRA_RETURN_TO_OPENER,
+                    true);
+            intent.putExtra(
+                    com.android.calendar.composeui.ComposeCalendarViewActivity.EXTRA_OPENER_CLASS,
+                    AllInOneActivity.class.getName());
+        }
+        startActivity(intent);
         syncNavigationCheckedItem();
     }
 

@@ -136,7 +136,15 @@ private const val KEY_DEFAULT_VIEW = "preferences_default_start"
 /** Sentinel used by the platform for "no reminder" (Integer.MIN_VALUE). */
 private const val NO_REMINDER = "-2147483648"
 
-private val DEFAULT_VIEW_VALUES = listOf("-2", "2", "3", "4", "1")
+/**
+ * The views the "Default view" setting offers, as the stored value of
+ * [com.android.calendar.CalendarController.ViewType]: day, three day, week, month and agenda.
+ *
+ * "The view I last used" used to be here as "-2". The app never recorded the last view, so that
+ * option only ever stored a stale one; it is gone, and [com.android.calendar.Utils] reads any value
+ * it does not recognise - including that one, left on a device - as the month.
+ */
+private val DEFAULT_VIEW_VALUES = listOf("2", "6", "3", "4", "1")
 private val REMINDER_VALUES = listOf(
     NO_REMINDER, "0", "1", "5", "10", "15", "20", "25", "30", "45", "60",
     "120", "180", "360", "540", "720", "1440", "2880", "10080", "20160", "40320",
@@ -255,7 +263,7 @@ fun M3eSettingsScreen(
     var skipReminders by remember {
         mutableStateOf(repo.string(KEY_SKIP_REMINDERS, "declined"))
     }
-    var defaultView by remember { mutableStateOf(repo.string(KEY_DEFAULT_VIEW, "-2")) }
+    var defaultView by remember { mutableStateOf(repo.string(KEY_DEFAULT_VIEW, "4")) }
     var yearScroll by remember { mutableStateOf(yearScrollMode(repo)) }
 
     M3eEdgeToEdgeContent {
@@ -973,12 +981,14 @@ private val TimeZoneIds: List<String> =
 
 @Composable
 private fun defaultViewLabel(value: String): String = when (value) {
-    "-2" -> stringResource(R.string.default_start_last)
+    // The values are CalendarController.ViewType numbers; any unrecognised value is the month,
+    // which is the default, so it reads as one.
+    "6" -> stringResource(R.string.threeday_view)
     "2" -> stringResource(R.string.day_view)
     "3" -> stringResource(R.string.week_view)
     "4" -> stringResource(R.string.month_view)
     "1" -> stringResource(R.string.agenda_view)
-    else -> value
+    else -> stringResource(R.string.month_view)
 }
 
 @Composable

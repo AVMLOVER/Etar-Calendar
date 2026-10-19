@@ -227,7 +227,6 @@
         <item quantity="other">Cada <xliff:g id="number">%1$d</xliff:g> semanas: <xliff:g id="days_of_week">%2$s</xliff:g></item>
     </plurals>
     <string name="default_start_title">Vista padrão</string>
-    <string name="default_start_last">Visualização usada anteriormente</string>
     <string name="preferences_default_event_duration_title">Duração padrão dos eventos</string>
     <plurals name="month_more_events">
         <item quantity="one">+<xliff:g id="number">%d</xliff:g></item>

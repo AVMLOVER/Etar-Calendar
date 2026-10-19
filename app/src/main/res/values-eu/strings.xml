@@ -121,7 +121,6 @@
     <string name="display_options">Ikuspegi Xehetasunak</string>
     <string name="display_time">Erakutsi Ordua</string>
     <string name="display_location">Erakutsi Kokapena</string>
-    <string name="default_start_last">Aurretik erabilitako ikuspegia</string>
     <string name="preferences_week_start_day_title">Astea hasten da</string>
     <string name="preferences_week_start_day_dialog">Astea hasten da</string>
     <string name="preferences_days_per_week_title">Egunak aste bakoitzeko</string>

@@ -218,7 +218,12 @@ class MonthWidgetProvider : AppWidgetProvider() {
             .putExtra(
                 CalendarContract.EXTRA_EVENT_BEGIN_TIME,
                 day.atStartOfDay(zone).toInstant().toEpochMilli(),
-            ),
+            )
+            // The tap names the view it wants, so it is opened even when the "Default view" setting
+            // names another one: the day view a landing screen hands over to that setting, and
+            // without this a cell tapped while the default was, say, the month view would open the
+            // month instead of the day it was tapped from.
+            .putExtra(Utils.INTENT_KEY_VIEW_TYPE, Utils.INTENT_VALUE_VIEW_TYPE_DAY),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 

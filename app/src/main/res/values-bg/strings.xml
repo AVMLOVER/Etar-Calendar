@@ -267,7 +267,6 @@
     <string name="default_start_title">Изглед по подразбиране</string>
     <string name="display_location">Показване на местоположението</string>
     <string name="maximum_number_of_lines">Максимален брой редове в събитието</string>
-    <string name="default_start_last">Използван преди това изглед</string>
     <string name="preferences_default_event_duration_title">Подразбирана продължителност на събитията</string>
     <string name="preferences_default_snooze_delay_title">Време за забавяне на дрямката по подразбиране</string>
     <string name="preferences_default_snooze_delay_dialog">Подразбирано време за повторно напомняне</string>

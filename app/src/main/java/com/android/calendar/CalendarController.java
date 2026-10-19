@@ -746,7 +746,17 @@ public class CalendarController {
         final int WEEK = 3;
         final int MONTH = 4;
         final int EDIT = 5;
-        final int MAX_VALUE = 5;
+        /**
+         * The three day view.
+         *
+         * Not a view this controller switches to - it is a screen of its own in the all-Compose
+         * calendar - but the "Default view" setting can name it, and that setting's stored value is
+         * resolved to a view type like the others. A classic controller that is asked for it falls
+         * back to its week pane, which is the nearest thing it has.
+         */
+        final int THREE_DAY = 6;
+        /** The highest view type the classic controller itself shows in its main pane. */
+        final int MAX_VALUE = EDIT;
     }
 
     public interface EventHandler {

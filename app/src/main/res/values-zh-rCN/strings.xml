@@ -250,7 +250,6 @@
     <string name="two_hours">2 小时</string>
     <string name="share_label">分享</string>
     <string name="default_start_title">默认视图</string>
-    <string name="default_start_last">先前使用视图</string>
     <string name="error_generating_ics">分享活动时遇到问题</string>
     <string name="cal_share_intent_title">发送活动到：</string>
     <string name="cal_export_event_title">导出活动</string>

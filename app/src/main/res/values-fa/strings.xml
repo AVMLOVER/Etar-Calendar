@@ -266,7 +266,6 @@
     <string name="display_time">نمایش زمان</string>
     <string name="display_location">نمایش مکان</string>
     <string name="maximum_number_of_lines">حداکثر تعداد خطوط در رویداد</string>
-    <string name="default_start_last">نمای استفاده‌شده قبلی</string>
     <string name="app_copyright">© 2015-<xliff:g>%1$s</xliff:g> پروژه Etar. Portions © 2005-<xliff:g>%1$s</xliff:g> پروژه متن‌باز اندروید.</string>
     <string name="authors">ایجادکنندگان</string>
     <string name="changelog">لیست تغییرات</string>

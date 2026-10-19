@@ -190,7 +190,6 @@
     </plurals>
     <string name="preferences_title">Sztelōnki</string>
     <string name="preferences_default_reminder_dialog">Wychodne spōmniynie</string>
-    <string name="default_start_last">Piyrwyjszy używany widok</string>
     <string name="preferences_clear_search_history_summary">Skasuj wszyjske piyrwyjsze wyszukowania</string>
     <string name="event_edit">Edytuj zdarzynie</string>
     <string name="menu_preferences">Sztelōnki</string>

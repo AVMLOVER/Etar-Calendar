@@ -161,7 +161,6 @@
     <string name="preferences_days_per_week_title">Días por semana</string>
     <string name="preferences_week_start_day_dialog">A semana comeza en</string>
     <string name="preferences_week_start_day_title">A semana comeza en</string>
-    <string name="default_start_last">Vista empregada anteriormente</string>
     <string name="maximum_number_of_lines">Máximo número de liñas nun evento</string>
     <string name="display_location">Amosar ubicación</string>
     <string name="display_time">Amosar hora</string>

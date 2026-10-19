@@ -275,7 +275,6 @@
     <string name="share_label">Dijeli</string>
     <string name="no_map">Aplikacija za karte nije instalirana</string>
     <string name="default_start_title">Standardni prikaz</string>
-    <string name="default_start_last">Prethodno korišteni prikaz</string>
     <string name="preferences_alerts_custom_snooze_delay_title">Pitaj za odgodu podsjetnika</string>
     <string name="preferences_alerts_custom_snooze_delay_summary_on">Upitaj trajanje odgode alarma pri odgađanju podsjetnika</string>
     <string name="preferences_alerts_custom_snooze_delay_summary_off">Uvijek koristi standardnu odgodu</string>

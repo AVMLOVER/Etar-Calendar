@@ -265,7 +265,6 @@
     <string name="share_label">Jaa</string>
     <string name="no_map">Karttasovellusta ei ole asennettu</string>
     <string name="default_start_title">Oletusnäkymä</string>
-    <string name="default_start_last">Aiemmin käytetty näkymä</string>
     <string name="error_generating_ics">Ongelmia tapahtuman jakamisessa</string>
     <string name="cal_share_intent_title">Lähetä tapahtuma:</string>
     <string name="cal_export_event_title">Vie SD-kortille</string>

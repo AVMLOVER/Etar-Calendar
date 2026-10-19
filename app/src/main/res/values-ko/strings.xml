@@ -243,7 +243,6 @@
     <string name="share_label">공유</string>
     <string name="no_map">설치된 지도 앱이없음</string>
     <string name="default_start_title">기본 보기</string>
-    <string name="default_start_last">이전에 사용한 보기</string>
     <string name="preferences_alerts_custom_snooze_delay_title">스누즈 지연 요청</string>
     <string name="preferences_alerts_custom_snooze_delay_summary_on">스누징 알림이 나타날 때마다 스누징 지연 요청</string>
     <string name="preferences_alerts_custom_snooze_delay_summary_off">항상 기본 스누즈 딜레이사용</string>

@@ -110,6 +110,15 @@ fun M3eAgendaScreen(
      * the screen used to start.
      */
     initialDate: LocalDate? = null,
+    /**
+     * The day a date picked from the heading or from "go to" asked to move to, as an epoch day, or
+     * 0 before one has been chosen.
+     *
+     * The list is a window of days rather than a pager, so a chosen date becomes the window's
+     * start - the same thing the previous / next 90 days buttons change - and the list re-reads
+     * its events from that day.
+     */
+    jumpToDayKey: Long = 0,
 ) {
     val context = LocalContext.current
     val zone = remember { ZoneId.systemDefault() }
@@ -150,6 +159,14 @@ fun M3eAgendaScreen(
     val centreDate = remember(initialDate) { initialDate ?: LocalDate.now(zone) }
     var windowStart by remember(centreDate) {
         mutableStateOf(centreDate)
+    }
+
+    // A date chosen from the heading or "go to" opens the window at that day. Set through the same
+    // state the previous / next buttons change, so the load effect below re-reads from it.
+    LaunchedEffect(jumpToDayKey) {
+        if (jumpToDayKey != 0L) {
+            windowStart = LocalDate.ofEpochDay(jumpToDayKey)
+        }
     }
 
     LaunchedEffect(windowStart, refreshKey, searchQuery) {

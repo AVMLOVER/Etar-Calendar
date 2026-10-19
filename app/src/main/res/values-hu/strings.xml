@@ -297,7 +297,6 @@
     <string name="authors">Szerzők</string>
     <string name="preferences_default_event_duration_title">Esemény alapértelmezett hossza</string>
     <string name="display_options">Megjelenítési beállítások</string>
-    <string name="default_start_last">Előzőleg használt nézet</string>
     <string name="maximum_number_of_lines">Maximum sorok száma az eseményben</string>
     <string name="display_location">Hely megjelenítése</string>
     <string name="display_time">Idő megjelenítése</string>

@@ -279,7 +279,6 @@
     <string name="display_options">Vedi Dettagli</string>
     <string name="display_time">Mostra Ora</string>
     <string name="display_location">Mostra Luogo</string>
-    <string name="default_start_last">Vista utilizzata in precedenza</string>
     <string name="preferences_default_event_duration_title">Durata evento predefinita</string>
     <string name="visibility_confidential">Confidenziale</string>
     <string name="zero_minutes">0 minuti</string>

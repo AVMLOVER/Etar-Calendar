@@ -27,7 +27,24 @@ class ComposeThreeDayActivity : M3eHostActivity() {
     override val checkedMenuItemId: Int = R.id.threeday_menu_item
 
     /**
-     * Matches the name of [M3eHostActivity]'s [ComposeScreen] entry for this screen.
+     * The three day view is one of the drawer's calendar views, so it moves through the same rule
+     * as the day, week and month screens: it opens over the landing screen and replaces a screen
+     * that was itself opened over one, which keeps the stack two deep. See M3eHostActivity's
+     * isCalendarViewScreen and the calendarViewStep rule.
+     */
+    override val isCalendarViewScreen: Boolean = true
+
+    /**
+     * The three day view is one of the views the "Default view" setting names, so a landing three
+     * day screen checks on resume whether that setting has changed and hands over if it has. As
+     * with the other views, a three day screen that *is* the configured default is the landing
+     * screen wherever it is opened: back from it leaves the app. See
+     * M3eHostActivity.applyConfiguredLandingView and isEffectivelyLanding.
+     */
+    override val landingViewType: Int = CalendarController.ViewType.THREE_DAY
+
+    /**
+     * The name the drawer knows this screen by.
      *
      * The drawer uses it to recognise the screen it is already on, so choosing "3 days" while this
      * screen is on top closes the drawer instead of launching the screen again - a relaunch arrived
@@ -123,10 +140,10 @@ class ComposeThreeDayActivity : M3eHostActivity() {
     /**
      * A day handed over by a new intent, when this screen is reused rather than started afresh.
      *
-     * The week and day views bring an already running copy forward with REORDER_TO_FRONT, which
-     * leaves its pager where it was. The day named in the intent is turned into a move through
-     * pickedDay, the same route the heading's date picker uses, so the block that contains the
-     * tapped day comes on screen instead of the block the user was on last time.
+     * The view that opens it starts a new instance, so this is reached when something brings the
+     * running task back - the launcher - and the day it names is turned into a move through
+     * pickedDay, the same route the heading's date picker uses. The block that contains that day
+     * comes on screen instead of the block the user was on last time.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -142,6 +159,11 @@ class ComposeThreeDayActivity : M3eHostActivity() {
 
     override fun onToday() {
         scrollToTodayKey++
+    }
+
+    /** Re-reads the block's events now, as a resume does, when the title bar's refresh is used. */
+    override fun onRefresh() {
+        refreshKey++
     }
 
     /**

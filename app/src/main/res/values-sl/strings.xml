@@ -288,7 +288,6 @@
     <string name="preferences_color">Osnovna barva</string>
     <string name="preferences_color_pick">Osnovna barva</string>
     <string name="display_options">Možnosti prikaza</string>
-    <string name="default_start_last">Predhodno uporabljen pogled</string>
     <string name="preferences_days_per_week_dialog">Dni na teden</string>
     <string name="preferences_default_event_duration_title">Privzeto trajanje dogodka</string>
     <string name="preferences_days_per_week_title">Dni na teden</string>

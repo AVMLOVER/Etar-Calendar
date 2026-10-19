@@ -115,7 +115,6 @@
     <string name="preferences_days_per_week_title">Làithean gach seachdain</string>
     <string name="preferences_week_start_day_dialog">Tòisichidh an t-seachdain</string>
     <string name="preferences_week_start_day_title">Tòisichidh an t-seachdain</string>
-    <string name="default_start_last">Sealladh a chleachd thu roimhe</string>
     <string name="maximum_number_of_lines">Àireamh as motha de loidhnichean ann an tachartas</string>
     <string name="display_location">Seall d’ ionad</string>
     <string name="display_time">Seall an t-àm</string>

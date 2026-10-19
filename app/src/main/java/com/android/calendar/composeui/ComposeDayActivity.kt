@@ -17,6 +17,7 @@ import android.os.Bundle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.android.calendar.CalendarController
 import com.android.calendar.chrome.DayHeading
 import com.android.calendar.chrome.compose.M3eScreen
 import java.time.LocalDate
@@ -26,6 +27,13 @@ class ComposeDayActivity : ComposeCalendarViewActivity() {
 
     override val checkedMenuItemId: Int = R.id.day_menu_item
     override val currentScreenName: String = "DAY"
+
+    /**
+     * The day view is one of the views the "Default view" setting names, so a landing day screen
+     * checks on resume whether that setting has changed and hands over if it has. See
+     * M3eHostActivity.applyConfiguredLandingView.
+     */
+    override val landingViewType: Int = CalendarController.ViewType.DAY
 
     /**
      * The heading is a date, so the picker under it chooses a day.
@@ -95,8 +103,12 @@ class ComposeDayActivity : ComposeCalendarViewActivity() {
     }
 
     /**
-     * A day named by a new intent, which is how a running copy is moved rather than stacked: the
-     * month view's cells and the drawer both bring this screen forward with a day.
+     * A day named by a new intent, when this screen is reused rather than started afresh.
+     *
+     * The launcher is what reuses it: tapping the icon brings the running task forward with today,
+     * and the day has to be read from that intent or the screen would stay on the day it was left
+     * on. The drawer no longer comes through here - it starts or reveals screens instead of
+     * reordering a running one - so today is the day that arrives in practice.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -112,6 +124,11 @@ class ComposeDayActivity : ComposeCalendarViewActivity() {
 
     override fun onToday() {
         scrollToTodayKey++
+    }
+
+    /** Re-reads the day's events now, as a resume does, when the title bar's refresh is used. */
+    override fun onRefresh() {
+        refreshKey++
     }
 
     /**

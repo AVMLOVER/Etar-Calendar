@@ -197,7 +197,6 @@
     <string name="display_options">Gweld manylion</string>
     <string name="display_time">Dangos amser</string>
     <string name="display_location">Dangos lleoliad</string>
-    <string name="default_start_last">Golwg a ddefnyddiwyd gynt</string>
     <string name="preferences_week_start_day_title">Wythnos yn dechrau ar</string>
     <string name="preferences_week_start_day_dialog">Wythnos yn dechrau ar</string>
     <string name="preferences_days_per_week_title">Dyddiau\'r wythnos</string>

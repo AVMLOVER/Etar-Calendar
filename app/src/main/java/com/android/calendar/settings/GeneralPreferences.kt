@@ -124,7 +124,17 @@ class GeneralPreferences private constructor() {
         const val WEEK_START_FRIDAY = "6"
         const val WEEK_START_SATURDAY = "7"
         // Default preference values
-        const val DEFAULT_DEFAULT_START = "-2"
+        /**
+         * The stored default start view, the month.
+         *
+         * The setting is a string because a preference screen writes it, and the value is one of
+         * the [CalendarController.ViewType] numbers - so this is "4", the month. It used to be
+         * "-2", meaning "the view I last used", which the app never actually kept up to date: a
+         * fresh install fell back to the month anyway, and a device that had been in the settings
+         * could open on a stale view. That answer no longer exists; anything this build does not
+         * recognise resolves to [DEFAULT_START_VIEW].
+         */
+        const val DEFAULT_DEFAULT_START = "4"
 
         /**
          * The view the app opens on, before the user has chosen one.

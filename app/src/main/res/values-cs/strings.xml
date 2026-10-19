@@ -262,7 +262,6 @@
     <string name="display_time">Zobrazovat čas</string>
     <string name="display_location">Zobrazovat místo</string>
     <string name="maximum_number_of_lines">Maximální počet řádků v události</string>
-    <string name="default_start_last">Předchozí použité zobrazení</string>
     <string name="preferences_real_event_colors">Použít skutečné barvy událostí</string>
     <string name="preferences_days_per_week_dialog">Dnů v týdnu</string>
     <string name="authors">Autoři</string>

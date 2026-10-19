@@ -257,7 +257,6 @@
     <string name="cal_pick_ics">Elige un archivo para importar</string>
     <string name="cal_share_intent_title">Envía evento a:</string>
     <string name="calendar_permission_not_granted">Los permisos requeridos fueron denegados, habilítelos desde la aplicación de configuración para editar los eventos</string>
-    <string name="default_start_last">Vista previamente utilizada</string>
     <string name="default_start_title">Vista de</string>
     <string name="goto_date">Ir a…</string>
     <string name="preferences_theme">Tema</string>

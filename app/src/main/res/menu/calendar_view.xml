@@ -46,11 +46,13 @@
             android:id="@+id/action_countdown"
             android:icon="@drawable/outline_countdown"
             android:title="@string/m3e_countdown_title" />
-        <!-- The to-do list, directly under the countdown. Its icon is the title bar's today icon, and
-             today's day number is drawn into it as the drawer is built. -->
+        <!-- The to-do list, directly under the countdown. Its icon is the title bar's today icon in
+             the drawer's own 24dp size - the 28dp form the bar uses stood out among these rows - and
+             today's day number is drawn into it as the drawer is built. Both hosts read the icon
+             from this item, so both drawers get the same size. -->
         <item
             android:id="@+id/action_todo"
-            android:icon="@drawable/today_icon"
+            android:icon="@drawable/today_icon_24"
             android:title="@string/m3e_todo_title" />
     </group>
 

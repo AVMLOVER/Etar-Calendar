@@ -297,7 +297,6 @@
     <string name="authors">Autorid</string>
     <string name="license">Litsents</string>
     <string name="user_rejected_calendar_write_permission">Etar vajab korrektseks töötamiseks kalendri lugemis- ja kirjutamisõigusi. Palun proovi uuesti.</string>
-    <string name="default_start_last">Varem kasutatud vaade</string>
     <string name="preferences_alerts_custom_snooze_delay_summary_on">Küsi meeldetuletuste edasilükkamisel viivituse kestust</string>
     <string name="preferences_issues">Teata probleemidest</string>
     <string name="visibility_confidential">Konfidentsiaalne</string>

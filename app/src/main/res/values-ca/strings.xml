@@ -265,7 +265,6 @@
     <string name="share_label">Comparteix</string>
     <string name="no_map">No hi ha aplicació de mapes instal·lada</string>
     <string name="default_start_title">Vista per defecte</string>
-    <string name="default_start_last">Vista utilitzada prèviament</string>
     <string name="error_generating_ics">S\'han trobat problemes mentre es compartia l\'esdeveniment</string>
     <string name="cal_share_intent_title">Envia l\'esdeveniment a:</string>
     <string name="cal_export_event_title">Exporta a la targeta SD</string>

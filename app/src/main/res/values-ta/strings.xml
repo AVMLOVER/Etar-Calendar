@@ -176,7 +176,6 @@
     <string name="preferences_hide_declined_title">மறுக்கப்பட்ட நிகழ்வுகளை மறைக்கவும்</string>
     <string name="default_start_title">இயல்புநிலை பார்வை</string>
     <string name="display_options">காட்சி விருப்பங்கள்</string>
-    <string name="default_start_last">முன்னர் பயன்படுத்தப்பட்ட பார்வை</string>
     <string name="preferences_week_start_day_title">வாரம் தொடங்குகிறது</string>
     <string name="preferences_week_start_day_dialog">வாரம் தொடங்குகிறது</string>
     <string name="preferences_days_per_week_title">வாரத்திற்கு நாட்கள்</string>

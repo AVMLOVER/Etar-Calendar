@@ -281,7 +281,6 @@
     <string name="share_label">Zdieľať</string>
     <string name="no_map">Nie je nainštalovaná žiadna aplikácia máp</string>
     <string name="default_start_title">Predvolené zobrazenie</string>
-    <string name="default_start_last">Predtým použité zobrazenie</string>
     <string name="error_generating_ics">Pri zdieľaní udalosti sa vyskytli problémy</string>
     <string name="cal_share_intent_title">Odoslať udalosť na:</string>
     <string name="cal_export_event_title">Exportovať na kartu SD</string>

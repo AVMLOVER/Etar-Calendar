@@ -265,7 +265,6 @@
     <string name="share_label">Dela</string>
     <string name="no_map">Ingen kartapp är installerad</string>
     <string name="default_start_title">Standardvy</string>
-    <string name="default_start_last">Föregående använda vy</string>
     <string name="error_generating_ics">Fel uppstod när händelsen delades</string>
     <string name="cal_share_intent_title">Skicka händelse till:</string>
     <string name="cal_export_event_title">Exportera till SD-kort</string>

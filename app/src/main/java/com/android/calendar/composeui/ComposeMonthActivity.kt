@@ -6,13 +6,17 @@
  * The drawer and top bar come from M3eHostActivity; the grid is M3eMonthScreen - a weekday header
  * over six rows of seven cells, with a marker per event and the lunar day when that setting is on.
  *
- * The heading is a month, so the picker under it chooses a day and the screen moves to the month
- * that contains it. It cannot use the host's own month picker: that one jumps to the month view by
- * starting the calendar activity, and this screen is the month view - it has to move itself.
+ * The heading names a month, so the picker under it is the app's month picker - the same chip row
+ * the year view's month selection and the classic month view's heading use - and the screen moves
+ * its own grid to the chosen month. It used to open a date picker: a heading saying "October 2026"
+ * asking for a day was a question the screen did not need answered, and the day only served to pick
+ * the month it fell in. The pick itself is handed to this screen through the host's onMonthPicked
+ * rather than turned into an intent, because this screen *is* the month view - starting another
+ * copy of it would stack a screen the user did not ask for.
  *
- * Back leaves the app. This is the view the day, three day and week screens step back to, so there
- * is no further screen of the sequence behind it; the platform's own back - the one that carries the
- * predictive animation - is handed the gesture rather than being intercepted to start another view.
+ * Back leaves the app: this screen is a destination of its own, and the month it lands on was named
+ * by the user rather than reached from another view. Nothing is started to "return" anywhere; the
+ * host's back callback finishes the screen, which is what goes back to the launcher.
  */
 package com.android.calendar.composeui
 
@@ -22,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.android.calendar.CalendarController
 import com.android.calendar.chrome.compose.M3eScreen
 import java.time.LocalDate
 import java.time.YearMonth
@@ -33,11 +38,12 @@ class ComposeMonthActivity : ComposeCalendarViewActivity() {
     override val checkedMenuItemId: Int = R.id.month_menu_item
     override val currentScreenName: String = "MONTH"
 
-    /** Back returns to whatever opened this screen instead of stepping to another calendar view. */
-    override val exitOnBack: Boolean = false
-
-    /** The heading is a month, so tapping it asks for a day and moves to that day's month. */
-    override val pickerChoosesDate: Boolean = true
+    /**
+     * The month view is one of the views the "Default view" setting names, so a landing month screen
+     * checks on resume whether that setting has changed and hands over if it has. See
+     * M3eHostActivity.applyConfiguredLandingView.
+     */
+    override val landingViewType: Int = CalendarController.ViewType.MONTH
 
     /** The month on screen, for the drawer's other entries and for the anchor-day rule. */
     private var visibleMonth by mutableStateOf(YearMonth.now())
@@ -45,7 +51,12 @@ class ComposeMonthActivity : ComposeCalendarViewActivity() {
     /** First day of the month on screen, in epoch millis, or 0 before the grid has reported one. */
     private var visibleFirstDayMillis = 0L
 
-    /** The day chosen from the heading's picker, or 0 before one has been. */
+    /**
+     * The first day of the month chosen from the heading's picker, or 0 before one has been.
+     *
+     * The grid moves on a day key: a picked day means "show the month this day falls in", so the
+     * first of the chosen month is what moves it there - the month itself is the destination.
+     */
     private var pickedDay by mutableStateOf(0L)
 
     /** Bumped on every resume, which is what makes the grid re-read after an edit elsewhere. */
@@ -91,19 +102,43 @@ class ComposeMonthActivity : ComposeCalendarViewActivity() {
         refreshKey++
     }
 
-    /** A day named by a new intent, for a copy that is brought forward instead of started afresh. */
+    /**
+     * A day named by a new intent, when this screen is reused rather than started afresh.
+     *
+     * The launcher is what reuses it: tapping the icon brings the running task forward with today,
+     * and the month that contains it is what should come back on screen.
+     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         requestedDayFrom(intent)?.let { pickedDay = it.toEpochDay() }
     }
 
-    override fun onDatePicked(date: LocalDate) {
-        pickedDay = date.toEpochDay()
+    /**
+     * A month chosen from the heading's picker, brought on screen.
+     *
+     * The choice stays inside this screen. The host's default would open the month view for that
+     * month, which is this very screen - starting a second copy of it would stack a screen the user
+     * did not ask for and leave the one they were reading underneath. The first of the month is
+     * handed to the grid as a picked day, which is the key that moves the pager to that month.
+     */
+    override fun onMonthPicked(year: Int, month: Int) {
+        pickedDay = YearMonth.of(year, month).atDay(1).toEpochDay()
     }
+
+    /** The heading's month picker opens on the month this screen is showing, not on today's. */
+    override fun pickerYear(): Int = visibleMonth.year
+
+    /** See [pickerYear]; the picker counts months from 1. */
+    override fun pickerMonth(): Int = visibleMonth.monthValue
 
     override fun onToday() {
         scrollToTodayKey++
+    }
+
+    /** Re-reads the month's events now, as a resume does, when the title bar's refresh is used. */
+    override fun onRefresh() {
+        refreshKey++
     }
 
     /**

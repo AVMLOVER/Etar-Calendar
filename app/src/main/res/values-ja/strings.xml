@@ -249,7 +249,6 @@
     <string name="foreground_notification_channel_name">バックグラウンドタスク</string>
     <string name="duplicate_label">複製</string>
     <string name="preferences_days_per_week_dialog">1 週間の日数</string>
-    <string name="default_start_last">最後に使用した表示</string>
     <string name="preferences_days_per_week_title">1 週間の日数</string>
     <string name="preferences_default_event_duration_title">デフォルトの予定の期間</string>
     <string name="preferences_color">メインの色</string>

@@ -248,7 +248,6 @@
     <string name="goto_date">前往…</string>
     <string name="display_time">顯示時間</string>
     <string name="view_settings">軟體設定</string>
-    <string name="default_start_last">上次使用的檢視</string>
     <string name="preferences_days_per_week_title">每週天數</string>
     <string name="preferences_real_event_colors">使用實際的事件顏色</string>
     <string name="preferences_theme">主題</string>

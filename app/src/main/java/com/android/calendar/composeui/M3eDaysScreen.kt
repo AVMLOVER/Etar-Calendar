@@ -159,6 +159,15 @@ private val PLUS_MARGIN = 8.dp
 private val PLUS_MIN_LENGTH = 6.dp
 
 /**
+ * The corners of an event block in this grid.
+ *
+ * The slot picked for a new event is drawn with the same shape, because the highlight stands exactly
+ * where the event will appear: two separate radii is how the mark would end up with corners that do
+ * not match the block it turns into. Both read this one value.
+ */
+private val EVENT_BLOCK_SHAPE = RoundedCornerShape(6.dp)
+
+/**
  * The day grid.
  *
  * @param days how many days one page shows: 1 for the day view, 3 for the three day view, 7 for the
@@ -924,12 +933,16 @@ private fun DayColumn(
                 val plusMaxLength = with(LocalDensity.current) { PLUS_MAX_LENGTH.toPx() }
                 val plusMargin = with(LocalDensity.current) { PLUS_MARGIN.toPx() }
                 val plusMinLength = with(LocalDensity.current) { PLUS_MIN_LENGTH.toPx() }
-                // One hour, which is what a row of this grid is.
+                // One hour, which is what a row of this grid is. The corners are the event block's,
+                // so the mark already has the shape of the event it is about to become - and the
+                // clip is on the box rather than on the background alone, because the plus is drawn
+                // by the canvas inside it and the box is the whole mark, not just the fill.
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .offset(y = HOUR_HEIGHT * selectedSlot)
                         .height(HOUR_HEIGHT)
+                        .clip(EVENT_BLOCK_SHAPE)
                         .background(highlight),
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1012,7 +1025,7 @@ private fun EventBlock(
             .padding(horizontal = 2.dp)
             .offset(y = top)
             .height(height)
-            .clip(RoundedCornerShape(6.dp))
+            .clip(EVENT_BLOCK_SHAPE)
             .background(accent.copy(alpha = if (event.isDeclined) 0.25f else 0.85f))
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 2.dp),

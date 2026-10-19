@@ -304,7 +304,6 @@
     <string name="preferences_list_add_offline_button">Adaugă calendar</string>
     <string name="offline_account_name">Calendar offline</string>
     <string name="maximum_number_of_lines">Numărul maxim de propoziții intr-un eveniment</string>
-    <string name="default_start_last">Vizualizarea precedentă</string>
     <string name="preferences_days_per_week_title">Zile pe săptămână</string>
     <string name="preferences_days_per_week_dialog">Zile pe săptămână</string>
     <string name="preferences_default_event_duration_title">Durata prestabilită a unui eveniment</string>

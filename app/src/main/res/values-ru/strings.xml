@@ -290,7 +290,6 @@
     <string name="share_label">Поделиться</string>
     <string name="no_map">Нет установленного приложения карт</string>
     <string name="default_start_title">Вид по умолчанию</string>
-    <string name="default_start_last">Ранее использованный вид</string>
     <string name="error_generating_ics">Возникли проблемы при совместном использовании события</string>
     <string name="cal_share_intent_title">Отправить событие:</string>
     <string name="cal_export_event_title">Экспорт на SD-карту</string>

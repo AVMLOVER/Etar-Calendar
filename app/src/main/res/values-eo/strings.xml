@@ -276,7 +276,6 @@
     <string name="no_calendars_found">Antaŭ vi eblas aldoni okazaĵon, si devas aldoni malpleje unu konton kalendaran al sia aparato kaj vidigi kalendaron. Tuŝu Aldoni Konton por aldoni konton (se vi ĵus aldonis konton, atendu ĝin finote sinkroniĝi kaj provu ree). Aŭ tuŝu Forigi kaj certigu malpleje unu kalendaron esti videblan.</string>
     <string name="foreground_notification_title">Horplanas memorigilojn novajn…</string>
     <string name="modify_all_following">Ŝanĝi tiun ĉi kaj estontajn okazaĵojn</string>
-    <string name="default_start_last">Vido antaŭe uzita</string>
     <string name="preferences_default_reminder_dialog">Tempo defaŭlta de memorigilo</string>
     <string name="preferences_use_home_tz_descrip">Vidigas kalendarojn kaj tempojn de okazaĵoj en via hejma horzono kiam vojaĝi</string>
     <string name="preferences_alerts_custom_snooze_delay_summary_off">Ĉiam uzi malfruon defaŭltan de ripeto</string>

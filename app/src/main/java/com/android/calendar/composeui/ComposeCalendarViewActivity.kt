@@ -24,6 +24,15 @@ import java.time.ZoneId
 
 abstract class ComposeCalendarViewActivity : M3eHostActivity() {
 
+    /**
+     * A day, three day, week or month screen is one of the drawer's calendar views.
+     *
+     * The drawer's entries for those views are peers: choosing one from another replaces it, so the
+     * stack stays the landing screen plus the view on top. The three day view says the same for
+     * itself; the tool screens leave this false and keep their place in the stack.
+     */
+    override val isCalendarViewScreen: Boolean = true
+
     /** The day handed over in the intent, or today when the caller named none. */
     protected fun requestedDay(): LocalDate =
         requestedDayFrom(intent) ?: LocalDate.now(ZoneId.systemDefault())
@@ -100,53 +109,80 @@ abstract class ComposeCalendarViewActivity : M3eHostActivity() {
      *
      * The day travels as EXTRA_EVENT_BEGIN_TIME, which is the extra the three day screen already
      * reads: it centres its pager on the block holding that day, so the three days shown are the
-     * ones the tapped day belongs to. SINGLE_TOP and REORDER_TO_FRONT bring an instance that is
-     * already running forward instead of stacking a second copy; the day is re-read there from
-     * onNewIntent, because a reused instance keeps its pager where it was.
+     * ones the tapped day belongs to.
      *
      * This screen is not finished: back from the three day view returns to the week or the day the
-     * user came from, which is where they were. That is what [EXTRA_RETURN_TO_OPENER] tells it.
+     * user came from, which is where they were. That is what [EXTRA_RETURN_TO_OPENER] tells it, and
+     * [EXTRA_OPENER_CLASS] names this screen so the three day view's own drawer can tell "back to
+     * it" from "open another view over it". When the three day view is the configured default view
+     * neither extra is added: it is the landing screen wherever it is opened, and its back leaves
+     * the app.
+     *
+     * It is started as a new instance rather than by bringing a running one forward. A running copy
+     * can be the landing screen of the same view - the day view the launcher opened, with a month
+     * open over it - and reordering that to the top would take it out from under the screen that is
+     * showing and leave the stack describing the wrong order.
      */
     protected fun openThreeDay(day: LocalDate) {
-        startActivity(
-            Intent(this, ComposeThreeDayActivity::class.java)
-                .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, dayStartMillis(day))
-                // Back from the three day view returns to this screen rather than stepping on to
-                // the month view. Opened from the drawer there is no screen of the sequence to
-                // return to, and the three day view keeps its own back - which is why this is an
-                // extra rather than a change to that screen.
-                .putExtra(EXTRA_RETURN_TO_OPENER, true)
-                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-        )
+        val intent = Intent(this, ComposeThreeDayActivity::class.java)
+            .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, dayStartMillis(day))
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        // Back from the three day view returns to this screen rather than stepping on to the month
+        // view. Opened from the drawer there is no screen of the sequence to return to, and the
+        // three day view keeps its own back - which is why this is an extra rather than a change to
+        // that screen.
+        if (!ExperimentalCalendarUi.isConfiguredDefault(
+                this,
+                CalendarController.ViewType.THREE_DAY,
+            )
+        ) {
+            intent.putExtra(EXTRA_RETURN_TO_OPENER, true)
+            intent.putExtra(EXTRA_OPENER_CLASS, this::class.java.name)
+        }
+        startActivity(intent)
     }
 
     /**
      * Opens the day view on [day], the same way and with the same flags as [openThreeDay].
      *
      * The month view opens a day over itself rather than switching to it, so back has to finish the
-     * day view and reveal the month where it was left. Without this extra the day view stepped on to
-     * the month view instead - starting it at the tapped day, which moved a month grid the user had
-     * not asked to move whenever the tapped day belonged to the previous or next month.
+     * day view and reveal the month where it was left. Without this extra the day view was read as a
+     * landing screen, and its back started the month view at the tapped day - which moved a month
+     * grid the user had not asked to move whenever the tapped day belonged to the previous or the
+     * next month.
      */
     protected fun openDay(day: LocalDate) {
-        startActivity(
-            Intent(this, ComposeDayActivity::class.java)
-                .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, dayStartMillis(day))
-                .putExtra(EXTRA_RETURN_TO_OPENER, true)
-                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-        )
+        val intent = Intent(this, ComposeDayActivity::class.java)
+            .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, dayStartMillis(day))
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        // A day view that is the configured default view is the landing screen wherever it is
+        // opened, so it is not told about an opener it would only have to hand back to.
+        if (!ExperimentalCalendarUi.isConfiguredDefault(this, CalendarController.ViewType.DAY)) {
+            intent.putExtra(EXTRA_RETURN_TO_OPENER, true)
+            intent.putExtra(EXTRA_OPENER_CLASS, this::class.java.name)
+        }
+        startActivity(intent)
     }
 
     companion object {
         /**
          * Set on an intent that opens a screen over one that stays underneath it.
          *
-         * The calendar views of the sequence - day, three day, week - replace one another when they
-         * are reached from the drawer: the screen behind is finished and back steps on to the month
-         * view. The month and the week also open the day and three day views *over* themselves, and
-         * back there has to return to the screen that opened them rather than start another one: it
-         * is revealed exactly as it was left, pager included.
+         * The screen underneath is not finished: back on the one on top is a plain finish which
+         * reveals it exactly as it was left, and the finish plays the reverse of the way in. The
+         * drawer uses the same fact to keep the stack two deep - see [calendarViewStep].
          */
         const val EXTRA_RETURN_TO_OPENER = "m3eReturnToOpener"
+
+        /**
+         * The class name of the screen the extra above says is underneath, when it is known.
+         *
+         * Back only needs to know that there *is* something underneath. The drawer needs to know
+         * *which* screen that is: choosing that view from the drawer is a step back to it, not
+         * another copy of it, and a screen that is finished when another view takes its place has
+         * to hand the new view the same screen it was itself opened over. Both are decisions about
+         * this name, so the intent carries it along with the boolean.
+         */
+        const val EXTRA_OPENER_CLASS = "m3eOpenerClass"
     }
 }
