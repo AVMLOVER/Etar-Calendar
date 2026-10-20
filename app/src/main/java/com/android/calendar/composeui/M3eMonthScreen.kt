@@ -18,7 +18,7 @@ package com.android.calendar.composeui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,22 +33,23 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -57,12 +58,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import android.content.Context
 import android.content.res.Configuration
 import com.android.calendar.LunarUtils
 import com.android.calendar.Utils
 import com.android.calendar.chrome.compose.M3eChromeScaffold
 import com.android.calendar.chrome.compose.M3eScreen
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ws.xsoh.etar.R
 import java.time.DayOfWeek
@@ -72,7 +76,6 @@ import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.ZoneOffset
-import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
@@ -108,17 +111,16 @@ private const val MAX_MARKERS = 3
  */
 private val WEEK_NUMBER_WIDTH = 22.dp
 
-/**
- * The shape a day cell's touch feedback takes.
- *
- * A cell is one of forty-two rectangles laid edge to edge, and an unclipped ripple lit the whole
- * rectangle - a hard square sliding under the finger. Clipping the cell's indication to a gently
- * rounded tile is what makes tapping a date read the way the rest of this app's surfaces do.
- */
-private val DAY_CELL_SHAPE = RoundedCornerShape(12.dp)
-
 /** Length of an event created by the add button, matching the other views' default. */
 private const val DEFAULT_NEW_EVENT_MILLIS = 60L * 60L * 1000L
+
+/**
+ * How many months' events the pager cache keeps.
+ *
+ * The page on screen and its neighbours are the ones a swipe needs; the rest is history that makes a
+ * quick back-and-forth free. Six is two screens' worth either side of the visible month.
+ */
+private const val MONTH_CACHE_MONTHS = 6
 
 /** The month a cell belongs to, as a month index counted from January 1970. */
 private fun monthIndexOf(month: YearMonth): Int =
@@ -154,7 +156,6 @@ internal fun monthTitle(month: YearMonth): String {
  * @param onVisibleMonthChanged called with the month on screen, so the host can set its heading.
  * @param onOpenDay called when a cell is tapped; the host opens the day view on that day.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun M3eMonthScreen(
     page: Long,
@@ -187,9 +188,89 @@ fun M3eMonthScreen(
 
     fun monthOfPage(index: Int): YearMonth = monthAt(centreIndex + index - MONTH_PAGE_MIDDLE)
 
-    val month = remember(pagerState.currentPage, centreIndex) { monthOfPage(pagerState.currentPage) }
+    // The heading's month, read through derivedStateOf and only inside the title lambda. Reading
+    // currentPage here, as a plain value, recomposed the whole screen - pager and all - every time a
+    // swipe crossed a page boundary.
+    val headingMonth by remember(pagerState, centreIndex) {
+        derivedStateOf { monthOfPage(pagerState.currentPage) }
+    }
 
-    LaunchedEffect(month) { onVisibleMonthChanged(month) }
+    // A month's events, loaded once and kept. The grid never waits for them: a page draws its six
+    // weeks from calendar arithmetic as soon as it composes and its markers are added when the query
+    // lands, so a month that has not been read yet is still a complete month - just without bars.
+    val eventsByMonth = remember(firstDayOfWeek) {
+        mutableStateMapOf<YearMonth, List<CalendarDayEvent>>()
+    }
+    // The months a query is running for, so a second request cannot start another one for the same
+    // month. Main-thread only: both the launch and the removal happen there.
+    val inFlight = remember(firstDayOfWeek) { mutableSetOf<YearMonth>() }
+    // Load order, oldest first, for the small cache eviction below. Kept apart from the map because
+    // the map's iteration order is not a policy.
+    val recentMonths = remember(firstDayOfWeek) { mutableListOf<YearMonth>() }
+    val repository = remember(context) { DaysRepository(context.applicationContext) }
+    val loaderScope = rememberCoroutineScope()
+
+    /** Fetches one page's month unless it is cached, or already being fetched. */
+    fun loadPage(index: Int, force: Boolean) {
+        if (index !in 0 until MONTH_PAGE_COUNT) return
+        val month = monthOfPage(index)
+        if (!force && eventsByMonth.containsKey(month)) return
+        if (!inFlight.add(month)) return
+        loaderScope.launch {
+            try {
+                val gridStart = monthGridStart(month, firstDayOfWeek)
+                val events = withContext(Dispatchers.IO) {
+                    repository.load(
+                        gridStart.atStartOfDay(zone).toInstant().toEpochMilli(),
+                        gridStart.plusDays(MONTH_GRID_DAYS.toLong())
+                            .atStartOfDay(zone).toInstant().toEpochMilli(),
+                        // A six week window on a busy calendar: the default is enough for a day or a
+                        // week, but a month of a shared calendar can hold more than that, and the
+                        // markers that fall outside it would simply be missing.
+                        limit = 2000,
+                    )
+                }
+                eventsByMonth[month] = events
+                recentMonths.remove(month)
+                recentMonths.add(month)
+                while (recentMonths.size > MONTH_CACHE_MONTHS) {
+                    eventsByMonth.remove(recentMonths.removeAt(0))
+                }
+            } finally {
+                inFlight.remove(month)
+            }
+        }
+    }
+
+    // The page on screen and one either side: the neighbours are what the pager composes, so a swipe
+    // arrives at a page whose markers are already there. The first pass of a restarted effect - a
+    // resume, or a changed week start - re-reads them even when they are cached.
+    LaunchedEffect(pagerState, centreIndex, refreshKey, firstDayOfWeek) {
+        var firstPass = true
+        snapshotFlow { pagerState.settledPage }
+            .distinctUntilChanged()
+            .collect { settled ->
+                for (offset in -1..1) loadPage(settled + offset, force = firstPass)
+                firstPass = false
+            }
+    }
+
+    // The page being dragged towards, once the drag is a quarter of the way: waiting for the settle
+    // would start the query only when the page is already on screen. snapshotFlow filters by value,
+    // so this reacts to the threshold being crossed, not to every frame of the drag.
+    LaunchedEffect(pagerState, centreIndex, refreshKey, firstDayOfWeek) {
+        snapshotFlow {
+            pageToPrefetch(pagerState.currentPage, pagerState.currentPageOffsetFraction)
+        }
+            .distinctUntilChanged()
+            .collect { page -> if (page != null) loadPage(page, force = false) }
+    }
+
+    LaunchedEffect(pagerState, centreIndex) {
+        snapshotFlow { monthOfPage(pagerState.currentPage) }
+            .distinctUntilChanged()
+            .collect { onVisibleMonthChanged(it) }
+    }
 
     // Today, brought on screen when the host asks.
     LaunchedEffect(scrollToTodayKey) {
@@ -218,7 +299,12 @@ fun M3eMonthScreen(
 
     M3eChromeScaffold(
         selected = M3eScreen.MONTH,
-        title = { Text(monthTitle(month)) },
+        title = {
+            // Formatted once per month: the pattern lookup and the SimpleDateFormat both allocate,
+            // and the old call ran again on every recomposition of the screen.
+            val month = headingMonth
+            Text(remember(month) { monthTitle(month) })
+        },
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             HorizontalPager(
@@ -226,15 +312,16 @@ fun M3eMonthScreen(
                 modifier = Modifier.fillMaxSize(),
                 beyondViewportPageCount = MONTH_PAGE_BEYOND_VIEWPORT,
             ) { index ->
+                val month = monthOfPage(index)
                 MonthPage(
-                    month = monthOfPage(index),
+                    month = month,
+                    events = eventsByMonth[month],
                     today = today,
                     zone = zone,
                     showLunar = showLunar,
                     showWeekNumber = showWeekNumber,
                     firstDayOfWeek = firstDayOfWeek,
                     onOpenDay = onOpenDay,
-                    refreshKey = refreshKey,
                 )
             }
 
@@ -243,6 +330,10 @@ fun M3eMonthScreen(
             // month otherwise - the slot the month view gives a day tapped in another month.
             androidx.compose.material3.FloatingActionButton(
                 onClick = {
+                    // Read at the click rather than in the composition: the month on screen is only
+                    // needed here, and reading it above would make every page crossing recompose
+                    // this screen.
+                    val month = monthOfPage(pagerState.currentPage)
                     val todayInMonth = YearMonth.from(today) == month
                     val start = if (todayInMonth) {
                         Utils.getNextCreateEventStart(System.currentTimeMillis())
@@ -270,17 +361,16 @@ fun M3eMonthScreen(
 }
 
 /** One month: the weekday header and the six rows of cells, with that month's events loaded. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun MonthPage(
     month: YearMonth,
+    events: List<CalendarDayEvent>?,
     today: LocalDate,
     zone: ZoneId,
     showLunar: Boolean,
     showWeekNumber: Boolean,
     firstDayOfWeek: DayOfWeek,
     onOpenDay: (LocalDate) -> Unit,
-    refreshKey: Int,
 ) {
     val context = LocalContext.current
 
@@ -288,46 +378,48 @@ private fun MonthPage(
     // tall there. The cells lay themselves out differently for it - see DayCell.
     val compact = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    // The grid always starts on the first day of the week that contains the 1st, and always runs for
-    // six weeks: the cells before and after the month belong to the months on either side, and are
-    // drawn dimmed.
-    val firstOfMonth = remember(month) { month.atDay(1) }
-    val leadingDays = remember(firstOfMonth, firstDayOfWeek) {
-        ((firstOfMonth.dayOfWeek.value - firstDayOfWeek.value) + 7) % 7
-    }
-    val gridStart = remember(firstOfMonth, leadingDays) {
-        firstOfMonth.minusDays(leadingDays.toLong())
+    val gridStart = remember(month, firstDayOfWeek) {
+        monthGridStart(month, firstDayOfWeek)
     }
     val cells = remember(gridStart) {
         (0L until MONTH_GRID_DAYS.toLong()).map { gridStart.plusDays(it) }
     }
 
-    var events by remember(month) { mutableStateOf<List<CalendarDayEvent>?>(null) }
-    LaunchedEffect(month, refreshKey) {
-        val loaded = withContext(Dispatchers.IO) {
-            DaysRepository(context.applicationContext).load(
-                gridStart.atStartOfDay(zone).toInstant().toEpochMilli(),
-                gridStart.plusDays(MONTH_GRID_DAYS.toLong())
-                    .atStartOfDay(zone).toInstant().toEpochMilli(),
-                // A six week window on a busy calendar: the default is enough for a day or a week,
-                // but a month of a shared calendar can hold more than that, and the markers that fall
-                // outside the limit would simply be missing.
-                limit = 2000,
+    // No waiting state: the six weeks are complete without events, and a page whose query has not
+    // returned is drawn with its day numbers and lunar line and gains its markers when it lands.
+    val markersByDay = remember(events, gridStart, zone) {
+        if (events == null) {
+            emptyMap()
+        } else {
+            groupMarkersByDay(events, gridStart, MONTH_GRID_DAYS, zone)
+        }
+    }
+
+    // The lunar line of each day, remembered apart from the markers: when a month's events land, the
+    // cells are rebuilt to carry the new colours, and the 42 lunar conversions must not run again.
+    val lunarByDay = remember(cells, showLunar) {
+        if (!showLunar) emptyMap() else cells.associateWith { lunarShort(context, it) }
+    }
+
+    // Everything a cell draws, resolved once per load instead of once per cell per recomposition:
+    // whether the day is in this month, its lunar line, and the already-coloured markers. This was
+    // forty-two YearMonth conversions and forty-two marker-list allocations on every recomposition,
+    // and a lambda per cell, which is what kept the grid from being skippable while the pager moved.
+    val monthCells = remember(cells, month, markersByDay, lunarByDay) {
+        cells.map { day ->
+            MonthCell(
+                day = day,
+                dayNumber = day.dayOfMonth.toString(),
+                inMonth = YearMonth.from(day) == month,
+                lunar = lunarByDay[day],
+                markers = markersByDay[day].orEmpty().take(MAX_MARKERS).map { event ->
+                    // Declined events are drawn faint, as they are in the day grid.
+                    Color(event.calendarColor).copy(
+                        alpha = if (event.isDeclined) 0.25f else 0.9f,
+                    )
+                },
             )
         }
-        events = loaded
-    }
-
-    val loaded = events
-    if (loaded == null) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            LoadingIndicator()
-        }
-        return
-    }
-
-    val markersByDay = remember(loaded, gridStart, zone) {
-        groupMarkersByDay(loaded, gridStart, MONTH_GRID_DAYS, zone)
     }
 
     // The week each row falls in, read from the row's first day.
@@ -358,15 +450,11 @@ private fun MonthPage(
                         WeekNumberCell(number = weekNumbers.getOrNull(row))
                     }
                     for (column in 0 until 7) {
-                        val day = cells[row * 7 + column]
                         DayCell(
-                            day = day,
+                            cell = monthCells[row * 7 + column],
                             today = today,
-                            inMonth = YearMonth.from(day) == month,
-                            showLunar = showLunar,
-                            markers = markersByDay[day].orEmpty(),
-                            onClick = { onOpenDay(day) },
                             compact = compact,
+                            onOpenDay = onOpenDay,
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight(),
@@ -377,6 +465,39 @@ private fun MonthPage(
         }
     }
 }
+
+/**
+ * The first cell of a month's six week grid: the first day of the week that contains the 1st.
+ *
+ * Shared by the page and the loader, so the window the events are queried for is exactly the window
+ * the cells cover.
+ */
+private fun monthGridStart(month: YearMonth, firstDayOfWeek: DayOfWeek): LocalDate {
+    val firstOfMonth = month.atDay(1)
+    val leadingDays = ((firstOfMonth.dayOfWeek.value - firstDayOfWeek.value) + 7) % 7
+    return firstOfMonth.minusDays(leadingDays.toLong())
+}
+
+/** One day cell's data, resolved once per month load. */
+private class MonthCell(
+    val day: LocalDate,
+    val dayNumber: String,
+    val inMonth: Boolean,
+    val lunar: String?,
+    val markers: List<Color>,
+)
+
+/** The lunar day a cell shows, in the short form the grid uses, or null when there is none. */
+private fun lunarShort(context: Context, day: LocalDate): String? =
+    LunarUtils.get(
+        context,
+        day.year,
+        day.monthValue - 1,
+        day.dayOfMonth,
+        LunarUtils.FORMAT_LUNAR_SHORT or LunarUtils.FORMAT_ONE_FESTIVAL,
+        false,
+        null,
+    )
 
 /**
  * The week number down the left of a row.
@@ -462,10 +583,11 @@ internal fun groupMarkersByDay(
 /** The seven weekday names, starting on the week's first day. */
 @Composable
 private fun WeekdayHeader(firstDayOfWeek: DayOfWeek, showWeekNumber: Boolean) {
+    // The same builder the month widget uses, so the two headers cannot disagree about the order or
+    // the source of the names. java.time's own text is not used: with core library desugaring its
+    // narrow form is the first character of the full name.
     val labels = remember(firstDayOfWeek) {
-        (0L until 7L).map { offset ->
-            firstDayOfWeek.plus(offset).getDisplayName(TextStyle.SHORT, Locale.getDefault())
-        }
+        shortWeekdayLabels(firstDayOfWeek, Locale.getDefault())
     }
     Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp)) {
         // The header of the week-number column: empty, but the same width as the cells below it, or
@@ -490,12 +612,8 @@ private fun WeekdayHeader(firstDayOfWeek: DayOfWeek, showWeekNumber: Boolean) {
 /** One day of the grid: the day number, the lunar day, and up to three event markers. */
 @Composable
 private fun DayCell(
-    day: LocalDate,
+    cell: MonthCell,
     today: LocalDate,
-    inMonth: Boolean,
-    showLunar: Boolean,
-    markers: List<CalendarDayEvent>,
-    onClick: () -> Unit,
     /**
      * True in a landscape window, where the six rows are about half as tall as they are upright.
      *
@@ -505,32 +623,23 @@ private fun DayCell(
      * into half the height.
      */
     compact: Boolean = false,
+    onOpenDay: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
+    val day = cell.day
     val isToday = day == today
-    val lunar = if (showLunar) {
-        remember(day) {
-            LunarUtils.get(
-                context,
-                day.year,
-                day.monthValue - 1,
-                day.dayOfMonth,
-                LunarUtils.FORMAT_LUNAR_SHORT or LunarUtils.FORMAT_ONE_FESTIVAL,
-                false,
-                null,
-            )
-        }
-    } else {
-        null
-    }
+    // One source per cell, kept across recompositions; the ripple itself is switched off below.
+    val interaction = remember { MutableInteractionSource() }
 
     Column(
         modifier = modifier
-            // The corner is applied before the clickable so the ripple itself is rounded: clipping
-            // afterwards would only cut the content, which already fits.
-            .clip(DAY_CELL_SHAPE)
-            .clickable(onClick = onClick)
+            // No indication: a ripple here is a layer for each of forty-two cells, and the grid is
+            // what is moving while the user swipes. The tap still opens the day.
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = { onOpenDay(day) },
+            )
             .padding(horizontal = 2.dp, vertical = if (compact) 0.dp else 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -539,12 +648,16 @@ private fun DayCell(
                 // Two sizes: upright the circle is the 28dp the grid has always used; landscape has
                 // to spend its height on the lunar line and the events, so it gets 20.
                 .size(if (compact) 20.dp else 28.dp)
-                .clip(CircleShape)
-                .background(if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent),
+                // A shape on the background, not clip + background: clip makes a graphics layer, and
+                // this is one of forty-two cells.
+                .background(
+                    color = if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    shape = CircleShape,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = day.dayOfMonth.toString(),
+                text = cell.dayNumber,
                 style = if (compact) {
                     MaterialTheme.typography.labelMedium
                 } else {
@@ -552,7 +665,7 @@ private fun DayCell(
                 },
                 color = when {
                     isToday -> MaterialTheme.colorScheme.onPrimary
-                    inMonth -> MaterialTheme.colorScheme.onSurface
+                    cell.inMonth -> MaterialTheme.colorScheme.onSurface
                     // The grid's tails: the days of the months on either side are there to keep the
                     // rows full, and reading them at full strength made it look as though the month
                     // had more days than it does.
@@ -561,6 +674,7 @@ private fun DayCell(
                 maxLines = 1,
             )
         }
+        val lunar = cell.lunar
         if (!lunar.isNullOrEmpty() && lunar.length <= 4) {
             // The lunar line is the first thing dropped when a cell is too small for it: the columns
             // of a month grid on a phone are about as narrow as the day number itself, and a clipped
@@ -577,67 +691,74 @@ private fun DayCell(
         if (compact) {
             // The events, on one line under the lunar date: a dot in the calendar's colour per
             // event, which fits in four dp of height where a bar would need one row per event.
-            //
-            // The line is weighted, so a row too short for all three pieces loses the dots rather
-            // than the lunar date - the date is what the cell was asked to show, and the dots are
-            // the summary under it.
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .clipToBounds(),
-                contentAlignment = Alignment.TopCenter,
-            ) {
-                if (markers.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.padding(top = 1.dp),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        markers.take(MAX_MARKERS).forEach { event ->
-                            Box(
-                                modifier = Modifier
-                                    .size(4.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        // Declined events are drawn faint, as they are everywhere else.
-                                        Color(event.calendarColor).copy(
-                                            alpha = if (event.isDeclined) 0.25f else 0.9f
-                                        )
-                                    ),
-                            )
-                        }
-                    }
-                }
-            }
+            EventDots(
+                markers = cell.markers,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+            )
         } else {
             Spacer(Modifier.height(2.dp))
-            // Weighted, so the markers take whatever the day number and the lunar line left rather than
-            // pushing the cell past its row. In a landscape window six rows are short enough that three
-            // bars do not fit under the number, and a cell that overflowed drew its bars across the row
-            // below; clipped, the third bar is simply not shown.
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .clipToBounds(),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                markers.take(MAX_MARKERS).forEach { event ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(
-                                // Declined events are drawn faint, as they are in the day grid.
-                                Color(event.calendarColor).copy(
-                                    alpha = if (event.isDeclined) 0.25f else 0.9f
-                                )
-                            ),
-                    )
-                }
-            }
+            // Weighted, so the markers take whatever the day number and the lunar line left rather
+            // than pushing the cell past its row.
+            EventBars(
+                markers = cell.markers,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+            )
         }
     }
+}
+
+/**
+ * The event bars, drawn into the cell's own canvas instead of as one Box per bar.
+ *
+ * Three Boxes with a clip and a background each were three more layers per cell; this draws the same
+ * rounded bars in a single cached behind-the-content pass, and stops drawing once the cell's height
+ * runs out, which is what the old clipToBounds was for.
+ */
+@Composable
+private fun EventBars(markers: List<Color>, modifier: Modifier) {
+    Box(
+        modifier = modifier.drawWithCache {
+            val barHeight = 4.dp.toPx()
+            val gap = 2.dp.toPx()
+            val corner = CornerRadius(2.dp.toPx())
+            onDrawBehind {
+                var y = 0f
+                for (color in markers) {
+                    if (y + barHeight > size.height) break
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(0f, y),
+                        size = Size(size.width, barHeight),
+                        cornerRadius = corner,
+                    )
+                    y += barHeight + gap
+                }
+            }
+        },
+    )
+}
+
+/** The compact form of the markers: one dot per event, centred on a single line. */
+@Composable
+private fun EventDots(markers: List<Color>, modifier: Modifier) {
+    Box(
+        modifier = modifier.drawWithCache {
+            val dot = 4.dp.toPx()
+            val gap = 3.dp.toPx()
+            val top = 1.dp.toPx()
+            onDrawBehind {
+                if (markers.isEmpty()) return@onDrawBehind
+                val width = markers.size * dot + (markers.size - 1) * gap
+                var x = (size.width - width) / 2f
+                for (color in markers) {
+                    drawCircle(
+                        color = color,
+                        radius = dot / 2f,
+                        center = Offset(x + dot / 2f, top + dot / 2f),
+                    )
+                    x += dot + gap
+                }
+            }
+        },
+    )
 }

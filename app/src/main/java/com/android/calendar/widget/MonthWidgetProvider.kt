@@ -32,12 +32,12 @@ import com.android.calendar.Utils
 import com.android.calendar.composeui.ComposeDayActivity
 import com.android.calendar.composeui.DaysRepository
 import com.android.calendar.composeui.groupMarkersByDay
+import com.android.calendar.composeui.narrowWeekdayLabels
 import ws.xsoh.etar.R
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
-import java.time.format.TextStyle
 import java.util.Date
 import java.util.Locale
 
@@ -122,11 +122,9 @@ class MonthWidgetProvider : AppWidgetProvider() {
         )
 
         val firstDayOfWeek = WeekStart.dayOfWeek(context)
+        val weekdayLabels = narrowWeekdayLabels(firstDayOfWeek, locale)
         WEEKDAY_IDS.forEachIndexed { index, id ->
-            views.setTextViewText(
-                id,
-                firstDayOfWeek.plus(index.toLong()).getDisplayName(TextStyle.NARROW, locale),
-            )
+            views.setTextViewText(id, weekdayLabels[index])
         }
 
         // The grid starts on the week's first day, so every row below the header is a whole week -
