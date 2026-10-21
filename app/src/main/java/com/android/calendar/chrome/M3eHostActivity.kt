@@ -27,6 +27,8 @@ import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
@@ -48,6 +50,8 @@ import com.android.calendar.composeui.landingViewToShow
 import com.android.calendar.settings.compose.EtarM3ETheme
 import com.android.calendar.settings.compose.SettingsRepository
 import com.android.calendar.theme.applyTheme
+import com.android.calendar.theme.tonalSurface
+import com.google.android.material.color.MaterialColors
 import com.google.android.material.navigation.NavigationView
 import ws.xsoh.etar.R
 
@@ -360,6 +364,14 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         setContentView(R.layout.m3e_screen)
 
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
+        // The window, the host container and the app bar all take the drawn screen's tonal surface.
+        //
+        // The theme's own roles cannot be trusted for this: on the Black appearance the palette can
+        // resolve the surface to #000 (and the window background is the theme's pure black), so the
+        // bar and the strip behind the system bars stayed black while the grid was expected to be a
+        // dark surface. The colour is resolved once here and painted on all three, so the chrome and
+        // the grids are the same tonal step in every appearance. See TonalSurface.kt.
+        applyTonalChrome(toolbar)
         setSupportActionBar(toolbar)
 
         // A screen that is arrived at rather than switched to has no drawer to open: the drawer is
@@ -497,22 +509,57 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
 
     /** Installs the Compose UI into the host's content slot. */
     protected fun setM3eContent(content: @Composable () -> Unit) {
-        val repo = SettingsRepository(this)
-        val themeMode = repo.string(KEY_THEME, "system")
-        val dark = when (themeMode) {
-            "light" -> false
-            "dark", "black" -> true
-            else -> (resources.configuration.uiMode and
-                    android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-                    android.content.res.Configuration.UI_MODE_NIGHT_YES
-        }
-        
+        val dark = isDarkAppearance()
 
         findViewById<ComposeView>(R.id.m3e_content).setContent {
             EtarM3ETheme(darkTheme = dark) {
                 content()
             }
         }
+    }
+
+    /**
+     * True when this screen is drawn in a dark appearance.
+     *
+     * Read from the stored theme choice, the same value [setM3eContent] hands to the Compose theme:
+     * "black" is the darkest dark, "system" follows the system's night mode.
+     */
+    private fun isDarkAppearance(): Boolean {
+        val themeMode = SettingsRepository(this).string(KEY_THEME, "system")
+        return when (themeMode) {
+            "light" -> false
+            "dark", "black" -> true
+            else -> (resources.configuration.uiMode and
+                    android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+    }
+
+    /**
+     * Paints the tonal surface on the window, the host container and the app bar.
+     *
+     * The palette's own roles are read first, then sanitised with [tonalSurface]. On the Black
+     * appearance they can resolve to #000 - the window background is the theme's pure black and the
+     * dynamic surface can come out black as well - which left the bar and the strips behind the
+     * system bars black while the grid was meant to be a dark surface. Resolving the colour once and
+     * painting all three with it keeps the chrome and the grids on the same tonal step in every
+     * appearance; a palette that supplied a real surface is used unchanged.
+     */
+    private fun applyTonalChrome(toolbar: Toolbar) {
+        val surface = MaterialColors.getColor(
+            this,
+            com.google.android.material.R.attr.colorSurface,
+            android.graphics.Color.TRANSPARENT,
+        )
+        val primary = MaterialColors.getColor(
+            this,
+            androidx.appcompat.R.attr.colorPrimary,
+            surface,
+        )
+        val tonal = tonalSurface(Color(surface), Color(primary), dark = isDarkAppearance()).toArgb()
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(tonal))
+        findViewById<android.view.View>(R.id.coordinator_layout)?.setBackgroundColor(tonal)
+        toolbar.setBackgroundColor(tonal)
     }
 
     // ----------------------------------------------------------------------- toolbar title picker
@@ -564,12 +611,16 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         // The caret marks the heading as something that opens; without a picker it is only a heading.
         view.findViewById<android.widget.ImageView>(R.id.m3e_title_caret)?.visibility =
             if (titleOpensPicker) android.view.View.VISIBLE else android.view.View.GONE
+        // The click and the rounded highlight live on the inner control, not on the root: the root
+        // fills the bar (so the heading is measured against the width that is left beside the action
+        // icons), and a ripple on it would be a square across the whole bar. See the layout.
+        val control = view.findViewById<android.view.View>(R.id.m3e_title_button)
         if (titleOpensPicker) {
-            view.setOnClickListener { showTitlePicker() }
+            control.setOnClickListener { showTitlePicker() }
         } else {
-            view.isClickable = false
-            view.isFocusable = false
-            view.background = null
+            control.isClickable = false
+            control.isFocusable = false
+            control.background = null
         }
         // Auto-sizing set in code rather than trusted to the style.
         //

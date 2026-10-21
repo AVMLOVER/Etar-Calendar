@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The heading's touch feedback: a rounded, tonal ripple around the heading and its caret.
+
+  The toolbar heading is a control that opens the date / month picker, and as a custom view filling
+  the bar it used ?attr/selectableItemBackground - a rectangular ripple across the whole bar, which
+  read as a square highlight under the text. This is the same ripple bounded to the heading's own
+  rounded shape instead.
+
+  The mask is the rounded shape; the visible content is transparent, so nothing is painted when the
+  control is not pressed. Its solid colour is a mask only - it is never drawn, which is why it can be
+  an opaque value here.
+-->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/colorControlHighlight">
+
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <solid android:color="@android:color/white" />
+        </shape>
+    </item>
+
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+
+</ripple>

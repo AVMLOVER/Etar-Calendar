@@ -18,6 +18,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.ui.graphics.toArgb
 import com.android.calendar.Utils
 import com.android.calendar.theme.ThemeUtils.getSuffix
 import com.android.calendar.theme.model.Theme
@@ -110,11 +111,11 @@ fun AppCompatActivity.applyTheme() {
     }
 
     setSystemBarConfiguration(light = !isSystemInDarkTheme(this))
-    pinWindowBackground()
+    pinWindowBackground(dark = darkAppearance)
 }
 
 /**
- * Makes the window background the app's own background colour.
+ * Makes the window background the app's own tonal surface.
  *
  * With the content laid out edge to edge, the window background is what shows in the strips the
  * inset padding leaves free - the status bar strip at the top and the gesture strip at the bottom.
@@ -123,15 +124,29 @@ fun AppCompatActivity.applyTheme() {
  * with the rest of the screen. Pinning it to a single opaque colour keeps the top strip, the app
  * bar and the bottom strip on the same colour as the screens that paint their own background.
  *
+ * The colour is the surface role, sanitised by [tonalSurface]: the Black theme's own background is
+ * #000000, and on devices whose dynamic palette reports a black surface the role is black as well -
+ * the whole window was then a flat black rectangle with no tonal step under the grid. A tonal
+ * surface is painted instead; a palette that supplied one is used unchanged.
+ *
  * It is re-applied once the first frame is about to be drawn: that is after
  * com.google.android.material.color.DynamicColors has installed the palette on this Activity's
  * theme, so the colour picked up here is the monet one rather than the static fallback.
  */
-private fun AppCompatActivity.pinWindowBackground() {
+private fun AppCompatActivity.pinWindowBackground(dark: Boolean) {
     fun apply() {
-        val background = resolveThemeColorDrawable(android.R.attr.windowBackground)
-            ?: ColorDrawable(MaterialColors.getColor(this, MaterialR.attr.colorSurface, Color.BLACK))
-        window.setBackgroundDrawable(background)
+        val surface = MaterialColors.getColor(this, MaterialR.attr.colorSurface, Color.TRANSPARENT)
+        val accent = MaterialColors.getColor(this, AppCompatR.attr.colorPrimary, surface)
+        // No black fallback: when the surface role cannot be resolved, the theme's own window
+        // background is left in place rather than painted over in a colour no role names.
+        if (surface != Color.TRANSPARENT) {
+            val tonal = tonalSurface(
+                androidx.compose.ui.graphics.Color(surface),
+                androidx.compose.ui.graphics.Color(accent),
+                dark,
+            )
+            window.setBackgroundDrawable(ColorDrawable(tonal.toArgb()))
+        }
     }
 
     apply()

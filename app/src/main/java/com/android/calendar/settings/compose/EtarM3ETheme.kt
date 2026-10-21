@@ -22,6 +22,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.android.calendar.theme.tonalContainers
+import com.android.calendar.theme.tonalSurface
 
 /**
  * Material 3 Expressive shapes. Material 3 Expressive leans on visibly larger corner radii than
@@ -63,7 +65,28 @@ fun EtarM3ETheme(
     // The caller passes the palette it wants: DynamicColors already installs pure black for the
     // BLACK theme, so there is nothing to darken here. The pureBlack parameter this used to take was
     // a second way of saying the same thing, and the two could disagree.
-    val colorScheme = base
+    //
+    // That is exactly why the surface is checked rather than trusted: on the Black appearance the
+    // palette can resolve the neutral roles to #000, and then every drawn screen - the grids, the
+    // cards, the app bar - is one flat black rectangle with no tonal step between them. A black
+    // surface is replaced with the Material 3 baseline surface for this appearance, tinted with the
+    // palette's primary, so the darkest theme still draws in tonal steps. A palette that supplied a
+    // real surface is left untouched. See TonalSurface.kt.
+    val surface = tonalSurface(base.surface, base.primary, darkTheme)
+    val colorScheme = if (surface == base.surface) {
+        base
+    } else {
+        val steps = tonalContainers(surface, base.onSurface)
+        base.copy(
+            surface = surface,
+            background = surface,
+            surfaceContainerLowest = steps[0],
+            surfaceContainerLow = steps[1],
+            surfaceContainer = steps[2],
+            surfaceContainerHigh = steps[3],
+            surfaceContainerHighest = steps[4],
+        )
+    }
 
     MaterialTheme(
         colorScheme = colorScheme,

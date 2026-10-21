@@ -23,15 +23,21 @@
         android:id="@+id/coordinator_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="?attr/colorSurface"
         android:orientation="vertical">
 
         <com.google.android.material.appbar.AppBarLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
+            <!--
+              The bar takes the same Material surface role as the grid below it. It used to inherit
+              ?android:windowBackground, which is the theme's android:colorBackground - #000000 in the
+              Black theme - so the top of every screen was pure black against a dark surface.
+            -->
             <androidx.appcompat.widget.Toolbar
                 android:id="@+id/toolbar"
-                android:background="?attr/android:windowBackground"
+                android:background="?attr/colorSurface"
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
                 android:minHeight="?attr/actionBarSize"

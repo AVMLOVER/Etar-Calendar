@@ -62,7 +62,14 @@ fun M3eChromeScaffold(
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
+        // The content paints its own Material surface rather than letting the window show through.
+        //
+        // The window background is the theme's android:colorBackground, which the Black theme sets to
+        // #000000 and the host's toolbar used to inherit. Every calendar grid paints this surface, so
+        // the four of them sit on the same role as the app bar instead of on that window black - and
+        // the grid lines, hour gutter and day headers keep the contrast their outlineVariant and
+        // onSurfaceVariant roles are defined against.
+        color = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
         content(PaddingValues(0.dp))

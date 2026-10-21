@@ -5,9 +5,14 @@
   view, which keeps it clickable without having to find and patch the title view the ActionBar
   creates for itself.
 
+  The root fills the bar because the toolbar measures a custom view before it lays the action icons
+  out: a wrapping custom view is measured against the whole bar and then cut off by the icons drawn
+  over that space. The rounded control inside it wraps its own content instead, so the pressed
+  highlight is a pill around the heading and the caret rather than a square across the bar.
+
   The second line is here rather than in the ActionBar's own subtitle because the two competed for
   one row's width. AppCompat lays its title and subtitle out across the same space, so a long
-  subtitle took the room the title needed - with "今天，星期三，九月初五" underneath, "26年10月15日"
+  subtitle took the room the title needed - with "浠婂ぉ锛屾槦鏈熶笁锛屼節鏈堝垵浜? underneath, "26骞?0鏈?5鏃?
   lost its last character and no amount of shrinking brought it back, because there was simply
   nothing left to shrink into. As two stacked lines each is measured against the full width.
 
@@ -19,65 +24,84 @@
     android:id="@+id/m3e_title_control"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/selectableItemBackground"
-    android:clickable="true"
-    android:focusable="true"
+    android:clickable="false"
     android:gravity="center_vertical"
     android:orientation="horizontal">
 
     <!--
-      The heading and the caret, side by side, and the pair sized to its own content.
-
-      The caret used to be a sibling of the heading, with the heading in a weighted row so it had a
-      width to shrink into. That layout was tried twice and the caret ended at the far right both
-      times: a weighted row lays its weighted child out against the whole width, so the heading filled
-      the row and the caret landed at the end of the bar rather than against the text.
-
-      Here the pair is the row's only child and wraps its content, so the caret sits immediately after
-      the heading. The heading is capped at 200dp - narrower than the bar on any screen this runs on -
-      which is the bound its auto-sizing needs; without a cap it would ask for the full text width and
-      push the caret along with it.
+      The actual control: heading, subtitle and caret, wrapped in the rounded highlight. It is a
+      child rather than the root so the fill-the-bar measurement above is kept while the highlight
+      stays the size of its content.
     -->
     <LinearLayout
+        android:id="@+id/m3e_title_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:background="@drawable/m3e_title_control_background"
+        android:clickable="true"
+        android:focusable="true"
         android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:paddingStart="4dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="6dp"
+        android:paddingBottom="4dp">
 
+        <!--
+          The heading and the caret, side by side, and the pair sized to its own content.
+
+          The caret used to be a sibling of the heading, with the heading in a weighted row so it had a
+          width to shrink into. That layout was tried twice and the caret ended at the far right both
+          times: a weighted row lays its weighted child out against the whole width, so the heading filled
+          the row and the caret landed at the end of the bar rather than against the text.
+
+          Here the pair is the row's only child and wraps its content, so the caret sits immediately after
+          the heading. The heading is capped at 200dp - narrower than the bar on any screen this runs on -
+          which is the bound its auto-sizing needs; without a cap it would ask for the full text width and
+          push the caret along with it.
+        -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:maxWidth="200dp"
-            android:orientation="vertical">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/m3e_title_text"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textAppearance="@style/TextAppearance.M3e.ToolbarTitle"
-                android:textColor="?attr/colorOnSurface" />
+                android:maxWidth="200dp"
+                android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/m3e_title_subtitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textAppearance="@style/TextAppearance.M3e.ToolbarSubtitle"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:visibility="gone" />
+                <TextView
+                    android:id="@+id/m3e_title_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textAppearance="@style/TextAppearance.M3e.ToolbarTitle"
+                    android:textColor="?attr/colorOnSurface" />
+
+                <TextView
+                    android:id="@+id/m3e_title_subtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textAppearance="@style/TextAppearance.M3e.ToolbarSubtitle"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/m3e_title_caret"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_caret_down" />
         </LinearLayout>
 
-        <ImageView
-            android:id="@+id/m3e_title_caret"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="8dp"
-            android:contentDescription="@null"
-            android:src="@drawable/ic_caret_down" />
     </LinearLayout>
 
 </LinearLayout>

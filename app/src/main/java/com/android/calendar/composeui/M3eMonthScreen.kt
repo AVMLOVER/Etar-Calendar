@@ -19,6 +19,7 @@ package com.android.calendar.composeui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -110,6 +111,17 @@ private const val MAX_MARKERS = 3
  * setting is on, and the numbers are read as a guide rather than as a row of their own.
  */
 private val WEEK_NUMBER_WIDTH = 22.dp
+
+/**
+ * The corner of a day cell's pressed highlight.
+ *
+ * The same 12dp the cell's ripple was clipped to before the scrolling work removed the per-cell
+ * ripple; the highlight is drawn as a rounded rectangle instead of being clipped to one.
+ */
+private val DAY_CELL_CORNER_RADIUS = 12.dp
+
+/** Material's pressed state-layer opacity, over onSurface, for the day cell's highlight. */
+private const val PRESSED_STATE_LAYER_ALPHA = 0.12f
 
 /** Length of an event created by the add button, matching the other views' default. */
 private const val DEFAULT_NEW_EVENT_MILLIS = 60L * 60L * 1000L
@@ -628,18 +640,33 @@ private fun DayCell(
 ) {
     val day = cell.day
     val isToday = day == today
-    // One source per cell, kept across recompositions; the ripple itself is switched off below.
+    // One interaction source per cell: a source shared by all forty-two would report one cell's
+    // press to every cell's highlight. The source is a small object; it is a ripple host, not this,
+    // that used to be allocated per cell.
     val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val highlight = MaterialTheme.colorScheme.onSurface.copy(alpha = PRESSED_STATE_LAYER_ALPHA)
 
     Column(
         modifier = modifier
-            // No indication: a ripple here is a layer for each of forty-two cells, and the grid is
-            // what is moving while the user swipes. The tap still opens the day.
+            // The tap still uses no indication - a ripple is rounded only through Modifier.clip,
+            // which is a graphics layer for each of the forty-two cells - and the pressed state is
+            // drawn below as a rounded tonal highlight in the cell's own pass. Same Material state
+            // layer, no layer of any kind, and nothing per-frame unless a cell is being pressed.
             .clickable(
                 interactionSource = interaction,
                 indication = null,
                 onClick = { onOpenDay(day) },
             )
+            .drawWithCache {
+                val corner = CornerRadius(DAY_CELL_CORNER_RADIUS.toPx())
+                val color = if (pressed) highlight else Color.Transparent
+                onDrawBehind {
+                    if (color.alpha > 0f) {
+                        drawRoundRect(color = color, cornerRadius = corner)
+                    }
+                }
+            }
             .padding(horizontal = 2.dp, vertical = if (compact) 0.dp else 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
