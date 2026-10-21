@@ -19,7 +19,7 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import com.android.calendar.theme.applyM3eWindow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,7 +41,9 @@ class ComposeBatteryDialogActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The dialog's window stays transparent; only the system bar treatment is shared with the
+        // rest of the app.
+        applyM3eWindow(paintWindowBackground = false)
 
         val repo = SettingsRepository(this)
         val themeMode = repo.string("pref_theme", "system")
@@ -143,3 +145,4 @@ class ComposeBatteryDialogActivity : ComponentActivity() {
         const val SETTING_KEY = "pref_do_not_check_battery_optimization"
     }
 }
+

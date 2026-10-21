@@ -19,8 +19,17 @@
         <item name="colorPrimary">@color/colorAccent</item>
         <item name="colorAccent">?attr/colorPrimary</item>
         <item name="colorSecondaryContainer">@color/colorSecondaryContainer</item>
-        <item name="android:statusBarColor">?android:colorBackground</item>
-        <item name="android:navigationBarColor">?android:colorBackground</item>
+        <!--
+          The content draws behind the system bars, so the bars themselves are transparent.
+
+          They used to be ?android:colorBackground, which is #000000 in the Black theme. On stock
+          Android the content still covered them edge to edge, but MIUI/HyperOS paints its own status
+          bar from the colour the theme names, so the bar came out solid black on the screens whose
+          window is not the host's painted one. Transparent here, with the icon appearance set at
+          runtime from the app's own theme (DynamicTheme.setSystemBarConfiguration, M3eWindow).
+        -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
 
         <!-- Material 3 popup menus. This is what the three-dot overflow menu in the calendar
              title bar uses; without it the popup still renders with the AppCompat look. -->

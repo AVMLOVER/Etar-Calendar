@@ -26,8 +26,22 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import com.android.calendar.composeui.SlideOperation
 import com.android.calendar.composeui.animationPairFor
+import com.android.calendar.theme.applyM3eWindow
 
 abstract class M3eAnimatedActivity : ComponentActivity() {
+
+    /**
+     * The same window treatment the host gets from applyTheme().
+     *
+     * Edge to edge with transparent bars, the icon appearance the app's theme needs, and the tonal
+     * surface behind the bars. Without it these screens inherited only enableEdgeToEdge()'s system
+     * night-mode decision and the theme's window background, which is black in the Black theme -
+     * what MIUI/HyperOS painted the status bar with.
+     */
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        applyM3eWindow()
+    }
 
     /**
      * Starts [intent] with the forward pair passed explicitly with the operation.

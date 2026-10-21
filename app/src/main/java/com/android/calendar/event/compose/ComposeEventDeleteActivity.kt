@@ -14,7 +14,7 @@ import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import com.android.calendar.theme.applyM3eWindow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -33,7 +33,9 @@ class ComposeEventDeleteActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The dialog keeps its transparent window, but the bars get the same treatment as the rest
+        // of the app: transparent, icons matched to the app's theme.
+        applyM3eWindow(paintWindowBackground = false)
 
         val eventId = intent.getLongExtra(EXTRA_EVENT_ID, -1L)
         val title = intent.getStringExtra(EXTRA_EVENT_TITLE)
@@ -105,3 +107,4 @@ class ComposeEventDeleteActivity : ComponentActivity() {
         const val EXTRA_EVENT_TITLE = "m3eDeleteEventTitle"
     }
 }
+

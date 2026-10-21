@@ -13,7 +13,7 @@ package com.android.calendar.chrome.compose
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import com.android.calendar.theme.applyM3eWindow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
@@ -25,7 +25,9 @@ class ComposeImportActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // Edge-to-edge with transparent bars and the app's icon appearance, but no window
+        // background: this is a transparent dialog and the window must stay see-through.
+        applyM3eWindow(paintWindowBackground = false)
 
         val repo = SettingsRepository(this)
         val themeMode = repo.string("pref_theme", "system")
@@ -47,3 +49,4 @@ class ComposeImportActivity : ComponentActivity() {
         }
     }
 }
+

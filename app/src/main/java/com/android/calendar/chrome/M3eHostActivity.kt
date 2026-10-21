@@ -27,8 +27,6 @@ import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
@@ -48,10 +46,9 @@ import com.android.calendar.composeui.isEffectivelyLanding
 import com.android.calendar.composeui.isReadyToNavigate
 import com.android.calendar.composeui.landingViewToShow
 import com.android.calendar.settings.compose.EtarM3ETheme
-import com.android.calendar.settings.compose.SettingsRepository
 import com.android.calendar.theme.applyTheme
-import com.android.calendar.theme.tonalSurface
-import com.google.android.material.color.MaterialColors
+import com.android.calendar.theme.isDarkAppearance
+import com.android.calendar.theme.tonalSurfaceArgb
 import com.google.android.material.navigation.NavigationView
 import ws.xsoh.etar.R
 
@@ -509,7 +506,7 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
 
     /** Installs the Compose UI into the host's content slot. */
     protected fun setM3eContent(content: @Composable () -> Unit) {
-        val dark = isDarkAppearance()
+        val dark = isDarkAppearance(this)
 
         findViewById<ComposeView>(R.id.m3e_content).setContent {
             EtarM3ETheme(darkTheme = dark) {
@@ -519,26 +516,9 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     }
 
     /**
-     * True when this screen is drawn in a dark appearance.
-     *
-     * Read from the stored theme choice, the same value [setM3eContent] hands to the Compose theme:
-     * "black" is the darkest dark, "system" follows the system's night mode.
-     */
-    private fun isDarkAppearance(): Boolean {
-        val themeMode = SettingsRepository(this).string(KEY_THEME, "system")
-        return when (themeMode) {
-            "light" -> false
-            "dark", "black" -> true
-            else -> (resources.configuration.uiMode and
-                    android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-                    android.content.res.Configuration.UI_MODE_NIGHT_YES
-        }
-    }
-
-    /**
      * Paints the tonal surface on the window, the host container and the app bar.
      *
-     * The palette's own roles are read first, then sanitised with [tonalSurface]. On the Black
+     * The palette's own roles are read first, then sanitised with [tonalSurfaceArgb]. On the Black
      * appearance they can resolve to #000 - the window background is the theme's pure black and the
      * dynamic surface can come out black as well - which left the bar and the strips behind the
      * system bars black while the grid was meant to be a dark surface. Resolving the colour once and
@@ -546,17 +526,7 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
      * appearance; a palette that supplied a real surface is used unchanged.
      */
     private fun applyTonalChrome(toolbar: Toolbar) {
-        val surface = MaterialColors.getColor(
-            this,
-            com.google.android.material.R.attr.colorSurface,
-            android.graphics.Color.TRANSPARENT,
-        )
-        val primary = MaterialColors.getColor(
-            this,
-            androidx.appcompat.R.attr.colorPrimary,
-            surface,
-        )
-        val tonal = tonalSurface(Color(surface), Color(primary), dark = isDarkAppearance()).toArgb()
+        val tonal = tonalSurfaceArgb(this, isDarkAppearance(this)) ?: return
         window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(tonal))
         findViewById<android.view.View>(R.id.coordinator_layout)?.setBackgroundColor(tonal)
         toolbar.setBackgroundColor(tonal)
@@ -1542,8 +1512,6 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
     }
 
     companion object {
-        private const val KEY_THEME = "pref_theme"
-
         /** The drawer entries that represent an actual calendar view. */
         private val CALENDAR_VIEW_ITEMS = intArrayOf(
             R.id.day_menu_item,

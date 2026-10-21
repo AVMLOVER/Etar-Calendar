@@ -11,14 +11,12 @@ import android.util.TypedValue
 import android.view.View
 import android.view.ViewTreeObserver
 import androidx.activity.enableEdgeToEdge
-import androidx.annotation.AttrRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.compose.ui.graphics.toArgb
 import com.android.calendar.Utils
 import com.android.calendar.theme.ThemeUtils.getSuffix
 import com.android.calendar.theme.model.Theme
@@ -110,7 +108,10 @@ fun AppCompatActivity.applyTheme() {
         enableEdgeToEdge()
     }
 
-    setSystemBarConfiguration(light = !isSystemInDarkTheme(this))
+    // The icon appearance follows the app's own appearance, not the system's night mode: the app can
+    // be in its Dark or Black appearance while the system is light, and dark icons on the dark bar
+    // is what the platform then draws.
+    setSystemBarConfiguration(light = !darkAppearance)
     pinWindowBackground(dark = darkAppearance)
 }
 
@@ -135,18 +136,9 @@ fun AppCompatActivity.applyTheme() {
  */
 private fun AppCompatActivity.pinWindowBackground(dark: Boolean) {
     fun apply() {
-        val surface = MaterialColors.getColor(this, MaterialR.attr.colorSurface, Color.TRANSPARENT)
-        val accent = MaterialColors.getColor(this, AppCompatR.attr.colorPrimary, surface)
         // No black fallback: when the surface role cannot be resolved, the theme's own window
         // background is left in place rather than painted over in a colour no role names.
-        if (surface != Color.TRANSPARENT) {
-            val tonal = tonalSurface(
-                androidx.compose.ui.graphics.Color(surface),
-                androidx.compose.ui.graphics.Color(accent),
-                dark,
-            )
-            window.setBackgroundDrawable(ColorDrawable(tonal.toArgb()))
-        }
+        tonalSurfaceArgb(this, dark)?.let { window.setBackgroundDrawable(ColorDrawable(it)) }
     }
 
     apply()
@@ -192,24 +184,6 @@ private fun AppCompatActivity.setSystemBarConfiguration(light: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             isAppearanceLightNavigationBars = light
         }
-    }
-}
-
-/**
- * Wraps the colour the current theme resolves [attr] to in a drawable, or null when the attribute
- * is not a plain colour (a bitmap or a material drawable, for instance).
- */
-private fun Context.resolveThemeColorDrawable(@AttrRes attr: Int): ColorDrawable? {
-    val value = TypedValue()
-    if (!theme.resolveAttribute(attr, value, true)) {
-        return null
-    }
-    return when {
-        value.type >= TypedValue.TYPE_FIRST_COLOR_INT &&
-            value.type <= TypedValue.TYPE_LAST_COLOR_INT -> ColorDrawable(value.data)
-
-        value.resourceId != 0 -> runCatching { ColorDrawable(getColor(value.resourceId)) }.getOrNull()
-        else -> null
     }
 }
 

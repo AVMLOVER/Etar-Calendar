@@ -23,7 +23,7 @@ import android.os.Bundle
 import android.provider.CalendarContract
 import android.widget.Toast
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import com.android.calendar.theme.applyM3eWindow
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -79,7 +79,10 @@ class ComposeEventEditorActivity : AbstractCalendarActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // Same window treatment as the host screens: edge to edge, transparent bars with the app's
+        // icon appearance, and the tonal surface behind them (applyTheme() does this for the host,
+        // and this screen is not one).
+        applyM3eWindow()
 
         val eventId = intent.getLongExtra(EXTRA_EVENT_ID, -1L)
         val readOnly = intent.getBooleanExtra(EXTRA_READ_ONLY, false)
@@ -467,3 +470,4 @@ class ComposeEventEditorActivity : AbstractCalendarActivity() {
         private const val KEY_THEME = "pref_theme"
     }
 }
+

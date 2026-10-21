@@ -8,7 +8,6 @@ package com.android.calendar.event.compose
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.remember
 import com.android.calendar.agenda.compose.AgendaRepository
@@ -31,7 +30,6 @@ class ComposeEventDetailsActivity : M3eAnimatedActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
 
         eventId = intent.getLongExtra(EXTRA_EVENT_ID, -1L)
         val repo = SettingsRepository(this)

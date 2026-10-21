@@ -15,7 +15,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import com.android.calendar.theme.applyM3eWindow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -65,7 +65,9 @@ class CountdownWidgetConfigActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The host's window treatment, which this plain ComponentActivity used to miss: edge to
+        // edge, transparent bars with the app's icon appearance, and the tonal surface behind them.
+        applyM3eWindow()
 
         // Until the user confirms, a cancellation must leave no widget behind.
         setResult(Activity.RESULT_CANCELED)
@@ -244,3 +246,4 @@ private fun ChoiceRow(
         )
     }
 }
+
