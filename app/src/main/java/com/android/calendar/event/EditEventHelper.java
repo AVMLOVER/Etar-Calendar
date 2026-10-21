@@ -1240,14 +1240,19 @@ public class EditEventHelper {
         model.mAccessLevel = accessLevel;
         model.mEventStatus = cursor.getInt(EVENT_INDEX_EVENT_STATUS);
 
-        boolean hasRRule = !TextUtils.isEmpty(rRule);
-
-        // We expect only one of these, so ignore the other
-        if (hasRRule) {
-            model.mDuration = cursor.getString(EVENT_INDEX_DURATION);
-        } else {
-            model.mEnd = cursor.getLong(EVENT_INDEX_DTEND);
-        }
+        // Both end columns are read, not one of them.
+        //
+        // The provider allows DTEND or DURATION on a row - they are alternatives - but it does not
+        // require a recurring row to use DURATION. The ICS importer writes RRULE + DTEND and so do
+        // Google Calendar exports. This used to read only DURATION when an RRULE was present, which
+        // left the model's end at its default -1 for exactly those rows: the editor rendered
+        // 1969-12-31 23:59:59.999 UTC (1970-01-01 07:59 in UTC+8) and a save wrote -1 back as the
+        // event's end. eventEnd() keeps a usable DTEND untouched and fills in the other cases from
+        // DURATION, from an hour, or from the next UTC midnight for an all-day row.
+        model.mDuration = cursor.getString(EVENT_INDEX_DURATION);
+        long dtEnd = cursor.isNull(EVENT_INDEX_DTEND) ? -1L : cursor.getLong(EVENT_INDEX_DTEND);
+        model.mEnd = com.android.calendar.composeui.EventEndKt.eventEnd(
+                model.mStart, dtEnd, model.mDuration, model.mAllDay);
     }
 
     /**

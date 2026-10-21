@@ -6,14 +6,14 @@
 package com.android.calendar.settings.compose
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.remember
+import com.android.calendar.chrome.M3eAnimatedActivity
 
-class ComposeQuickResponsesActivity : ComponentActivity() {
+class ComposeQuickResponsesActivity : M3eAnimatedActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

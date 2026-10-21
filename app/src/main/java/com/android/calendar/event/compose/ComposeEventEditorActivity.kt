@@ -41,6 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.android.calendar.AbstractCalendarActivity
 import com.android.calendar.CalendarEventModel
+import com.android.calendar.composeui.SlideOperation
+import com.android.calendar.composeui.animationPairFor
 import com.android.calendar.settings.compose.EtarM3ETheme
 import com.android.calendar.settings.compose.SettingsRepository
 import ws.xsoh.etar.R
@@ -48,6 +50,32 @@ import ws.xsoh.etar.R
 class ComposeEventEditorActivity : AbstractCalendarActivity() {
 
     private var repository: EventEditorRepository? = null
+
+    /**
+     * The editor slides like the screens around it, although it cannot extend [M3eAnimatedActivity].
+     *
+     * It has to stay an AbstractCalendarActivity (EditEventHelper casts its context to that type),
+     * so it repeats the same two mechanisms the host family uses: starts carry the forward pair in
+     * ActivityOptions, and the finish passes the return pair to overridePendingTransition. Without
+     * them the editor slid in from the host and then left with the platform's cross-fade.
+     */
+    @Suppress("DEPRECATION")
+    override fun startActivity(intent: Intent, options: Bundle?) {
+        val pair = animationPairFor(SlideOperation.START)
+        super.startActivity(
+            intent,
+            android.app.ActivityOptions.makeCustomAnimation(this, pair.enterAnim, pair.exitAnim)
+                .toBundle(),
+        )
+    }
+
+    @Suppress("DEPRECATION")
+    override fun finish() {
+        // The pair is computed before the finish so nothing runs between the two calls.
+        val pair = animationPairFor(SlideOperation.FINISH_RETURN)
+        super.finish()
+        overridePendingTransition(pair.enterAnim, pair.exitAnim)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -7,12 +7,12 @@ package com.android.calendar.event.compose
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.remember
 import com.android.calendar.agenda.compose.AgendaRepository
+import com.android.calendar.chrome.M3eAnimatedActivity
 import com.android.calendar.settings.compose.EtarM3ETheme
 import com.android.calendar.settings.compose.SettingsRepository
 import ws.xsoh.etar.R
@@ -24,7 +24,7 @@ import ws.xsoh.etar.R
  * editor, which is opened from the "Edit" action. The loading path used here is also the
  * prerequisite for a future Compose editor, so it is validated in a read-only setting first.
  */
-class ComposeEventDetailsActivity : ComponentActivity() {
+class ComposeEventDetailsActivity : M3eAnimatedActivity() {
 
     /** Kept as a field because the reminder and delete writes need it after onCreate returns. */
     private var eventId: Long = -1L

@@ -30,6 +30,13 @@ data class CalendarDayEvent(
     val calendarName: String?,
     val calendarColor: Int,
     val selfAttendeeStatus: Int,
+    /**
+     * The event's description, when it has one.
+     *
+     * Carried for the day and week grids, which show it under the title inside the event block.
+     * The month grid and the widget ignore it: their cells have room for the title only.
+     */
+    val description: String?,
 ) {
     val isDeclined: Boolean
         get() = selfAttendeeStatus == CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED
@@ -54,6 +61,7 @@ class DaysRepository(private val context: Context) {
             CalendarContract.Instances.CALENDAR_DISPLAY_NAME,
             CalendarContract.Instances.CALENDAR_COLOR,
             CalendarContract.Instances.SELF_ATTENDEE_STATUS,
+            CalendarContract.Instances.DESCRIPTION,
         )
 
         val result = ArrayList<CalendarDayEvent>()
@@ -78,6 +86,7 @@ class DaysRepository(private val context: Context) {
                             calendarName = c.getString(7),
                             calendarColor = c.getInt(8),
                             selfAttendeeStatus = c.getInt(9),
+                            description = c.getString(10),
                         )
                     )
                 }

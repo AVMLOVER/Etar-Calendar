@@ -8,7 +8,6 @@ package com.android.calendar.settings.compose
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -16,13 +15,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.android.calendar.chrome.M3eAnimatedActivity
 import com.android.calendar.theme.applyApplicationNightMode
 
 /**
  * The Material 3 Compose settings UI. This is the only settings screen: the classic
  * PreferenceFragmentCompat screens have been removed.
  */
-class ComposeSettingsActivity : ComponentActivity() {
+class ComposeSettingsActivity : M3eAnimatedActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

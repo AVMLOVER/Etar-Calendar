@@ -6,7 +6,6 @@
 package com.android.calendar.selectcalendars.compose
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -14,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.android.calendar.chrome.M3eAnimatedActivity
 import com.android.calendar.settings.compose.EtarM3ETheme
 import com.android.calendar.settings.compose.SettingsRepository
 
@@ -24,7 +24,7 @@ import com.android.calendar.settings.compose.SettingsRepository
  * so on phones this screen had no entry at all; it is now reachable from the overflow menu and
  * from the settings screen.
  */
-class ComposeCalendarsActivity : ComponentActivity() {
+class ComposeCalendarsActivity : M3eAnimatedActivity() {
 
     /**
      * Bumped on every resume, and read by the screen so it re-reads the calendars.

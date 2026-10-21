@@ -67,6 +67,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.android.calendar.LunarUtils
 import com.android.calendar.Utils
 import com.android.calendar.chrome.DayHeading
@@ -88,6 +89,26 @@ import java.util.Locale
 
 /** How tall one hour of the grid is. */
 private val HOUR_HEIGHT = 60.dp
+
+/**
+ * Shortest block, in hours, that shows the event's description under its title.
+ *
+ * A block is laid out at [HOUR_HEIGHT] per hour and a cell of a 30 minute event is about one text
+ * line high; sharing that with a description would clip the title, which is the one thing the block
+ * must always show. Three quarters of an hour leaves room for the title and one description line.
+ */
+private const val DESCRIPTION_MIN_BLOCK_HOURS = 0.75f
+
+/** From this block height (in hours) the description gets two lines instead of one. */
+private const val DESCRIPTION_TWO_LINE_HOURS = 1.5f
+
+/**
+ * The description's type: one step smaller than the title, which is `labelSmall`.
+ *
+ * Material's type scale has nothing smaller than labelSmall, so the title's role is reused with a
+ * smaller size. It is a size, not a colour: the text keeps the block's own content colour.
+ */
+private val DESCRIPTION_FONT_SIZE = 9.sp
 
 /**
  * Starting width of the gutter that carries the hour labels.
@@ -1019,6 +1040,19 @@ private fun EventBlock(
 
     val accent = remember(event.calendarColor) { Color(event.calendarColor) }
 
+    // The description under the title, when the block is tall enough for both.
+    //
+    // The title is what the block is for, so it keeps a line of its own and the description takes
+    // what is left; a block too short for that shows the title only, exactly as before. Both are
+    // read from the remembered event, so nothing here is per-frame work.
+    val description = event.description?.trim().orEmpty()
+    val showDescription = description.isNotEmpty() &&
+        height >= HOUR_HEIGHT * DESCRIPTION_MIN_BLOCK_HOURS
+    val descriptionLines = if (height >= HOUR_HEIGHT * DESCRIPTION_TWO_LINE_HOURS) 2 else 1
+    val descriptionStyle = MaterialTheme.typography.labelSmall.copy(
+        fontSize = DESCRIPTION_FONT_SIZE,
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1030,13 +1064,27 @@ private fun EventBlock(
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 2.dp),
     ) {
-        Text(
-            text = event.title,
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = event.title,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                // One line when the description shares the block; two when it is the only text.
+                maxLines = if (showDescription) 1 else 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (showDescription) {
+                Text(
+                    text = description,
+                    style = descriptionStyle,
+                    // The same content colour as the title, a little quieter - the block is drawn
+                    // on a calendar colour, so the text is the block's own white either way.
+                    color = Color.White.copy(alpha = 0.85f),
+                    maxLines = descriptionLines,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 
