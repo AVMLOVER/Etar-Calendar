@@ -76,12 +76,16 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.android.calendar.chrome.compose.M3eAddFabMenu
+import com.android.calendar.composeui.openedOver
+import com.android.calendar.chrome.compose.rememberAddMenuEntries
 import com.android.calendar.LunarCalendar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ws.xsoh.etar.R
 import java.text.DateFormatSymbols
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.YearMonth
 import java.util.concurrent.ConcurrentHashMap
 
@@ -129,6 +133,11 @@ fun M3eYearScreen(
     onOpenMonth: (year: Int, month: Int) -> Unit,
     onCreateEvent: () -> Unit = {},
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // The year view adds on today, the same day its event button has always used.
+    val addDate = remember { LocalDate.now(ZoneId.systemDefault()) }
+    var showAddChooser by remember { mutableStateOf(false) }
+
     // The add button floats over both modes, so it sits outside whichever one is composed.
     androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
         // Keyed on the mode and the year it is asked to show, not on the resume count.
@@ -162,25 +171,42 @@ fun M3eYearScreen(
             }
         }
 
-        // The same add button the other views carry. A year is a long way from a day, so there is
-        // no "first day of the view" to put the event on: it always lands on today, at the same
-        // next-slot time the other views use.
-        androidx.compose.material3.FloatingActionButton(
-            onClick = onCreateEvent,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        ) {
-            androidx.compose.material3.Icon(
-                // The project's own add icon, not Icons.Filled.Add: the material-icons artifact is
-                // not a dependency here, and the screens that need an icon all use painterResource
-                // for that reason.
-                painter = painterResource(R.drawable.ic_add_event),
-                contentDescription = stringResource(R.string.event_create),
+        // The same add button the other views carry, with its actions floating above it. A year is a
+        // long way from a day, so there is no "first day of the view" to put anything on: all three
+        // actions land on today.
+        val addEntries = rememberAddMenuEntries(
+            onAddEvent = {
+                showAddChooser = false
+                onCreateEvent()
+            },
+            onAddTodo = {
+                showAddChooser = false
+                // The widget's flow: the to-do editor opens on that day, not the list. The opener
+                // extras make back return here with the return slide.
+                context.startActivity(
+                    com.android.calendar.todo.compose.ComposeTodoActivity.intent(context, addDate)
+                        .putExtra(
+                            com.android.calendar.todo.compose.ComposeTodoActivity.EXTRA_OPEN_EDITOR,
+                            true,
+                        )
+                        .openedOver(context),
+                )
+            },
+            onAddCountdown = {
+                showAddChooser = false
+                context.startActivity(
+                    com.android.calendar.countdown.compose.ComposeCountdownActivity.intent(
+                        context,
+                        addDate,
+                    ).openedOver(context),
+                )
+            },
+        )
+        M3eAddFabMenu(
+                expanded = showAddChooser,
+                onToggle = { showAddChooser = !showAddChooser },
+                entries = addEntries,
             )
-        }
     }
 }
 

@@ -286,4 +286,13 @@
     <string name="m3e_month_widget_name">月表示</string>
     <string name="m3e_month_widget_prev">前の月</string>
     <string name="m3e_month_widget_next">次の月</string>
+    <string name="m3e_add_chooser_title">追加</string>
+    <string name="m3e_add_event">予定を追加</string>
+    <string name="m3e_add_todo">ToDoを追加</string>
+    <string name="m3e_add_countdown">カウントダウンを追加</string>
+    <string name="m3e_reset_spacing_title">表示間隔をリセット</string>
+    <string name="m3e_reset_spacing_summary">日・週表示の1時間の高さを標準に戻します。</string>
+    <string name="m3e_reset_spacing_confirm">間隔をリセットしますか？</string>
+    <string name="m3e_reset_spacing_action">リセット</string>
+    <string name="m3e_add_menu_close">追加メニューを閉じる</string>
 </resources>

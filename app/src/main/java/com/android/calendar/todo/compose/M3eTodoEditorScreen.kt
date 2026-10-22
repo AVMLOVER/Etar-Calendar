@@ -77,6 +77,11 @@ fun M3eTodoEditorScreen(
     var confirmingDelete by remember { mutableStateOf(false) }
     var pendingItemDelete by remember { mutableStateOf<TodoItem?>(null) }
 
+    // The editor is an overlay of the to-do screen, not a screen of its own, so the platform back
+    // would otherwise leave the whole to-do screen and reveal the calendar. It closes the editor
+    // instead, which is the same thing the close button does; the to-do page stays underneath.
+    androidx.activity.compose.BackHandler(enabled = true, onBack = onCancel)
+
     /** A to-do needs at least one line; without one there is nothing to save. */
     val hasItem = items.any { it.text.isNotBlank() }
 
@@ -300,21 +305,11 @@ fun M3eTodoEditorScreen(
     }
 
     if (confirmingDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmingDelete = false },
-            shape = MaterialTheme.shapes.extraLarge,
-            title = { Text(stringResource(R.string.m3e_todo_delete_title)) },
-            text = { Text(stringResource(R.string.m3e_todo_delete_message)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmingDelete = false
-                    onDelete(initial)
-                }) { Text(stringResource(R.string.m3e_event_delete)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmingDelete = false }) {
-                    Text(stringResource(R.string.m3e_back))
-                }
+        TodoDeleteConfirmDialog(
+            onDismiss = { confirmingDelete = false },
+            onConfirm = {
+                confirmingDelete = false
+                onDelete(initial)
             },
         )
     }

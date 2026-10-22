@@ -22,8 +22,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -49,15 +54,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -65,12 +74,15 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.android.calendar.LunarUtils
 import com.android.calendar.Utils
 import com.android.calendar.chrome.DayHeading
+import com.android.calendar.chrome.compose.M3eAddFabMenu
+import com.android.calendar.chrome.compose.rememberAddMenuEntries
 import com.android.calendar.chrome.compose.M3eChromeScaffold
 import com.android.calendar.chrome.compose.M3eScreen
 import com.android.calendar.threeday.compose.rangeTitleOf
@@ -86,29 +98,6 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
-
-/** How tall one hour of the grid is. */
-private val HOUR_HEIGHT = 60.dp
-
-/**
- * Shortest block, in hours, that shows the event's description under its title.
- *
- * A block is laid out at [HOUR_HEIGHT] per hour and a cell of a 30 minute event is about one text
- * line high; sharing that with a description would clip the title, which is the one thing the block
- * must always show. Three quarters of an hour leaves room for the title and one description line.
- */
-private const val DESCRIPTION_MIN_BLOCK_HOURS = 0.75f
-
-/** From this block height (in hours) the description gets two lines instead of one. */
-private const val DESCRIPTION_TWO_LINE_HOURS = 1.5f
-
-/**
- * The description's type: one step smaller than the title, which is `labelSmall`.
- *
- * Material's type scale has nothing smaller than labelSmall, so the title's role is reused with a
- * smaller size. It is a size, not a colour: the text keeps the block's own content colour.
- */
-private val DESCRIPTION_FONT_SIZE = 9.sp
 
 /**
  * Starting width of the gutter that carries the hour labels.
@@ -238,6 +227,29 @@ fun M3eDaysScreen(
     val zone = remember { ZoneId.systemDefault() }
     val today = remember { LocalDate.now(zone) }
 
+    // The hour spacing every page of this screen shares, and the remembered one it starts from.
+    // Pinching changes it; each page lays out from the same number, so the zoom does not jump when a
+    // page is swiped to.
+    var hourHeightDp by remember { mutableFloatStateOf(HourZoomPref.load(context)) }
+
+    // The settings screen can reset the spacing while this grid is alive; the generation is read in
+    // composition so the reset is noticed here rather than only on the next visit.
+    val zoomResetGeneration = HourZoomPref.resetGeneration
+    LaunchedEffect(zoomResetGeneration) {
+        if (zoomResetGeneration > 0) {
+            hourHeightDp = HourZoomPref.load(context)
+        }
+    }
+    // Coming back to this screen is also when a reset made in the settings has to show: the host bumps
+    // refreshKey on every resume, and this re-reads the stored spacing right then. It is the same value
+    // a pinch just saved, so returning from an event or another screen does not undo the zoom.
+    LaunchedEffect(refreshKey) {
+        hourHeightDp = HourZoomPref.load(context)
+    }
+
+    // The add chooser is a sheet over this screen; false when it is closed.
+    var showAddChooser by remember { mutableStateOf(false) }
+
     // Same switch the month view reads, so the lunar line appears in all of them together.
     //
     // Keyed on refreshKey, which the host bumps on every resume. Without a key this was computed once
@@ -325,24 +337,42 @@ fun M3eDaysScreen(
                     onCreateEvent = onCreateEvent,
                     onOpenDay = onOpenDay,
                     refreshKey = refreshKey,
+                    hourHeightDp = hourHeightDp,
+                    onHourHeightChange = { height ->
+                        hourHeightDp = height
+                        HourZoomPref.save(context, height)
+                    },
                 )
             }
 
-            // The add button, the same one every calendar view carries.
+            // The add button, with its three actions floating above it. An event, a to-do and a
+            // countdown are all things this screen can add, and they used to be two screens apart.
             //
-            // The new event starts today at the shared "next slot" time when today is inside the
-            // range - the next half hour, at least 30 and at most 60 minutes away, like every other
-            // view's add button. With today outside the range the event goes on the first day shown,
-            // at nine in the morning - the same 9:00-10:00 slot the month view gives a day the user
-            // tapped in another month. It used to take the current clock time onto that day, which is
-            // not a time the user chose.
-            androidx.compose.material3.FloatingActionButton(
-                onClick = {
+            // The date each action uses follows the rule for this view: today when today is part of
+            // what is on screen, the first day of it otherwise.
+            val addDate = addActionDate(
+                kind = when (days) {
+                    1 -> AddViewKind.DAY
+                    3 -> AddViewKind.THREE_DAY
+                    else -> AddViewKind.WEEK
+                },
+                today = today,
+                firstVisibleDay = firstDay,
+                visibleDays = days,
+            )
+            val addEntries = rememberAddMenuEntries(
+                onAddEvent = {
+                    showAddChooser = false
+                    // The same rule the button has always used for the event itself: today's next
+                    // slot when today is in the range, nine in the morning on the first day shown
+                    // otherwise.
                     val now = java.time.ZonedDateTime.now(zone)
                     val start = if (!today.isBefore(firstDay) &&
                         !today.isAfter(firstDay.plusDays((days - 1).toLong()))
                     ) {
-                        com.android.calendar.Utils.getNextCreateEventStart(now.toInstant().toEpochMilli())
+                        com.android.calendar.Utils.getNextCreateEventStart(
+                            now.toInstant().toEpochMilli(),
+                        )
                     } else {
                         firstDay.atTime(java.time.LocalTime.of(9, 0))
                             .atZone(zone)
@@ -351,23 +381,38 @@ fun M3eDaysScreen(
                     }
                     onCreateEvent(start, start + DEFAULT_NEW_EVENT_MILLIS)
                 },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            ) {
-                androidx.compose.material3.Icon(
-                    // The project's own add icon, not Icons.Filled.Add: the material-icons artifact is
-                    // not a dependency here, and the screens that need an icon all use painterResource
-                    // for that reason.
-                    painter = painterResource(R.drawable.ic_add_event),
-                    contentDescription = stringResource(R.string.event_create),
-                )
-            }
+                onAddTodo = {
+                    showAddChooser = false
+                    // EXTRA_OPEN_EDITOR is the widget's own flow: the screen opens straight into
+                    // the editor for the day instead of showing the list. openedOver marks the
+                    // intent so back returns to this view with the return slide rather than
+                    // finishing the whole task.
+                    context.startActivity(
+                        com.android.calendar.todo.compose.ComposeTodoActivity.intent(context, addDate)
+                            .putExtra(
+                                com.android.calendar.todo.compose.ComposeTodoActivity.EXTRA_OPEN_EDITOR,
+                                true,
+                            )
+                            .openedOver(context),
+                    )
+                },
+                onAddCountdown = {
+                    showAddChooser = false
+                    context.startActivity(
+                        com.android.calendar.countdown.compose.ComposeCountdownActivity.intent(
+                            context,
+                            addDate,
+                        ).openedOver(context),
+                    )
+                },
+            )
+            M3eAddFabMenu(
+                expanded = showAddChooser,
+                onToggle = { showAddChooser = !showAddChooser },
+                entries = addEntries,
+            )
         }
     }
-
 }
 
 /**
@@ -442,6 +487,8 @@ private fun DaysPage(
     onCreateEvent: (start: Long, end: Long) -> Unit,
     onOpenDay: ((LocalDate) -> Unit)?,
     refreshKey: Int,
+    hourHeightDp: Float,
+    onHourHeightChange: (Float) -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val dates = remember(firstDay, days) { (0L until days.toLong()).map { firstDay.plusDays(it) } }
@@ -493,6 +540,8 @@ private fun DaysPage(
         onOpenEvent = onOpenEvent,
         onCreateEvent = onCreateEvent,
         onOpenDay = onOpenDay,
+        hourHeightDp = hourHeightDp,
+        onHourHeightChange = onHourHeightChange,
     )
 }
 
@@ -508,6 +557,8 @@ private fun DaysBlock(
     onOpenEvent: (CalendarDayEvent) -> Unit,
     onCreateEvent: (start: Long, end: Long) -> Unit,
     onOpenDay: ((LocalDate) -> Unit)?,
+    hourHeightDp: Float,
+    onHourHeightChange: (Float) -> Unit,
 ) {
     // The colour the hour and column rules are drawn in.
     //
@@ -619,27 +670,104 @@ private fun DaysBlock(
         // one more column: it took horizontal space, squeezed the days narrower, and the hour rules
         // drawn inside those columns were squeezed with them. As an overlay in the Box it covers the
         // grid without taking part in its layout.
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Tapping an empty slot marks it, and tapping the marked slot starts an event there.
-            //
-            // Two taps, as the week view does it: the first shows which slot was picked and what
-            // tapping again means, the second commits. The tap detector is attached to the scrolling
-            // container itself rather than to an overlay on top of it. An overlay sized fillMaxSize()
-            // only ever covers the part of the grid that is currently on screen, and - worse -
-            // competing with the scroll for the same drags stopped the grid from scrolling at all. On
-            // this modifier the drag is consumed by the scroll before the tap gesture can act on it,
-            // so a swipe scrolls and a tap selects.
-            Row(
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            // The grid's own viewport, which the zoom limits are measured against.
+            val viewportHeight = maxHeight
+            val hourHeight = clampHourHeight(hourHeightDp, viewportHeight).dp
+            val density = LocalDensity.current
+
+            // The height the tap detector should map against: a State, not a captured value, so a tap
+            // after a zoom uses the height the grid is actually laid out at.
+            val currentHourHeight by rememberUpdatedState(hourHeight)
+
+            var pendingScroll by remember { mutableStateOf<Int?>(null) }
+
+            // After the new height has been laid out, scroll so the hour under the fingers is roughly
+            // where it was: the pivot's hour is measured before the height changed and put back at the
+            // same screen position after it. Waiting for the frame lets the new content height exist,
+            // so the scroll range is the new one rather than the old clamped value.
+            LaunchedEffect(hourHeight) {
+                val target = pendingScroll ?: return@LaunchedEffect
+                pendingScroll = null
+                withFrameNanos { }
+                scroll.scrollTo(target.coerceIn(0, scroll.maxValue))
+            }
+
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(scroll)
-                    .pointerInput(dates.first()) {
-                        detectTapGestures { offset ->
+                    // Pinch only, and a layout zoom, not a transform: the hour height is the same
+                    // parameter the hour rules, the labels and the event blocks are laid out from, so
+                    // text is never stretched. Only the zoom's own scalar updates per gesture event,
+                    // and only when it is meaningfully different, which keeps the rebuild count down
+                    // without a scale layer that would leave the grid transformed afterwards.
+                    .pointerInput(Unit) {
+                        var pinchStartHeight = 0f
+                        var pinchScale = 1f
+                        var lastApplied = 0f
+                        var pivot = 0f
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            var pinching = false
+                            do {
+                                val event = awaitPointerEvent()
+                                if (event.changes.count { it.pressed } >= 2) {
+                                    val zoom = event.calculateZoom()
+                                    if (zoom != 1f) {
+                                        if (!pinching) {
+                                            pinching = true
+                                            pinchStartHeight = currentHourHeight.value
+                                            pinchScale = 1f
+                                            lastApplied = pinchStartHeight
+                                            pivot = event.calculateCentroid(useCurrent = true).y
+                                        }
+                                        pinchScale *= zoom
+                                        val newHeight = zoomedHourHeight(
+                                            pinchStartHeight,
+                                            pinchScale,
+                                            viewportHeight,
+                                        )
+                                        if (kotlin.math.abs(newHeight - lastApplied) >= 0.5f) {
+                                            val hoursAtPivot =
+                                                (scroll.value + pivot) /
+                                                    (currentHourHeight.toPx())
+                                            onHourHeightChange(newHeight)
+                                            pendingScroll = (hoursAtPivot * newHeight *
+                                                density.density - pivot).toInt()
+                                            lastApplied = newHeight
+                                        }
+                                        event.changes.forEach { change ->
+                                            if (change.positionChanged()) change.consume()
+                                        }
+                                    }
+                                }
+                            } while (event.changes.any { it.pressed })
+                            if (pinching) {
+                                pinching = false
+                            }
+                        }
+                    },
+            ) {
+                // Tapping an empty slot marks it, and tapping the marked slot starts an event there.
+                //
+                // Two taps, as the week view does it: the first shows which slot was picked and what
+                // tapping again means, the second commits. The tap detector is attached to the scrolling
+                // container itself rather than to an overlay on top of it. An overlay sized fillMaxSize()
+                // only ever covers the part of the grid that is currently on screen, and - worse -
+                // competing with the scroll for the same drags stopped the grid from scrolling at all. On
+                // this modifier the drag is consumed by the scroll before the tap gesture can act on it,
+                // so a swipe scrolls and a tap selects.
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scroll)
+                        .pointerInput(dates.first()) {
+                            detectTapGestures { offset ->
                             val columnWidth = (size.width - gutterWidth.toPx()) / dates.size
                             val column = ((offset.x - gutterWidth.toPx()) / columnWidth)
                                 .toInt()
                                 .coerceIn(0, dates.size - 1)
-                            val minuteOfDay = (offset.y / HOUR_HEIGHT.toPx() * 60f).toInt()
+                            val minuteOfDay = (offset.y / currentHourHeight.toPx() * 60f).toInt()
                                 .coerceIn(0, 24 * 60 - 1)
                             // Whole hours, so the marked slot is one row of the grid. It used to snap
                             // to the half hour, which put the mark across two half rows: the plus was
@@ -663,7 +791,12 @@ private fun DaysBlock(
                         }
                     },
             ) {
-                HourGutter(width = gutterWidth, labels = hourLabels, labelStyle = hourLabelStyle)
+                HourGutter(
+                    width = gutterWidth,
+                    labels = hourLabels,
+                    labelStyle = hourLabelStyle,
+                    hourHeight = hourHeight,
+                )
                 dates.forEachIndexed { column, day ->
                     DayColumn(
                         day = day,
@@ -675,6 +808,7 @@ private fun DaysBlock(
                         ruleColor = ruleColor,
                         // The picked slot, if it is in this column: the hour it starts at.
                         selectedSlot = selection?.takeIf { it.first == column }?.second,
+                        hourHeight = hourHeight,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -690,7 +824,7 @@ private fun DaysBlock(
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(HOUR_HEIGHT * 24 + columnRuleInset),
+                    .height(hourHeight * 24 + columnRuleInset),
             ) {
                 val gutter = gutterWidth.toPx()
                 val columnWidth = (size.width - gutter) / dates.size
@@ -704,6 +838,7 @@ private fun DaysBlock(
                     )
                 }
             }
+        }
         }
     }
 }
@@ -873,10 +1008,15 @@ private fun DayHeaderRow(
  * leave the drawn text and the width it was given able to disagree.
  */
 @Composable
-private fun HourGutter(width: Dp, labels: List<String>, labelStyle: TextStyle) {
+private fun HourGutter(
+    width: Dp,
+    labels: List<String>,
+    labelStyle: TextStyle,
+    hourHeight: Dp,
+) {
     Column(modifier = Modifier.width(width)) {
         for (label in labels) {
-            Box(modifier = Modifier.height(HOUR_HEIGHT), contentAlignment = Alignment.TopEnd) {
+            Box(modifier = Modifier.height(hourHeight), contentAlignment = Alignment.TopEnd) {
                 Text(
                     text = label,
                     style = labelStyle,
@@ -912,6 +1052,8 @@ private fun DayColumn(
      * slot and what tells the user a second tap is what creates the event.
      */
     selectedSlot: Int? = null,
+    /** The height of one hour; the pinch changes it and everything in the column scales with it. */
+    hourHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
     // Read in the composable scope; the Canvas below cannot call LocalDensity itself.
@@ -923,11 +1065,11 @@ private fun DayColumn(
         // definite height, because this column only gets an unbounded one from the scrolling parent;
         // and they must not be drawn in a near-transparent white. A bare 0x1FFFFFFF is about 12%
         // white, which is invisible as a one pixel line on a dark background.
-        Box(modifier = Modifier.height(HOUR_HEIGHT * 24)) {
+        Box(modifier = Modifier.height(hourHeight * 24)) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val stroke = hairline
                 for (hour in 1 until 24) {
-                    val y = HOUR_HEIGHT.toPx() * hour
+                    val y = hourHeight.toPx() * hour
                     drawLine(
                         color = ruleColor,
                         start = Offset(0f, y),
@@ -938,7 +1080,12 @@ private fun DayColumn(
             }
 
             events.forEach { event ->
-                EventBlock(event = event, zone = zone, onClick = { onOpenEvent(event) })
+                EventBlock(
+                    event = event,
+                    zone = zone,
+                    hourHeight = hourHeight,
+                    onClick = { onOpenEvent(event) },
+                )
             }
 
             // The picked slot, and the plus that says what picking it again will do.
@@ -961,8 +1108,8 @@ private fun DayColumn(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .offset(y = HOUR_HEIGHT * selectedSlot)
-                        .height(HOUR_HEIGHT)
+                        .offset(y = hourHeight * selectedSlot)
+                        .height(hourHeight)
                         .clip(EVENT_BLOCK_SHAPE)
                         .background(highlight),
                 ) {
@@ -1003,7 +1150,7 @@ private fun DayColumn(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .offset(y = HOUR_HEIGHT * 24 * fraction)
+                    .offset(y = hourHeight * 24 * fraction)
                     .height(2.dp)
                     .background(MaterialTheme.colorScheme.error)
             )
@@ -1021,6 +1168,8 @@ private fun DayColumn(
 private fun EventBlock(
     event: CalendarDayEvent,
     zone: ZoneId,
+    /** The height of one hour; the pinch changes it and the block's geometry follows it. */
+    hourHeight: Dp,
     onClick: () -> Unit,
 ) {
     val start = remember(event.begin, zone) {
@@ -1035,23 +1184,38 @@ private fun EventBlock(
     val endMinutes = if (end.toLocalDate() > start.toLocalDate()) 24 * 60 else end.hour * 60 + end.minute
     val durationMinutes = (endMinutes - startMinutes).coerceAtLeast(20)
 
-    val top = HOUR_HEIGHT * (startMinutes / 60f)
-    val height = HOUR_HEIGHT * (durationMinutes / 60f)
+    val top = hourHeight * (startMinutes / 60f)
+    val height = hourHeight * (durationMinutes / 60f)
 
     val accent = remember(event.calendarColor) { Color(event.calendarColor) }
 
-    // The description under the title, when the block is tall enough for both.
+    // The title, then the description, then the url, in whatever space the block has.
     //
-    // The title is what the block is for, so it keeps a line of its own and the description takes
-    // what is left; a block too short for that shows the title only, exactly as before. Both are
-    // read from the remembered event, so nothing here is per-frame work.
-    val description = event.description?.trim().orEmpty()
-    val showDescription = description.isNotEmpty() &&
-        height >= HOUR_HEIGHT * DESCRIPTION_MIN_BLOCK_HOURS
-    val descriptionLines = if (height >= HOUR_HEIGHT * DESCRIPTION_TWO_LINE_HOURS) 2 else 1
-    val descriptionStyle = MaterialTheme.typography.labelSmall.copy(
-        fontSize = DESCRIPTION_FONT_SIZE,
+    // The budget is measured, not assumed: the title's real line count and the real line heights are
+    // taken from a TextMeasurer at the block's own width, so a font scale or a platform font that
+    // differs from the role still splits the height correctly. A block too short for one whole
+    // description line shows none - the title alone - rather than a line holding just an ellipsis.
+    // The title drops to one line when that is what lets one description line fit. Everything is
+    // remembered on the block's height, so a zoom re-runs it once per new height, never per frame.
+    val description = remember(event.description) { event.description?.trim().orEmpty() }
+    val url = remember(event.url) { event.url?.trim().orEmpty() }
+    // The block's three text sizes, one clear step apart, kept together in EventBlockType so the
+    // title, the description and the url cannot drift back to the same size. The labelSmall role is
+    // reused as the base - the block has always used it - with the sizes and line heights replaced.
+    val titleStyle = MaterialTheme.typography.labelSmall.copy(
+        fontSize = EventBlockType.titleSize,
+        lineHeight = EventBlockType.titleLineHeight,
     )
+    val descriptionStyle = MaterialTheme.typography.labelSmall.copy(
+        fontSize = EventBlockType.descriptionSize,
+        lineHeight = EventBlockType.descriptionLineHeight,
+    )
+    val urlStyle = MaterialTheme.typography.labelSmall.copy(
+        fontSize = EventBlockType.urlSize,
+        lineHeight = EventBlockType.urlLineHeight,
+    )
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
 
     Box(
         modifier = Modifier
@@ -1064,25 +1228,106 @@ private fun EventBlock(
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 2.dp),
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = event.title,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White,
-                // One line when the description shares the block; two when it is the only text.
-                maxLines = if (showDescription) 1 else 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (showDescription) {
-                Text(
-                    text = description,
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val widthPx = constraints.maxWidth
+
+            val titleLayout = remember(event.title, widthPx, titleStyle, density) {
+                measurer.measure(
+                    text = AnnotatedString(event.title),
+                    style = titleStyle,
+                    maxLines = 2,
+                    constraints = Constraints(maxWidth = widthPx),
+                )
+            }
+            val naturalTitleLines = titleLayout.lineCount.coerceIn(1, 2)
+            val titleLineHeightPx = if (naturalTitleLines > 0) {
+                titleLayout.size.height.toFloat() / naturalTitleLines
+            } else {
+                0f
+            }
+            // Two lines of a sample give the description's real line spacing, ascent plus descent,
+            // rather than the style's declared line height.
+            val descriptionLineHeightPx = remember(widthPx, descriptionStyle, density) {
+                val sample = measurer.measure(
+                    text = AnnotatedString("Ag\nAg"),
                     style = descriptionStyle,
-                    // The same content colour as the title, a little quieter - the block is drawn
-                    // on a calendar colour, so the text is the block's own white either way.
-                    color = Color.White.copy(alpha = 0.85f),
-                    maxLines = descriptionLines,
+                    maxLines = 2,
+                    constraints = Constraints(maxWidth = widthPx),
+                )
+                sample.size.height / 2f
+            }
+            val budget = remember(
+                height,
+                naturalTitleLines,
+                titleLineHeightPx,
+                descriptionLineHeightPx,
+            ) {
+                textBudget(
+                    blockHeight = height,
+                    naturalTitleLines = naturalTitleLines,
+                    titleLineHeight = with(density) { titleLineHeightPx.toDp() },
+                    descriptionLineHeight = with(density) { descriptionLineHeightPx.toDp() },
+                    verticalPadding = 4.dp,
+                    gap = 2.dp,
+                )
+            }
+            val descriptionLinesUsed = remember(
+                description,
+                widthPx,
+                budget.descriptionLines,
+                descriptionStyle,
+            ) {
+                if (description.isEmpty() || budget.descriptionLines <= 0) {
+                    0
+                } else {
+                    measurer.measure(
+                        text = AnnotatedString(description),
+                        style = descriptionStyle,
+                        maxLines = budget.descriptionLines,
+                        overflow = TextOverflow.Ellipsis,
+                        constraints = Constraints(maxWidth = widthPx),
+                    ).lineCount
+                }
+            }
+            // The url takes the lines the description did not need, at most one, and is dropped when
+            // the description used them all - the description has priority.
+            val urlLines = if (url.isEmpty()) {
+                0
+            } else {
+                (budget.descriptionLines - descriptionLinesUsed).coerceIn(0, 1)
+            }
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = event.title,
+                    style = titleStyle,
+                    color = Color.White,
+                    // One line when that is what makes room for the description, two when it fits.
+                    maxLines = budget.titleLines,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (descriptionLinesUsed > 0) {
+                    Text(
+                        text = description,
+                        style = descriptionStyle,
+                        // The same content colour as the title, a little quieter - the block is drawn
+                        // on a calendar colour, so the text is the block's own white either way.
+                        color = Color.White.copy(alpha = 0.85f),
+                        // Every line the block can hold. Compose wraps at word boundaries, keeps the
+                        // description's own newlines as hard breaks, and ellipsizes only the last line.
+                        maxLines = budget.descriptionLines,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (urlLines > 0) {
+                    Text(
+                        text = url,
+                        style = urlStyle,
+                        color = Color.White.copy(alpha = 0.7f),
+                        maxLines = urlLines,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }

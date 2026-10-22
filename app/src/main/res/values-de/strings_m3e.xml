@@ -276,4 +276,13 @@
     <string name="m3e_month_widget_name">Monat</string>
     <string name="m3e_month_widget_prev">Voriger Monat</string>
     <string name="m3e_month_widget_next">Nächster Monat</string>
+    <string name="m3e_add_chooser_title">Hinzufügen</string>
+    <string name="m3e_add_event">Termin hinzufügen</string>
+    <string name="m3e_add_todo">Aufgabe hinzufügen</string>
+    <string name="m3e_add_countdown">Countdown hinzufügen</string>
+    <string name="m3e_reset_spacing_title">Ansichtsabstand zurücksetzen</string>
+    <string name="m3e_reset_spacing_summary">Stellt die Stundenabstände der Tages- und Wochenansicht auf den Standard zurück.</string>
+    <string name="m3e_reset_spacing_confirm">Abstand zurücksetzen?</string>
+    <string name="m3e_reset_spacing_action">Zurücksetzen</string>
+    <string name="m3e_add_menu_close">Hinzufügen-Menü schließen</string>
 </resources>

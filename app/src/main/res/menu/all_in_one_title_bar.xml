@@ -101,7 +101,15 @@
         android:orderInCategory="6"
         android:title="@string/m3e_todo_title"
         app:showAsAction="never" />
-    <!-- Shown by the to-do screen, and only while the day on screen has a to-do to edit. -->
+    <!-- Shown by the to-do screen, and only while the day on screen has a to-do to edit. The delete
+         action sits to its left: both belong to the same day's to-do and appear together. -->
+    <item
+        android:id="@+id/action_todo_delete"
+        android:icon="@drawable/ic_close"
+        android:orderInCategory="0"
+        android:title="@string/m3e_todo_delete"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_todo_edit"
         android:icon="@drawable/ic_m3e_event_edit"

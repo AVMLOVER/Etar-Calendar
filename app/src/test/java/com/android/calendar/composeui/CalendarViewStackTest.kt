@@ -303,4 +303,22 @@ class CalendarViewStackTest {
     fun aScreenOpenedOverAnotherOneThatIsNotTheDefaultViewIsNotLanding() {
         assertFalse(isEffectivelyLanding(hasOpener = true, isDefaultView = false))
     }
+
+    /**
+     * A tool screen opened from the calendar - the to-do editor and the countdown list - is a step
+     * into the app: with the opener extras back finishes it and reveals the calendar underneath.
+     */
+    @Test
+    fun aToolScreenOpenedFromTheCalendarFinishesOnBack() {
+        assertFalse(isEffectivelyLanding(hasOpener = true, isDefaultView = false))
+    }
+
+    /**
+     * The same tool screen without the opener extras would be the landing screen, and back would
+     * take the whole task to the launcher. That is the difference the chooser's intents had to add.
+     */
+    @Test
+    fun aToolScreenWithoutTheOpenerExtrasWouldLeaveTheAppOnBack() {
+        assertTrue(isEffectivelyLanding(hasOpener = false, isDefaultView = false))
+    }
 }

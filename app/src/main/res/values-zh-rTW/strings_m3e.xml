@@ -286,4 +286,13 @@
     <string name="m3e_month_widget_name">月檢視</string>
     <string name="m3e_month_widget_prev">上個月</string>
     <string name="m3e_month_widget_next">下個月</string>
+    <string name="m3e_add_chooser_title">新增</string>
+    <string name="m3e_add_event">新增行程</string>
+    <string name="m3e_add_todo">新增待辦</string>
+    <string name="m3e_add_countdown">新增倒數日</string>
+    <string name="m3e_reset_spacing_title">重設檢視間距</string>
+    <string name="m3e_reset_spacing_summary">將日與週檢視的小時間距恢復為預設。</string>
+    <string name="m3e_reset_spacing_confirm">確定要重設間距嗎？</string>
+    <string name="m3e_reset_spacing_action">重設</string>
+    <string name="m3e_add_menu_close">關閉新增選單</string>
 </resources>

@@ -36,7 +36,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -72,6 +71,7 @@ import com.android.calendar.chrome.compose.M3eEdgeToEdgeContent
 import com.android.calendar.chrome.compose.onColorFor
 import com.android.calendar.countdown.Countdown
 import com.android.calendar.countdown.CountdownState
+import com.android.calendar.chrome.compose.M3eAddFab
 import com.android.calendar.countdown.CountdownStore
 import com.android.calendar.countdown.CountdownUnit
 import com.android.calendar.settings.compose.SettingsRepository
@@ -99,7 +99,17 @@ private data class DisplaySettings(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun M3eCountdownScreen() {
+fun M3eCountdownScreen(
+    /**
+     * A counter bumped by the host when something outside this screen asks for the add dialog.
+     *
+     * The screen is single-top, so a second request arrives while it is already composed; a flag
+     * would leave the dialog closed because its value had not changed.
+     */
+    addRequest: Long = 0L,
+    /** The day a requested add dialog starts on. */
+    addDate: LocalDate? = null,
+) {
     val context = LocalContext.current
     val repo = remember { SettingsRepository(context) }
     val zone = remember { ZoneId.systemDefault() }
@@ -114,6 +124,14 @@ fun M3eCountdownScreen() {
         items = withContext(Dispatchers.IO) { CountdownStore.all(context) }
     }
     var adding by remember { mutableStateOf(false) }
+
+    // The add chooser in the calendar screens opens this screen with a day; that request opens the
+    // screen's own add dialog, on the day it named.
+    LaunchedEffect(addRequest) {
+        if (addRequest > 0L) {
+            adding = true
+        }
+    }
 
     /** The countdown the edit dialog is working on; null when it is closed. */
     var editing by remember { mutableStateOf<Countdown?>(null) }
@@ -330,12 +348,11 @@ fun M3eCountdownScreen() {
                 }
             }
 
-            // The add button, deliberately not a Scaffold's floatingActionButton so that no Scaffold
-            // has to exist for it.
-            FloatingActionButton(
+            // The add button, the same 64dp rounded square every screen carries. It is deliberately
+            // not a Scaffold's floatingActionButton so that no Scaffold has to exist for it.
+            M3eAddFab(
                 onClick = { adding = true },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                contentDescription = stringResource(R.string.m3e_countdown_add),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(
@@ -343,12 +360,7 @@ fun M3eCountdownScreen() {
                         bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues()
                             .calculateBottomPadding(),
                     ),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_add),
-                    contentDescription = stringResource(R.string.m3e_countdown_add),
-                )
-            }
+            )
         }
     }
 
@@ -358,6 +370,8 @@ fun M3eCountdownScreen() {
         CountdownEditorDialog(
             repo = repo,
             existing = editingCountdown,
+            // A request from the add chooser names its day; the screen's own add defaults to today.
+            initialDate = addDate,
             onDismiss = { adding = false; editing = null },
             onSave = { countdown, addToCalendar ->
                 if (editingCountdown == null) {
@@ -645,6 +659,8 @@ internal fun unitLabel(unit: CountdownUnit): String = stringResource(
 private fun CountdownEditorDialog(
     repo: SettingsRepository,
     existing: Countdown?,
+    /** The day a new countdown starts on; today when the screen's own add button opened it. */
+    initialDate: LocalDate? = null,
     onDismiss: () -> Unit,
     onSave: (Countdown, addToCalendar: Boolean) -> Unit,
 ) {
@@ -653,7 +669,7 @@ private fun CountdownEditorDialog(
 
     var name by remember { mutableStateOf(existing?.name.orEmpty()) }
     var color by remember { mutableStateOf(existing?.color ?: CountdownStore.nextColor(context)) }
-    var date by remember { mutableStateOf(existing?.date ?: LocalDate.now()) }
+    var date by remember { mutableStateOf(existing?.date ?: initialDate ?: LocalDate.now()) }
     var useTime by remember { mutableStateOf(existing?.time != null) }
     var time by remember { mutableStateOf(existing?.time ?: LocalTime.of(9, 0)) }
     var repeatYearly by remember { mutableStateOf(existing?.repeatYearly ?: false) }

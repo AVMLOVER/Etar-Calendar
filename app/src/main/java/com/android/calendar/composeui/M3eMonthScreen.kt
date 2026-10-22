@@ -42,8 +42,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +65,8 @@ import android.content.Context
 import android.content.res.Configuration
 import com.android.calendar.LunarUtils
 import com.android.calendar.Utils
+import com.android.calendar.chrome.compose.M3eAddFabMenu
+import com.android.calendar.chrome.compose.rememberAddMenuEntries
 import com.android.calendar.chrome.compose.M3eChromeScaffold
 import com.android.calendar.chrome.compose.M3eScreen
 import kotlinx.coroutines.Dispatchers
@@ -182,6 +186,9 @@ fun M3eMonthScreen(
     val context = LocalContext.current
     val zone = remember { ZoneId.systemDefault() }
     val today = remember { LocalDate.now(zone) }
+
+    // The add chooser is a sheet over this screen; false when it is closed.
+    var showAddChooser by remember { mutableStateOf(false) }
 
     // Keyed on refreshKey, the host's per-resume bump, so turning the lunar line on or off in the
     // settings and coming back is noticed. A plain read would keep whatever the first composition
@@ -337,14 +344,13 @@ fun M3eMonthScreen(
                 )
             }
 
-            // The add button, the same one the other views carry: today at the shared next-slot time
-            // while today is in the month on screen, and nine in the morning on the first of the
-            // month otherwise - the slot the month view gives a day tapped in another month.
-            androidx.compose.material3.FloatingActionButton(
-                onClick = {
-                    // Read at the click rather than in the composition: the month on screen is only
-                    // needed here, and reading it above would make every page crossing recompose
-                    // this screen.
+            // The add button, with its three actions floating above it. The day they default to
+            // follows the rule for the month on screen.
+            val addEntries = rememberAddMenuEntries(
+                onAddEvent = {
+                    showAddChooser = false
+                    // Read at the click: the month on screen is only needed here, and reading it in
+                    // composition would make every page crossing recompose this screen.
                     val month = monthOfPage(pagerState.currentPage)
                     val todayInMonth = YearMonth.from(today) == month
                     val start = if (todayInMonth) {
@@ -357,17 +363,48 @@ fun M3eMonthScreen(
                     }
                     onCreateEvent(start, start + DEFAULT_NEW_EVENT_MILLIS)
                 },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            ) {
-                androidx.compose.material3.Icon(
-                    painter = painterResource(R.drawable.ic_add_event),
-                    contentDescription = stringResource(R.string.event_create),
-                )
-            }
+                onAddTodo = {
+                    showAddChooser = false
+                    val month = monthOfPage(pagerState.currentPage)
+                    val addDate = addActionDate(
+                        kind = AddViewKind.MONTH,
+                        today = today,
+                        firstVisibleDay = month.atDay(1),
+                        visibleDays = month.lengthOfMonth(),
+                    )
+                    // The widget's own flow: open the editor on that day, not the list. The opener
+                    // extras make back return here with the return slide.
+                    context.startActivity(
+                        com.android.calendar.todo.compose.ComposeTodoActivity.intent(context, addDate)
+                            .putExtra(
+                                com.android.calendar.todo.compose.ComposeTodoActivity.EXTRA_OPEN_EDITOR,
+                                true,
+                            )
+                            .openedOver(context),
+                    )
+                },
+                onAddCountdown = {
+                    showAddChooser = false
+                    val month = monthOfPage(pagerState.currentPage)
+                    val addDate = addActionDate(
+                        kind = AddViewKind.MONTH,
+                        today = today,
+                        firstVisibleDay = month.atDay(1),
+                        visibleDays = month.lengthOfMonth(),
+                    )
+                    context.startActivity(
+                        com.android.calendar.countdown.compose.ComposeCountdownActivity.intent(
+                            context,
+                            addDate,
+                        ).openedOver(context),
+                    )
+                },
+            )
+            M3eAddFabMenu(
+                expanded = showAddChooser,
+                onToggle = { showAddChooser = !showAddChooser },
+                entries = addEntries,
+            )
         }
     }
 }

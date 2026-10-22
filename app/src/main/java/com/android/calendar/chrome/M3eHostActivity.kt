@@ -515,6 +515,8 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
         }
     }
 
+
+
     /**
      * Paints the tonal surface on the window, the host container and the app bar.
      *
@@ -943,8 +945,11 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             }
         }
 
-        // The to-do screen's edit action: there is one only while the day on screen has a to-do.
+        // The to-do screen's actions: there are any only while the day on screen has a to-do. Delete
+        // is a step further than edit, so it is drawn in the error role rather than the bar colour
+        // the generic tint below gives every other action.
         menu.findItem(R.id.action_todo_edit)?.isVisible = showTodoEditAction
+        menu.findItem(R.id.action_todo_delete)?.isVisible = showTodoDeleteAction
 
         // Every entry in the three dot menu, given the icon of the thing it does. Set here rather
         // than in the menu resource because that resource is shared with the classic calendar,
@@ -960,6 +965,17 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
                 drawable.setTintList(android.content.res.ColorStateList.valueOf(iconColor))
             }
         }
+        // Delete is not a neutral action, so it keeps the error role after the neutral tint pass:
+        // a red cross reads as destructive even on a bar where every other icon is a neutral glyph.
+        menu.findItem(R.id.action_todo_delete)?.icon?.setTintList(
+            android.content.res.ColorStateList.valueOf(
+                com.google.android.material.color.MaterialColors.getColor(
+                    this,
+                    androidx.appcompat.R.attr.colorError,
+                    iconColor,
+                ),
+            ),
+        )
         return true
     }
 
@@ -1020,6 +1036,12 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
 
     /** What the title bar's edit-the-to-do action does. */
     protected open fun onTodoEdit() {}
+
+    /** Whether the title bar shows the delete-the-to-do action; see [showTodoEditAction]. */
+    protected open val showTodoDeleteAction: Boolean = false
+
+    /** What the title bar's delete-the-to-do action does: the same confirmation the editor uses. */
+    protected open fun onTodoDelete() {}
 
     /** Re-reads the title bar actions; see [showTodoEditAction]. */
     protected fun refreshTitleBarMenu() {
@@ -1095,6 +1117,7 @@ abstract class M3eHostActivity : AppCompatActivity(), NavigationView.OnNavigatio
             R.id.action_todo ->
                 requestNavigation({ openScreen(ComposeScreen.TODO) }, fromMenu = true)
             R.id.action_todo_edit -> requestNavigation({ onTodoEdit() }, fromMenu = true)
+            R.id.action_todo_delete -> requestNavigation({ onTodoDelete() }, fromMenu = true)
 
             else -> return false
         }

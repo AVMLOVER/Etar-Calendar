@@ -288,4 +288,13 @@
     <string name="m3e_month_widget_name">Month</string>
     <string name="m3e_month_widget_prev">Previous month</string>
     <string name="m3e_month_widget_next">Next month</string>
+    <string name="m3e_add_chooser_title">Add</string>
+    <string name="m3e_add_event">Add event</string>
+    <string name="m3e_add_todo">Add to-do</string>
+    <string name="m3e_add_countdown">Add countdown</string>
+    <string name="m3e_reset_spacing_title">Reset view spacing</string>
+    <string name="m3e_reset_spacing_summary">Restore the day and week grids to the default hour height.</string>
+    <string name="m3e_reset_spacing_confirm">Reset the spacing?</string>
+    <string name="m3e_reset_spacing_action">Reset</string>
+    <string name="m3e_add_menu_close">Close add menu</string>
 </resources>

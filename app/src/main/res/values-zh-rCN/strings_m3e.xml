@@ -286,4 +286,13 @@
     <string name="m3e_month_widget_name">月视图</string>
     <string name="m3e_month_widget_prev">上个月</string>
     <string name="m3e_month_widget_next">下个月</string>
+    <string name="m3e_add_chooser_title">添加</string>
+    <string name="m3e_add_event">添加日程</string>
+    <string name="m3e_add_todo">添加待办</string>
+    <string name="m3e_add_countdown">添加倒数日</string>
+    <string name="m3e_reset_spacing_title">重置视图间距</string>
+    <string name="m3e_reset_spacing_summary">将日和周视图的小时间距恢复为默认。</string>
+    <string name="m3e_reset_spacing_confirm">确定要重置间距吗？</string>
+    <string name="m3e_reset_spacing_action">重置</string>
+    <string name="m3e_add_menu_close">关闭添加菜单</string>
 </resources>

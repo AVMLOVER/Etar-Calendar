@@ -16,7 +16,9 @@ package com.android.calendar.composeui
 import android.content.ContentUris
 import android.content.Context
 import android.provider.CalendarContract
+import android.provider.CalendarContract.ExtendedProperties
 import android.util.Log
+import com.android.calendar.event.ExtendedProperty
 
 /** One occurrence of an event inside the window that was asked for. */
 data class CalendarDayEvent(
@@ -37,6 +39,13 @@ data class CalendarDayEvent(
      * The month grid and the widget ignore it: their cells have room for the title only.
      */
     val description: String?,
+    /**
+     * The event's URL, when it has one.
+     *
+     * The provider has no url column on Events or Instances, so it is read from the extended
+     * properties (see [loadUrls]) and carried here for the grid block to show under the description.
+     */
+    val url: String?,
 ) {
     val isDeclined: Boolean
         get() = selfAttendeeStatus == CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED
@@ -87,6 +96,7 @@ class DaysRepository(private val context: Context) {
                             calendarColor = c.getInt(8),
                             selfAttendeeStatus = c.getInt(9),
                             description = c.getString(10),
+                            url = null,
                         )
                     )
                 }
@@ -94,7 +104,58 @@ class DaysRepository(private val context: Context) {
         } catch (t: Throwable) {
             Log.w(TAG, "Could not read the calendar window", t)
         }
-        return result
+        if (result.isEmpty()) {
+            return result
+        }
+        // The URLs are a second query because the provider has no url column to join on; it is still
+        // one query for the whole window rather than one per event.
+        val urls = loadUrls(result.mapTo(HashSet()) { it.id })
+        return result.map { event -> event.copy(url = urls[event.id]) }
+    }
+
+    /**
+     * The URL extended property of every event in [eventIds].
+     *
+     * The URL is stored in ExtendedProperties, not on the event row: writing "url" on Events is
+     * rejected by the provider ("column 'url' is invalid"), which is why the importer does not write
+     * it. The name is the ical4android one, private form included because a synced calendar may store
+     * either.
+     */
+    private fun loadUrls(eventIds: Set<Long>): Map<Long, String> {
+        if (eventIds.isEmpty()) {
+            return emptyMap()
+        }
+        val selection = buildString {
+            append(ExtendedProperties.EVENT_ID)
+            append(" IN (")
+            append(eventIds.joinToString(",") { "?" })
+            append(") AND ")
+            append(ExtendedProperties.NAME)
+            append(" IN (?, ?)")
+        }
+        val args = eventIds.map { it.toString() } +
+            listOf(ExtendedProperty.URL_NAME, ExtendedProperty.URL_NAME_PRIV)
+        val projection = arrayOf(ExtendedProperties.EVENT_ID, ExtendedProperties.VALUE)
+        val urls = HashMap<Long, String>()
+        try {
+            context.contentResolver.query(
+                ExtendedProperties.CONTENT_URI,
+                projection,
+                selection,
+                args.toTypedArray(),
+                null,
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val value = c.getString(1)?.trim().orEmpty()
+                    if (value.isNotEmpty()) {
+                        urls[c.getLong(0)] = value
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Could not read the event urls", t)
+        }
+        return urls
     }
 
     private companion object {

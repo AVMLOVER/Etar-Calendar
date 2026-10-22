@@ -29,7 +29,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +51,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.android.calendar.chrome.compose.M3eAddFab
+import com.android.calendar.composeui.TodoDeleteConfirmation
+import com.android.calendar.composeui.todoDeleteConfirmationFor
 import com.android.calendar.todo.Todo
 import com.android.calendar.todo.TodoItem
 import com.android.calendar.todo.TodoStore
@@ -74,6 +76,8 @@ fun M3eTodoScreen(
     todayKey: Int,
     pickedDayKey: Long,
     editRequestKey: Int,
+    /** Bumped by the title bar's delete action; opens the same confirmation the editor uses. */
+    deleteRequestKey: Int = 0,
     /**
      * Open the editor as soon as the day has been read: the to-do widget's header asks for this, and
      * the day's own to-do decides whether that is an edit or a new one.
@@ -100,6 +104,10 @@ fun M3eTodoScreen(
     var visibleLoaded by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Todo?>(null) }
     var pendingItemDelete by remember { mutableStateOf<Pair<Todo, TodoItem>?>(null) }
+    /** The whole-to-do confirmation, from the title bar or the swipe that removes the last item. */
+    var confirmingWholeDelete by remember { mutableStateOf(false) }
+    /** The delete request already handled, so a configuration change cannot reopen the dialog. */
+    var handledDeleteRequest by remember { mutableStateOf(0) }
 
     // Search narrows the day's own checklist rather than opening a screen: the items of the day on
     // screen are all there is to look through.
@@ -130,6 +138,18 @@ fun M3eTodoScreen(
     LaunchedEffect(editRequestKey) {
         if (editRequestKey == 0) return@LaunchedEffect
         visibleTodo?.let { editing = it }
+    }
+
+    // The title bar's delete action opens the whole-to-do confirmation. It waits for the day's to-do
+    // to be read, because the confirmation needs to know which day it would delete.
+    LaunchedEffect(deleteRequestKey, visibleTodo) {
+        if (deleteRequestKey > 0 &&
+            deleteRequestKey != handledDeleteRequest &&
+            visibleTodo != null
+        ) {
+            handledDeleteRequest = deleteRequestKey
+            confirmingWholeDelete = true
+        }
     }
 
     // The same editor, asked for before the screen even appeared: the widget's header opens the
@@ -204,7 +224,17 @@ fun M3eTodoScreen(
                         persist(todo.copy(items = toggled.sortedBy { it.done }))
                     },
                     onMove = { from, to -> persist(todo.copy(items = todo.items.moved(from, to))) },
-                    onDeleteItem = { item -> pendingItemDelete = todo to item },
+                    onDeleteItem = { item ->
+                        // One line left leaves nothing to remove an item from: the honest question
+                        // is the whole-to-do one, not "delete this item".
+                        if (todoDeleteConfirmationFor(todo.items.size) ==
+                            TodoDeleteConfirmation.WHOLE_TODO
+                        ) {
+                            confirmingWholeDelete = true
+                        } else {
+                            pendingItemDelete = todo to item
+                        }
+                    },
                 )
             }
         }
@@ -213,10 +243,10 @@ fun M3eTodoScreen(
         // the search button takes its place - with no to-do there is nothing to search either.
         if (visibleLoaded && editing == null) {
             if (visibleTodo == null) {
-                FloatingActionButton(
+                M3eAddFab(
                     onClick = { editing = Todo(date = visibleDay, name = "") },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    contentDescription = stringResource(R.string.m3e_todo_new),
+                    painter = painterResource(R.drawable.ic_add_event),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(
@@ -224,12 +254,7 @@ fun M3eTodoScreen(
                             bottom = 20.dp + WindowInsets.navigationBars.asPaddingValues()
                                 .calculateBottomPadding(),
                         ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_add_event),
-                        contentDescription = stringResource(R.string.m3e_todo_new),
-                    )
-                }
+                )
             } else {
                 FilledTonalIconButton(
                     onClick = {
@@ -309,6 +334,25 @@ fun M3eTodoScreen(
             dismissButton = {
                 TextButton(onClick = { pendingItemDelete = null }) {
                     Text(stringResource(R.string.m3e_back))
+                }
+            },
+        )
+    }
+
+    if (confirmingWholeDelete) {
+        // The same dialog the editor uses: one question about one whole to-do, asked from three
+        // places (the editor, the title bar and the last-line swipe).
+        TodoDeleteConfirmDialog(
+            onDismiss = { confirmingWholeDelete = false },
+            onConfirm = {
+                confirmingWholeDelete = false
+                val todo = visibleTodo
+                if (todo != null) {
+                    scope.launch {
+                        withContext(Dispatchers.IO) { TodoStore.delete(context, todo.date) }
+                        visibleTodo = null
+                        revision++
+                    }
                 }
             },
         )

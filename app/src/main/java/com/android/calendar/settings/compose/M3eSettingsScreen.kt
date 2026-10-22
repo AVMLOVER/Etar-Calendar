@@ -182,6 +182,32 @@ fun M3eSettingsScreen(
     val context = LocalContext.current
 
     var showImportDialog by remember { mutableStateOf(false) }
+    var showResetSpacingDialog by remember { mutableStateOf(false) }
+
+    if (showResetSpacingDialog) {
+        // Resets the stored hour spacing; the day and week grids observe the generation and re-read
+        // it, so the change is already applied when the user goes back to them.
+        AlertDialog(
+            onDismissRequest = { showResetSpacingDialog = false },
+            title = { Text(stringResource(R.string.m3e_reset_spacing_title)) },
+            text = { Text(stringResource(R.string.m3e_reset_spacing_confirm)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        com.android.calendar.composeui.HourZoomPref.reset(context)
+                        showResetSpacingDialog = false
+                    },
+                ) {
+                    Text(stringResource(R.string.m3e_reset_spacing_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetSpacingDialog = false }) {
+                    Text(stringResource(R.string.m3e_cancel))
+                }
+            },
+        )
+    }
 
     if (showImportDialog) {
         // Shared with the overflow menu's import entry, which offers the same two routes.
@@ -683,6 +709,12 @@ fun M3eSettingsScreen(
                                 Intent(context, ComposeQuickResponsesActivity::class.java)
                             )
                         },
+                    )
+                    HorizontalDivider()
+                    ClickRow(
+                        title = stringResource(R.string.m3e_reset_spacing_title),
+                        summary = stringResource(R.string.m3e_reset_spacing_summary),
+                        onClick = { showResetSpacingDialog = true },
                     )
                 }
             }

@@ -50,6 +50,9 @@ class ComposeTodoActivity : M3eHostActivity() {
     /** Bumped by the title bar's edit action, which opens the day's to-do in the editor. */
     private var editRequestKey by mutableStateOf(0)
 
+    /** Bumped by the title bar's delete action, which opens the whole-to-do confirmation. */
+    private var deleteRequestKey by mutableStateOf(0)
+
     /** Whether the day on screen has a to-do, which is what the title bar's edit action needs. */
     private var hasTodo by mutableStateOf(false)
 
@@ -63,6 +66,14 @@ class ComposeTodoActivity : M3eHostActivity() {
     private var openEditor by mutableStateOf(false)
 
     /**
+     * An editor request that came through onNewIntent, waiting for the requested day to be applied.
+     *
+     * The add menu can reach a to-do screen that is already running; the day it asks for is read in
+     * onResume, so the request is held here until then and only then turned into an edit request.
+     */
+    private var pendingEditorRequest = false
+
+    /**
      * The edit action is offered only while the day on screen has something to edit; the screen
      * reports that as the user pages from day to day, and the menu is rebuilt when it changes.
      */
@@ -70,6 +81,13 @@ class ComposeTodoActivity : M3eHostActivity() {
 
     override fun onTodoEdit() {
         editRequestKey++
+    }
+
+    /** The delete action exists exactly when the edit action does: only with a to-do on the day. */
+    override val showTodoDeleteAction: Boolean get() = hasTodo
+
+    override fun onTodoDelete() {
+        deleteRequestKey++
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,6 +112,7 @@ class ComposeTodoActivity : M3eHostActivity() {
                 todayKey = todayKey,
                 pickedDayKey = pickedDayKey,
                 editRequestKey = editRequestKey,
+                deleteRequestKey = deleteRequestKey,
                 openEditorOnStart = openEditor,
                 onDayChanged = { visible ->
                     day = visible.toEpochDay()
@@ -120,11 +139,24 @@ class ComposeTodoActivity : M3eHostActivity() {
             day = requested
             setDayHeading(LocalDate.ofEpochDay(requested))
         }
+        // An editor request that arrived through onNewIntent is turned into the screen's edit
+        // request here, after the day above has been applied: opening the editor first would show
+        // the day this instance was on before, not the day the caller asked for.
+        if (pendingEditorRequest) {
+            pendingEditorRequest = false
+            editRequestKey++
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        // The add menu and the to-do widget can ask this screen to open its editor. A running
+        // instance is reused rather than recreated, so onCreate does not run again and the flag has
+        // to be picked up here; it is consumed in onResume, once the requested day is known.
+        if (intent.getBooleanExtra(EXTRA_OPEN_EDITOR, false)) {
+            pendingEditorRequest = true
+        }
     }
 
     override fun onDatePicked(date: LocalDate) {
