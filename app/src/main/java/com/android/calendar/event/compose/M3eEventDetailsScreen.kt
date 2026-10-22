@@ -83,6 +83,13 @@ fun M3eEventDetailsScreen(
     onRemindersChanged: (List<Int>) -> Unit,
     /** Writes a new time zone for the event. */
     onTimezoneChanged: (String) -> Unit,
+    /**
+     * Bumped by the host on every resume, so returning from the editor re-reads the stored row.
+     *
+     * This screen stays composed underneath the editor; a load keyed only on [eventId] ran once and
+     * kept showing the old start, end, title, description and reminders after an edit.
+     */
+    refreshKey: Int = 0,
 ) {
     val context = LocalContext.current
     var loading by remember { mutableStateOf(true) }
@@ -116,13 +123,22 @@ fun M3eEventDetailsScreen(
     // loaded details and re-seeded whenever those are re-read.
     var reminders by remember { mutableStateOf<List<Int>>(emptyList()) }
 
-    LaunchedEffect(eventId) {
-        details = withContext(Dispatchers.IO) {
+    LaunchedEffect(eventId, refreshKey) {
+        val loaded = withContext(Dispatchers.IO) {
             EventDetailsRepository(context.applicationContext).load(eventId)
         }
+        if (loaded == null) {
+            // The event was deleted while this screen was away (or the id never existed). Closing is
+            // the graceful answer: there is nothing truthful left to show, and the screens underneath
+            // re-read on their own resume.
+            onBack()
+            return@LaunchedEffect
+        }
+        details = loaded
         // Seed the editable reminder list from what was loaded. The load sorts them, so the rows are
-        // in a stable order rather than in whatever order the provider returned.
-        reminders = details?.remindersMinutes.orEmpty().sortedDescending()
+        // in a stable order rather than in whatever order the provider returned. Re-seeded on every
+        // read, so a reminder changed in the editor does not survive as a stale local copy either.
+        reminders = loaded.remindersMinutes.sortedDescending()
         loading = false
     }
 
@@ -209,7 +225,9 @@ fun M3eEventDetailsScreen(
 
                 if (!current.location.isNullOrBlank() ||
                     !current.description.isNullOrBlank() ||
-                    !current.organizer.isNullOrBlank()
+                    !current.organizer.isNullOrBlank() ||
+                    !current.url.isNullOrBlank() ||
+                    !current.calendarName.isNullOrBlank()
                 ) {
                     item { NotesCard(current) }
                 }
@@ -413,10 +431,12 @@ private fun NotesCard(details: EventDetails) {
             RowItem(label = stringResource(R.string.hint_where), value = it)
             first = false
         }
-        details.organizer?.takeIf { it.isNotBlank() }?.let {
+        // The row is the event's calendar, not its organiser: the label names the calendar and the
+        // value is the calendar's display name, with the calendar's colour dot beside it.
+        details.calendarName?.takeIf { it.isNotBlank() }?.let {
             if (!first) HorizontalDivider()
             RowItem(
-                label = stringResource(R.string.event_info_organizer),
+                label = stringResource(R.string.m3e_event_calendar),
                 value = it,
                 dotColor = accent(details.calendarColor),
             )
@@ -425,7 +445,79 @@ private fun NotesCard(details: EventDetails) {
         details.description?.takeIf { it.isNotBlank() }?.let {
             if (!first) HorizontalDivider()
             RowItem(label = stringResource(R.string.hint_description), value = it)
+            first = false
         }
+        // A link row only when there is a URL: no blank row for an event without one. The scheme is
+        // checked before opening, so a stored value that is not http(s) is shown but cannot launch
+        // anything else through the view intent.
+        details.url?.takeIf { it.isNotBlank() }?.let { url ->
+            if (!first) HorizontalDivider()
+            val context = LocalContext.current
+            LinkRowItem(
+                label = stringResource(R.string.m3e_event_url),
+                value = url,
+                onClick = { openEventUrl(context, url) },
+            )
+        }
+    }
+}
+
+/**
+ * Opens the event's web link in the default browser.
+ *
+ * The stored value can be scheme-less, padded with whitespace or a newline, or use a non-web scheme.
+ * normaliseWebUrl supplies https when the scheme is missing, keeps http/https, and refuses the rest;
+ * an empty result means the tap does nothing, which is the safe answer. NEW_TASK is added only for a
+ * non-activity context, and the launch is guarded so a device without a browser cannot crash the app.
+ */
+private fun openEventUrl(context: android.content.Context, url: String) {
+    val normalised = com.android.calendar.composeui.normaliseWebUrl(url) ?: return
+    val intent = android.content.Intent(
+        android.content.Intent.ACTION_VIEW,
+        android.net.Uri.parse(normalised),
+    )
+    if (context !is android.app.Activity) {
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    try {
+        context.startActivity(intent)
+    } catch (e: android.content.ActivityNotFoundException) {
+        android.widget.Toast.makeText(
+            context,
+            R.string.m3e_event_url_no_browser,
+            android.widget.Toast.LENGTH_SHORT,
+        ).show()
+    } catch (t: Throwable) {
+        android.util.Log.w("M3eEventDetails", "Could not open the event url", t)
+    }
+}
+
+/** A row whose value is a link: underlined, at most two lines, ellipsized, 48dp tall. */
+@Composable
+private fun LinkRowItem(label: String, value: String, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            // The minimum touch target comes before clickable so the 48dp height is part of the
+            // clickable area, not padding outside it; the ripple is the default indication, which is
+            // what makes the row read as tappable.
+            .heightIn(min = 48.dp)
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.primary,
+            textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

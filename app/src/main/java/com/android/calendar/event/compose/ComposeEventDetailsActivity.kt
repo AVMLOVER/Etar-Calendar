@@ -9,7 +9,9 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.android.calendar.agenda.compose.AgendaRepository
 import com.android.calendar.chrome.M3eAnimatedActivity
 import com.android.calendar.settings.compose.EtarM3ETheme
@@ -27,6 +29,47 @@ class ComposeEventDetailsActivity : M3eAnimatedActivity() {
 
     /** Kept as a field because the reminder and delete writes need it after onCreate returns. */
     private var eventId: Long = -1L
+
+    /**
+     * Bumped on every resume so the screen re-reads the event.
+     *
+     * This screen stays composed while the editor is on top, so returning from an edit has to tell it
+     * to read the stored row again: without this it kept showing the values it had loaded when it was
+     * first opened, and only a re-entry re-read them.
+     */
+    private var refreshKey by androidx.compose.runtime.mutableIntStateOf(0)
+
+    /** True once the editor reported the event deleted; this screen closes without re-reading. */
+    private var closingForDelete = false
+
+    /**
+     * Opens the editor and hears back whether it deleted the event.
+     *
+     * A deleted event must not be shown again, even for a frame: on the result this screen finishes
+     * itself immediately, with no transition of its own, and the editor's finish plays the single
+     * return slide over the calendar view underneath.
+     */
+    private val editorLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val deleted = result.data?.getBooleanExtra(
+            ComposeEventEditorActivity.EXTRA_EVENT_DELETED,
+            false,
+        ) == true
+        if (deleted) {
+            closingForDelete = true
+            finish()
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, 0)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!closingForDelete) {
+            refreshKey++
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +100,7 @@ class ComposeEventDetailsActivity : M3eAnimatedActivity() {
             EtarM3ETheme(darkTheme = dark) {
                 M3eEventDetailsScreen(
                     eventId = eventId,
+                    refreshKey = refreshKey,
                     onBack = { finish() },
                     onEdit = { id -> openEditor(id) },
                     onDelete = { deleteEvent(eventId) },
@@ -142,7 +186,7 @@ class ComposeEventDetailsActivity : M3eAnimatedActivity() {
 
     /** Opens the Material 3 Expressive editor for this event. */
     private fun openEditor(eventId: Long) {
-        startActivity(
+        editorLauncher.launch(
             Intent(this, ComposeEventEditorActivity::class.java)
                 .putExtra(ComposeEventEditorActivity.EXTRA_EVENT_ID, eventId)
         )

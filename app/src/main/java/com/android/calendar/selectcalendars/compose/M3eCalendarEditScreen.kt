@@ -69,6 +69,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.android.calendar.chrome.compose.M3eEdgeToEdgeContent
 import com.android.calendar.persistence.CalendarRepository
+import java.time.format.DateTimeFormatter
+import java.time.LocalDate
+import com.android.calendar.composeui.IcsExport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -109,6 +112,11 @@ fun M3eCalendarEditScreen(
     var renameDialogOpen by rememberSaveable { mutableStateOf(false) }
     var deleteDialogOpen by rememberSaveable { mutableStateOf(false) }
 
+    // The export runs off the main thread, so the screen shows a progress dialog and closes it with
+    // either the exported count or the failure toast.
+    var exporting by remember { mutableStateOf(false) }
+    var exportedCount by remember { mutableStateOf<Int?>(null) }
+
     LaunchedEffect(calendarId, reloadKey) {
         val fresh = withContext(Dispatchers.IO) { repo.loadOne(calendarId) }
         loaded = true
@@ -139,6 +147,39 @@ fun M3eCalendarEditScreen(
     if (entry == null) {
         // onFinished() above is closing the screen; drawing nothing avoids a flash of an empty page.
         return
+    }
+
+    // Where the export is written is the user's choice through the Storage Access Framework: the
+    // document picker needs no storage permission and the app only ever writes the stream it is given.
+    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/calendar"),
+    ) { uri ->
+        if (uri == null) {
+            return@rememberLauncherForActivityResult
+        }
+        exporting = true
+        scope.launch {
+            val count = withContext(Dispatchers.IO) {
+                runCatching {
+                    val events = CalendarExportRepository(context).load(calendarId)
+                    val text = IcsExport.build(events)
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(text.toByteArray(Charsets.UTF_8))
+                    } ?: error("The chosen document could not be opened for writing")
+                    events.size
+                }.getOrNull()
+            }
+            exporting = false
+            if (count == null) {
+                Toast.makeText(
+                    context,
+                    R.string.m3e_calendar_export_failed,
+                    Toast.LENGTH_SHORT,
+                ).show()
+            } else {
+                exportedCount = count
+            }
+        }
     }
 
     // Edge to edge with the navigation bar left immersive, as on every other Material 3 screen: the
@@ -222,6 +263,24 @@ fun M3eCalendarEditScreen(
                         icon = R.drawable.ic_m3e_event_edit,
                         label = stringResource(R.string.m3e_calendar_rename),
                         onClick = { renameDialogOpen = true },
+                    )
+
+                    RowDivider()
+
+                    // Directly below rename: both are "do something with this calendar's data", and
+                    // this one hands the whole calendar to a file the user chooses. The icon is the
+                    // import arrow mirrored, so the direction out of the calendar reads at a glance.
+                    ActionRow(
+                        icon = R.drawable.ic_m3e_export,
+                        label = stringResource(R.string.m3e_calendar_export_ics),
+                        onClick = {
+                            val suggested = entry.displayName
+                                .replace('/', '_')
+                                .replace('\\', '_')
+                                .ifEmpty { "calendar" } +
+                                "-" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + ".ics"
+                            exportLauncher.launch(suggested)
+                        },
                     )
 
                     // Deleting is only offered for the calendars this app created - the same rule
@@ -338,6 +397,35 @@ fun M3eCalendarEditScreen(
                             context, R.string.m3e_calendar_delete_failed, Toast.LENGTH_SHORT
                         ).show()
                     }
+                }
+            },
+        )
+    }
+
+    if (exporting) {
+        AlertDialog(
+            onDismissRequest = {},
+            shape = MaterialTheme.shapes.extraLarge,
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LoadingIndicator()
+                    Spacer(Modifier.width(12.dp))
+                    Text(stringResource(R.string.m3e_calendar_export_progress))
+                }
+            },
+            confirmButton = {},
+        )
+    }
+
+    // The count includes zero: an empty calendar exports a valid, empty VCALENDAR and says so.
+    exportedCount?.let { count ->
+        AlertDialog(
+            onDismissRequest = { exportedCount = null },
+            shape = MaterialTheme.shapes.extraLarge,
+            text = { Text(stringResource(R.string.m3e_calendar_export_done, count)) },
+            confirmButton = {
+                TextButton(onClick = { exportedCount = null }) {
+                    Text(stringResource(R.string.m3e_ok))
                 }
             },
         )

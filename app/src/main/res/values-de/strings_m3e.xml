@@ -285,4 +285,10 @@
     <string name="m3e_reset_spacing_confirm">Abstand zurücksetzen?</string>
     <string name="m3e_reset_spacing_action">Zurücksetzen</string>
     <string name="m3e_add_menu_close">Hinzufügen-Menü schließen</string>
+    <string name="m3e_calendar_export_ics">ICS-Datei exportieren</string>
+    <string name="m3e_calendar_export_progress">Wird exportiert…</string>
+    <string name="m3e_calendar_export_done">%1$d Termine exportiert</string>
+    <string name="m3e_calendar_export_failed">Kalender konnte nicht exportiert werden</string>
+    <string name="m3e_event_calendar">Kalender</string>
+    <string name="m3e_event_url_no_browser">Keine App kann diesen Link öffnen</string>
 </resources>

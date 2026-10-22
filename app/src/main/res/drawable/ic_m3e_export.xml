@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Export: the import arrow, mirrored to point out of the calendar.
+  The same curve as @drawable/ic_m3e_import, turned round with a scaleX of -1 rather than a rotation,
+  so the arc keeps its upright shape instead of being tipped over. The colour is the theme's control
+  colour, like the import glyph, so it follows the bar wherever it is tinted.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:scaleX="-1">
+        <path
+            android:fillColor="?attr/colorControlNormal"
+            android:pathData="M12.5,8c-2.65,0 -5.05,0.99 -6.9,2.6L2,7v9h9l-3.62,-3.62c1.39,-1.16 3.16,-1.88 5.12,-1.88 3.54,0 6.55,2.31 7.6,5.5l2.37,-0.78C21.08,11.03 17.15,8 12.5,8z" />
+    </group>
+</vector>

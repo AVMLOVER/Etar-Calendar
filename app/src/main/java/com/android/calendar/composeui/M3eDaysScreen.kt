@@ -74,6 +74,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -1189,19 +1191,21 @@ private fun EventBlock(
 
     val accent = remember(event.calendarColor) { Color(event.calendarColor) }
 
-    // The title, then the description, then the url, in whatever space the block has.
+    // The title, then the location, then the description, then the url, in whatever space the block
+    // has - in that order, both on screen and in the budget.
     //
-    // The budget is measured, not assumed: the title's real line count and the real line heights are
+    // The budget is measured, not assumed: each text's real line count and the real line heights are
     // taken from a TextMeasurer at the block's own width, so a font scale or a platform font that
-    // differs from the role still splits the height correctly. A block too short for one whole
-    // description line shows none - the title alone - rather than a line holding just an ellipsis.
-    // The title drops to one line when that is what lets one description line fit. Everything is
-    // remembered on the block's height, so a zoom re-runs it once per new height, never per frame.
+    // differs from the role still splits the height correctly. A kind with no whole line left is not
+    // drawn at all rather than clipped to a bare ellipsis, so there are no blank lines either. The
+    // title drops to one line when that is what lets one body line fit. Everything is remembered on
+    // the block's height, so a zoom re-runs it once per height, never per frame.
+    val location = remember(event.location) { event.location?.trim().orEmpty() }
     val description = remember(event.description) { event.description?.trim().orEmpty() }
     val url = remember(event.url) { event.url?.trim().orEmpty() }
-    // The block's three text sizes, one clear step apart, kept together in EventBlockType so the
-    // title, the description and the url cannot drift back to the same size. The labelSmall role is
-    // reused as the base - the block has always used it - with the sizes and line heights replaced.
+    // The block's text sizes, one clear step apart, kept together in EventBlockType. The labelSmall
+    // role is reused as the base with the sizes and line heights replaced. The three body kinds are
+    // told apart by their type, not their colour: location italic, description upright, url underlined.
     val titleStyle = MaterialTheme.typography.labelSmall.copy(
         fontSize = EventBlockType.titleSize,
         lineHeight = EventBlockType.titleLineHeight,
@@ -1210,9 +1214,11 @@ private fun EventBlock(
         fontSize = EventBlockType.descriptionSize,
         lineHeight = EventBlockType.descriptionLineHeight,
     )
+    val locationStyle = descriptionStyle.copy(fontStyle = FontStyle.Italic)
     val urlStyle = MaterialTheme.typography.labelSmall.copy(
         fontSize = EventBlockType.urlSize,
         lineHeight = EventBlockType.urlLineHeight,
+        textDecoration = TextDecoration.Underline,
     )
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
@@ -1245,56 +1251,70 @@ private fun EventBlock(
             } else {
                 0f
             }
-            // Two lines of a sample give the description's real line spacing, ascent plus descent,
-            // rather than the style's declared line height.
-            val descriptionLineHeightPx = remember(widthPx, descriptionStyle, density) {
-                val sample = measurer.measure(
-                    text = AnnotatedString("Ag\nAg"),
-                    style = descriptionStyle,
-                    maxLines = 2,
-                    constraints = Constraints(maxWidth = widthPx),
-                )
-                sample.size.height / 2f
+            // Natural line counts: the most each text would use if the block had room for all of it.
+            // They are the input to the budget, which then decides how many lines really fit.
+            val naturalLocationLines = remember(location, widthPx, locationStyle, density) {
+                if (location.isEmpty()) {
+                    0
+                } else {
+                    measurer.measure(
+                        text = AnnotatedString(location),
+                        style = locationStyle,
+                        constraints = Constraints(maxWidth = widthPx),
+                    ).lineCount
+                }
             }
-            val budget = remember(
-                height,
-                naturalTitleLines,
-                titleLineHeightPx,
-                descriptionLineHeightPx,
-            ) {
-                textBudget(
-                    blockHeight = height,
-                    naturalTitleLines = naturalTitleLines,
-                    titleLineHeight = with(density) { titleLineHeightPx.toDp() },
-                    descriptionLineHeight = with(density) { descriptionLineHeightPx.toDp() },
-                    verticalPadding = 4.dp,
-                    gap = 2.dp,
-                )
-            }
-            val descriptionLinesUsed = remember(
-                description,
-                widthPx,
-                budget.descriptionLines,
-                descriptionStyle,
-            ) {
-                if (description.isEmpty() || budget.descriptionLines <= 0) {
+            val naturalDescriptionLines = remember(description, widthPx, descriptionStyle, density) {
+                if (description.isEmpty()) {
                     0
                 } else {
                     measurer.measure(
                         text = AnnotatedString(description),
                         style = descriptionStyle,
-                        maxLines = budget.descriptionLines,
-                        overflow = TextOverflow.Ellipsis,
                         constraints = Constraints(maxWidth = widthPx),
                     ).lineCount
                 }
             }
-            // The url takes the lines the description did not need, at most one, and is dropped when
-            // the description used them all - the description has priority.
-            val urlLines = if (url.isEmpty()) {
-                0
-            } else {
-                (budget.descriptionLines - descriptionLinesUsed).coerceIn(0, 1)
+            // Two lines of a sample give each body style's real line spacing, ascent plus descent,
+            // rather than the style's declared line height.
+            val bodyLineHeightPx = remember(widthPx, descriptionStyle, density) {
+                measurer.measure(
+                    text = AnnotatedString("Ag\nAg"),
+                    style = descriptionStyle,
+                    maxLines = 2,
+                    constraints = Constraints(maxWidth = widthPx),
+                ).size.height / 2f
+            }
+            val urlLineHeightPx = remember(widthPx, urlStyle, density) {
+                measurer.measure(
+                    text = AnnotatedString("Ag\nAg"),
+                    style = urlStyle,
+                    maxLines = 2,
+                    constraints = Constraints(maxWidth = widthPx),
+                ).size.height / 2f
+            }
+            val plan = remember(
+                height,
+                naturalTitleLines,
+                titleLineHeightPx,
+                bodyLineHeightPx,
+                urlLineHeightPx,
+                naturalLocationLines,
+                naturalDescriptionLines,
+                url,
+            ) {
+                blockTextPlan(
+                    blockHeight = height,
+                    naturalTitleLines = naturalTitleLines,
+                    titleLineHeight = with(density) { titleLineHeightPx.toDp() },
+                    bodyLineHeight = with(density) { bodyLineHeightPx.toDp() },
+                    urlLineHeight = with(density) { urlLineHeightPx.toDp() },
+                    verticalPadding = 4.dp,
+                    gap = 2.dp,
+                    naturalLocationLines = naturalLocationLines,
+                    naturalDescriptionLines = naturalDescriptionLines,
+                    hasUrl = url.isNotEmpty(),
+                )
             }
 
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -1302,11 +1322,20 @@ private fun EventBlock(
                     text = event.title,
                     style = titleStyle,
                     color = Color.White,
-                    // One line when that is what makes room for the description, two when it fits.
-                    maxLines = budget.titleLines,
+                    // One line when that is what makes room for a body line, two when it fits.
+                    maxLines = plan.titleLines,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (descriptionLinesUsed > 0) {
+                if (plan.locationLines > 0) {
+                    Text(
+                        text = location,
+                        style = locationStyle,
+                        color = Color.White.copy(alpha = 0.85f),
+                        maxLines = plan.locationLines,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (plan.descriptionLines > 0) {
                     Text(
                         text = description,
                         style = descriptionStyle,
@@ -1315,16 +1344,16 @@ private fun EventBlock(
                         color = Color.White.copy(alpha = 0.85f),
                         // Every line the block can hold. Compose wraps at word boundaries, keeps the
                         // description's own newlines as hard breaks, and ellipsizes only the last line.
-                        maxLines = budget.descriptionLines,
+                        maxLines = plan.descriptionLines,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                if (urlLines > 0) {
+                if (plan.urlLines > 0) {
                     Text(
                         text = url,
                         style = urlStyle,
                         color = Color.White.copy(alpha = 0.7f),
-                        maxLines = urlLines,
+                        maxLines = plan.urlLines,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }

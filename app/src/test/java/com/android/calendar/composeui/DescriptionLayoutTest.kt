@@ -151,4 +151,98 @@ class DescriptionLayoutTest {
             throw AssertionError("height $height gave $lines lines, fewer than the $previous before it")
         }
     }
+
+    private fun plan(
+        blockHeight: Float,
+        titleLines: Int = 2,
+        locationLines: Int = 0,
+        descriptionLines: Int = 0,
+        hasUrl: Boolean = false,
+    ) = blockTextPlan(
+        blockHeight = blockHeight.dp,
+        naturalTitleLines = titleLines,
+        titleLineHeight = 16.dp,
+        bodyLineHeight = 14.dp,
+        urlLineHeight = 13.dp,
+        verticalPadding = 4.dp,
+        gap = 2.dp,
+        naturalLocationLines = locationLines,
+        naturalDescriptionLines = descriptionLines,
+        hasUrl = hasUrl,
+    )
+
+    /** The order is the drawing order: title, location, description, url. */
+    @Test
+    fun thePlanFillsTitleThenLocationThenDescriptionThenUrl() {
+        // 130 - 4 - 2x16 - 2 = 92; 2 location + 2 description = 56; 36 left, enough for the url.
+        val plan = plan(130f, locationLines = 2, descriptionLines = 2, hasUrl = true)
+        assertEquals(2, plan.titleLines)
+        assertEquals(2, plan.locationLines)
+        assertEquals(2, plan.descriptionLines)
+        assertEquals(1, plan.urlLines)
+    }
+
+    /** With one body line left, the location takes it; description and url get nothing. */
+    @Test
+    fun theLocationComesBeforeTheDescription() {
+        // 60 - 4 - 32 - 2 = 22: one body line (14), too little for a second or for the url.
+        val plan = plan(60f, locationLines = 1, descriptionLines = 1, hasUrl = true)
+        assertEquals(1, plan.locationLines)
+        assertEquals(0, plan.descriptionLines)
+        assertEquals(0, plan.urlLines)
+    }
+
+    /** The description gets the lines after the location, and the url only what is left after both. */
+    @Test
+    fun theDescriptionComesBeforeTheUrl() {
+        // 90 - 4 - 32 - 2 = 52: location 1 (14) + description 2 (28) leaves 10, too little for the url.
+        val plan = plan(90f, locationLines = 1, descriptionLines = 2, hasUrl = true)
+        assertEquals(1, plan.locationLines)
+        assertEquals(2, plan.descriptionLines)
+        assertEquals(0, plan.urlLines)
+    }
+
+    /** No body text means no body lines and no gap wasted on them. */
+    @Test
+    fun anEmptyBodyGivesTheTitleItsLines() {
+        val plan = plan(60f)
+        assertEquals(2, plan.titleLines)
+        assertEquals(0, plan.locationLines)
+        assertEquals(0, plan.descriptionLines)
+        assertEquals(0, plan.urlLines)
+    }
+
+    /** The title drops to one line when that is what lets the location show. */
+    @Test
+    fun theTitleDropsToOneLineToMakeRoomForTheLocation() {
+        // 50 - 4 - 32 - 2 = 12, one body line needs 14; with a one-line title 28 is free.
+        val plan = plan(50f, locationLines = 1)
+        assertEquals(1, plan.titleLines)
+        assertEquals(1, plan.locationLines)
+    }
+
+    /** A url alone is worth a line when the block has room for it. */
+    @Test
+    fun aUrlAloneUsesTheLastLine() {
+        val plan = plan(40f, titleLines = 1, hasUrl = true)
+        assertEquals(1, plan.titleLines)
+        assertEquals(1, plan.urlLines)
+    }
+
+    /** At the closest zoom the block holds all three body kinds; at the widest it holds none. */
+    @Test
+    fun theZoomLimitsChangeHowMuchBodyFits() {
+        val widest = plan(600f / 19f, locationLines = 1, descriptionLines = 2, hasUrl = true)
+        // No body line fits, so the title keeps its two lines rather than being cut for nothing.
+        assertEquals(2, widest.titleLines)
+        assertEquals(0, widest.locationLines)
+        assertEquals(0, widest.descriptionLines)
+        assertEquals(0, widest.urlLines)
+
+        val closest = plan(600f / 4f, locationLines = 2, descriptionLines = 3, hasUrl = true)
+        assertEquals(2, closest.titleLines)
+        assertEquals(2, closest.locationLines)
+        assertEquals(3, closest.descriptionLines)
+        assertEquals(1, closest.urlLines)
+    }
 }

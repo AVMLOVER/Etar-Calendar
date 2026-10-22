@@ -11,6 +11,8 @@ package com.android.calendar.event.compose
 import android.content.ContentUris
 import android.content.Context
 import android.provider.CalendarContract
+import com.android.calendar.event.ExtendedProperty
+import com.android.calendar.composeui.pickEventUrl
 import android.util.Log
 
 data class AttendeeInfo(
@@ -32,6 +34,8 @@ data class EventDetails(
     val calendarColor: Int,
     val rrule: String?,
     val organizer: String?,
+    /** The event's URL, read from its extended properties; null when it has none. */
+    val url: String?,
     val timezone: String?,
     val remindersMinutes: List<Int>,
     val attendees: List<AttendeeInfo>,
@@ -87,6 +91,7 @@ class EventDetailsRepository(private val context: Context) {
                     calendarColor = calendarColor(calendarId),
                     rrule = c.getString(8),
                     organizer = c.getString(9),
+                    url = url(eventId),
                     timezone = c.getString(10),
                     remindersMinutes = reminders(eventId),
                     attendees = attendees(eventId),
@@ -119,6 +124,40 @@ class EventDetailsRepository(private val context: Context) {
         ) { c -> c.getInt(0) } ?: 0
     } catch (t: Throwable) {
         0
+    }
+
+    /**
+     * The event's URL extended property.
+     *
+     * There is no url column on Events (the provider rejects one), so the value comes from
+     * ExtendedProperties under the ical4android names - the same rows the export reads.
+     */
+    private fun url(eventId: Long): String? {
+        val rows = ArrayList<Pair<String, String>>()
+        try {
+            context.contentResolver.query(
+                CalendarContract.ExtendedProperties.CONTENT_URI,
+                arrayOf(
+                    CalendarContract.ExtendedProperties.NAME,
+                    CalendarContract.ExtendedProperties.VALUE,
+                ),
+                CalendarContract.ExtendedProperties.EVENT_ID + "=? AND " +
+                    CalendarContract.ExtendedProperties.NAME + " IN (?, ?)",
+                arrayOf(
+                    eventId.toString(),
+                    ExtendedProperty.URL_NAME,
+                    ExtendedProperty.URL_NAME_PRIV,
+                ),
+                null,
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    rows.add((c.getString(0) ?: "") to (c.getString(1) ?: ""))
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Could not read the event url", t)
+        }
+        return pickEventUrl(rows, ExtendedProperty.URL_NAME_PRIV, ExtendedProperty.URL_NAME)
     }
 
     private fun reminders(eventId: Long): List<Int> = try {

@@ -297,4 +297,10 @@
     <string name="m3e_reset_spacing_confirm">Reset the spacing?</string>
     <string name="m3e_reset_spacing_action">Reset</string>
     <string name="m3e_add_menu_close">Close add menu</string>
+    <string name="m3e_calendar_export_ics">Export ICS file</string>
+    <string name="m3e_calendar_export_progress">Exporting…</string>
+    <string name="m3e_calendar_export_done">Exported %1$d events</string>
+    <string name="m3e_calendar_export_failed">Could not export the calendar</string>
+    <string name="m3e_event_calendar">Calendar</string>
+    <string name="m3e_event_url_no_browser">No app can open this link</string>
 </resources>

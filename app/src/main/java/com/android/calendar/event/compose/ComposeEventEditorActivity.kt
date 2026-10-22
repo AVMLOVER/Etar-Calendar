@@ -283,21 +283,11 @@ class ComposeEventEditorActivity : AbstractCalendarActivity() {
             return
         }
 
-        // Back to the calendar itself, not to whatever opened this editor.
-        //
-        // The editor is reached through the agenda or the event details screen, and simply finishing
-        // here handed control back to that middle screen - which was still showing the event that had
-        // just been deleted. CLEAR_TOP takes the whole chain with it (the agenda and details screens
-        // sit above AllInOneActivity in the stack), and SINGLE_TOP reuses the calendar instance
-        // instead of stacking a second one, so it also picks up the change.
-        startActivity(
-            Intent(this, AllInOneActivity::class.java).apply {
-                action = Intent.ACTION_VIEW
-                putExtra(Utils.INTENT_KEY_VIEW_TYPE, Utils.INTENT_VALUE_VIEW_TYPE_MONTH)
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            }
-        )
-        setResult(RESULT_OK)
+        // Back to the screen this editor was opened from, which is the screen before it - but if that
+        // is the event details screen, the event it shows no longer exists. The caller is told through
+        // the result so it can finish itself without re-reading, and this finish's return animation
+        // then reveals the calendar underneath: one slide, nothing in between.
+        setResult(RESULT_OK, Intent().putExtra(EXTRA_EVENT_DELETED, true))
         finish()
     }
 
@@ -438,6 +428,14 @@ class ComposeEventEditorActivity : AbstractCalendarActivity() {
 
     companion object {
         const val EXTRA_EVENT_ID = "m3eEditEventId"
+
+        /**
+         * Set on the result when the editor deleted the event.
+         *
+         * The screen underneath the editor uses it to close itself without re-reading: there is no
+         * event left to show, and re-reading would paint one stale frame of it before finishing.
+         */
+        const val EXTRA_EVENT_DELETED = "m3eEventDeleted"
 
         /**
          * Opens the editor without offering to save or delete.

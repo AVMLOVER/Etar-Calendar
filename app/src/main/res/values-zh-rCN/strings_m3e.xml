@@ -295,4 +295,10 @@
     <string name="m3e_reset_spacing_confirm">确定要重置间距吗？</string>
     <string name="m3e_reset_spacing_action">重置</string>
     <string name="m3e_add_menu_close">关闭添加菜单</string>
+    <string name="m3e_calendar_export_ics">导出 ICS 文件</string>
+    <string name="m3e_calendar_export_progress">正在导出…</string>
+    <string name="m3e_calendar_export_done">已导出 %1$d 个日程</string>
+    <string name="m3e_calendar_export_failed">无法导出日历</string>
+    <string name="m3e_event_calendar">日历</string>
+    <string name="m3e_event_url_no_browser">无法打开此链接</string>
 </resources>

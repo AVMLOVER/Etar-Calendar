@@ -18,7 +18,9 @@ import android.provider.CalendarContract
 import android.util.Log
 import com.android.calendar.CalendarEventModel
 import com.android.calendar.Utils
+import com.android.calendar.composeui.pickEventUrl
 import com.android.calendar.event.EditEventHelper
+import com.android.calendar.event.ExtendedProperty
 import com.android.calendar.persistence.CalendarRepository
 import com.android.calendar.todo.TodoStore
 
@@ -118,7 +120,44 @@ class EventEditorRepository(private val context: Context) {
             return null
         }
 
+        // The URL is not on the event row - it lives in ExtendedProperties under the ical4android
+        // name, which setModelFromCursor cannot see. Without this the editor opened with an empty
+        // field, so saving anything else wrote that emptiness back and dropped a stored URL. Both
+        // models get the value, so an untouched URL is not treated as a change.
+        val url = loadUrl(eventId)
+        model.mUrl = url
+        original.mUrl = url
+
         return Snapshot(model, original, loadCalendars(), eventColorsFor(model))
+    }
+
+    /** The event's URL extended property; blank and missing rows both read as null. */
+    private fun loadUrl(eventId: Long): String? {
+        val rows = ArrayList<Pair<String, String>>()
+        try {
+            context.contentResolver.query(
+                CalendarContract.ExtendedProperties.CONTENT_URI,
+                arrayOf(
+                    CalendarContract.ExtendedProperties.NAME,
+                    CalendarContract.ExtendedProperties.VALUE,
+                ),
+                CalendarContract.ExtendedProperties.EVENT_ID + "=? AND " +
+                    CalendarContract.ExtendedProperties.NAME + " IN (?, ?)",
+                arrayOf(
+                    eventId.toString(),
+                    ExtendedProperty.URL_NAME,
+                    ExtendedProperty.URL_NAME_PRIV,
+                ),
+                null,
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    rows.add((c.getString(0) ?: "") to (c.getString(1) ?: ""))
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "url query failed", t)
+        }
+        return pickEventUrl(rows, ExtendedProperty.URL_NAME_PRIV, ExtendedProperty.URL_NAME)
     }
 
     /** Queues the update through the same helper the classic editor uses. */

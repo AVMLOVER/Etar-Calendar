@@ -295,4 +295,10 @@
     <string name="m3e_reset_spacing_confirm">間隔をリセットしますか？</string>
     <string name="m3e_reset_spacing_action">リセット</string>
     <string name="m3e_add_menu_close">追加メニューを閉じる</string>
+    <string name="m3e_calendar_export_ics">ICS ファイルを書き出し</string>
+    <string name="m3e_calendar_export_progress">書き出しています…</string>
+    <string name="m3e_calendar_export_done">%1$d 件の予定を書き出しました</string>
+    <string name="m3e_calendar_export_failed">カレンダーを書き出せませんでした</string>
+    <string name="m3e_event_calendar">カレンダー</string>
+    <string name="m3e_event_url_no_browser">このリンクを開けるアプリがありません</string>
 </resources>

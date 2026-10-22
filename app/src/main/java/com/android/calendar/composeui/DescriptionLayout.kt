@@ -85,3 +85,70 @@ fun textBudget(
         BlockTextBudget(titleLines, 0)
     }
 }
+
+/** The lines a block gives each of its four text kinds, in display order. */
+data class BlockTextPlan(
+    val titleLines: Int,
+    val locationLines: Int,
+    val descriptionLines: Int,
+    val urlLines: Int,
+)
+
+/**
+ * Splits a block's height between title, location, description and url, in that order.
+ *
+ * The order is the order they are drawn in and the order they get space in: the title first (two lines
+ * at most, one when that buys a body line), then the location, then the description, then the url.
+ * Each kind gets whole lines only, so nothing is clipped mid-line; a kind with no space left is simply
+ * not drawn, so there are no blank lines. The url is one line, and only from space the description did
+ * not need.
+ */
+fun blockTextPlan(
+    blockHeight: Dp,
+    naturalTitleLines: Int,
+    titleLineHeight: Dp,
+    bodyLineHeight: Dp,
+    urlLineHeight: Dp,
+    verticalPadding: Dp,
+    gap: Dp,
+    naturalLocationLines: Int,
+    naturalDescriptionLines: Int,
+    hasUrl: Boolean,
+): BlockTextPlan {
+    fun planFor(titleLines: Int): BlockTextPlan {
+        val hasBody = naturalLocationLines > 0 || naturalDescriptionLines > 0 || hasUrl
+        var available = blockHeight.value - verticalPadding.value -
+            titleLineHeight.value * titleLines -
+            if (hasBody) gap.value else 0f
+        available = available.coerceAtLeast(0f)
+        var location = 0
+        var description = 0
+        var url = 0
+        if (bodyLineHeight.value > 0f) {
+            location = minOf(
+                naturalLocationLines,
+                (available / bodyLineHeight.value).toInt(),
+            ).coerceAtLeast(0)
+            available -= location * bodyLineHeight.value
+            description = minOf(
+                naturalDescriptionLines,
+                (available / bodyLineHeight.value).toInt(),
+            ).coerceAtLeast(0)
+            available -= description * bodyLineHeight.value
+        }
+        if (hasUrl && urlLineHeight.value > 0f && available >= urlLineHeight.value) {
+            url = 1
+        }
+        return BlockTextPlan(titleLines, location, description, url)
+    }
+
+    val titleLines = naturalTitleLines.coerceIn(1, 2)
+    val natural = planFor(titleLines)
+    if (titleLines == 2 && natural.locationLines + natural.descriptionLines + natural.urlLines == 0) {
+        val oneLineTitle = planFor(1)
+        if (oneLineTitle.locationLines + oneLineTitle.descriptionLines + oneLineTitle.urlLines > 0) {
+            return oneLineTitle
+        }
+    }
+    return natural
+}
